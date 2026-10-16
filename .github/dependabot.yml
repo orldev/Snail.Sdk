@@ -30,6 +30,10 @@ updates:
         update-types: [minor, patch]
     # The analyzers bind to the Roslyn of the compiler the pinned SDK band carries: a newer one would not load in it.
     # Raised by hand, with the band in global.json.
+    # The threading analyzers reach the fleet through SnailThreadingAnalyzersVersion in Snail.Sdk.props, which
+    # Dependabot does not see: a bump here alone would build the SDK and the fleet with different rules. Raised by
+    # hand, in both.
     ignore:
       - dependency-name: Microsoft.CodeAnalysis.CSharp
       - dependency-name: Microsoft.CodeAnalysis.CSharp.Workspaces
+      - dependency-name: Microsoft.VisualStudio.Threading.Analyzers

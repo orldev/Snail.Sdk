@@ -1,0 +1,146 @@
+name: performance
+
+# Every two months, for a Snail library or server with benchmarks: called from its own perf.yml on a schedule
+# (any time by hand, before a release that touches a hot path).
+#
+#   on: { schedule: [{ cron: '0 4 1 */2 *' }], workflow_dispatch: {} }
+#   jobs:
+#     perf:
+#       uses: orldev/Snail.Sdk/.github/workflows/perf.yml@v1
+#
+# The benchmarks run against the baseline kept in baseline/ beside the benchmark project — benchmarks/baseline/ when the
+# project sits directly in benchmarks/ — the CSV reports BenchmarkDotNet writes with --job short on the same kind of
+# runner, copied there when a change is accepted. Time on a shared runner moves by tens of percent between runs, so only memory
+# fails the job: an allocation that grows past the tolerance is a change in the code, not in the machine. Times are
+# reported beside it. Stryker.NET then says whether the tests catch a broken line; its score is reported, and fails
+# the job only under mutation-break. Stryker.NET is the version STRYKER_VERSION names, so a release of it changes the
+# score only through a change here.
+
+on:
+  workflow_call:
+    inputs:
+      benchmarks:
+        description: The benchmark project, a folder or a .csproj.
+        type: string
+        default: benchmarks
+      benchmark-filter:
+        description: The benchmarks to run, as BenchmarkDotNet's --filter takes it.
+        type: string
+        default: '*'
+      os:
+        description: The runner the benchmarks run on; the baseline must come from the same kind.
+        type: string
+        default: ubuntu-latest
+      allocation-tolerance:
+        description: How many percent an allocation may grow over the baseline.
+        type: number
+        default: 5
+      mutation:
+        description: Run Stryker.NET.
+        type: boolean
+        default: true
+      mutation-break:
+        description: The mutation score under which the job fails; 0 reports only.
+        type: number
+        default: 0
+
+permissions:
+  contents: read
+
+jobs:
+  benchmarks:
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 180
+    env:
+      BENCHMARKS: ${{ inputs.benchmarks }}
+      FILTER: ${{ inputs.benchmark-filter }}
+      TOLERANCE: ${{ inputs.allocation-tolerance }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Run
+        run: dotnet run -c Release --project "$BENCHMARKS" -- --filter "$FILTER" --job short --exporters csv github --artifacts artifacts/benchmarks
+
+      - name: Against the baseline
+        run: |
+          cat artifacts/benchmarks/results/*-report-github.md >> "$GITHUB_STEP_SUMMARY"
+          project="$BENCHMARKS"
+          if [[ "$project" == *.csproj ]]; then
+            project="$(dirname "$project")"
+          fi
+          baseline="$project/baseline"
+          if [ ! -d "$baseline" ]; then
+            echo "No baseline in $baseline: this run's reports can be copied there to become one." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 - "$baseline" artifacts/benchmarks/results "$TOLERANCE" <<'PY'
+          import csv, glob, os, re, sys
+
+          baseline, current, tolerance = sys.argv[1], sys.argv[2], float(sys.argv[3])
+          units = {"B": 1, "KB": 1024, "MB": 1024 ** 2, "GB": 1024 ** 3}
+
+          def allocated(path):
+              with open(path, newline="", encoding="utf-8") as report:
+                  rows = list(csv.DictReader(report, delimiter=";"))
+              if not rows or "Allocated" not in rows[0]:
+                  return {}
+              columns = list(rows[0])
+              start = columns.index("WarmupCount") + 1 if "WarmupCount" in columns else 1
+              parameters = columns[start:columns.index("Mean")] if "Mean" in columns else []
+              measured = {}
+              for row in rows:
+                  match = re.match(r"([0-9.]+)\s*([KMG]?B)", row["Allocated"].replace(",", "").strip())
+                  if match:
+                      key = " ".join([row["Method"], row.get("Job", "")] + [row[name] for name in parameters])
+                      measured[key] = float(match.group(1)) * units[match.group(2)]
+              return measured
+
+          grown = []
+          for path in glob.glob(os.path.join(baseline, "*-report.csv")):
+              now = os.path.join(current, os.path.basename(path))
+              if not os.path.exists(now):
+                  continue
+              before, after = allocated(path), allocated(now)
+              for key, bytes_before in before.items():
+                  bytes_after = after.get(key)
+                  if bytes_after is not None and bytes_before > 0 and bytes_after > bytes_before * (1 + tolerance / 100):
+                      grown.append(f"{os.path.basename(path)} {key}: {bytes_before:.0f} B -> {bytes_after:.0f} B")
+
+          for line in grown:
+              print(f"::error::allocation grew past {tolerance}%: {line}")
+          sys.exit(1 if grown else 0)
+          PY
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmarks
+          path: artifacts/benchmarks/results
+
+  mutation:
+    if: inputs.mutation
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      BREAK: ${{ inputs.mutation-break }}
+      STRYKER_VERSION: 5.0.0
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Stryker.NET
+        run: |
+          dotnet tool install --global dotnet-stryker --version "$STRYKER_VERSION"
+          dotnet stryker --break-at "$BREAK" --reporter html --reporter markdown --output artifacts/mutation
+          cat artifacts/mutation/reports/*.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutation
+          path: artifacts/mutation

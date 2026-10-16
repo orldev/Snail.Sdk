@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "orldev",
+  "classifications": [
+    "Library",
+    "Snail"
+  ],
+  "identity": "Snail.Sdk.Templates.Library",
+  "name": "Snail library",
+  "description": "A Snail library on Snail.Sdk.Library: the public API written down, tests, a native probe, a benchmark, the shared workflows.",
+  "shortName": "s3l-lib",
+  "sourceName": "Snail.Toolkit.Template",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "symbols": {
+    "description": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "What the library does, in one sentence.",
+      "replaces": "TEMPLATE_DESCRIPTION",
+      "description": "The package description."
+    }
+  },
+  "sources": [
+    {
+      "modifiers": [
+        {
+          "exclude": [
+            "**/bin/**",
+            "**/obj/**"
+          ]
+        }
+      ]
+    }
+  ]
+}

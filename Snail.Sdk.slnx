@@ -1,0 +1,26 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Mcp/Mcp.csproj" />
+    <Project Path="src/Analyzers/Analyzers.csproj" />
+    <Project Path="src/Conformance/Conformance.csproj" />
+    <Project Path="src/Docs/Docs.csproj" />
+    <Project Path="src/Library/Library.csproj" />
+    <Project Path="src/Mcp.Hosting/Mcp.Hosting.csproj" />
+    <Project Path="src/Mcp.Http/Mcp.Http.csproj" />
+    <Project Path="src/Mcp.Testing/Mcp.Testing.csproj" />
+    <Project Path="src/Sdk/Sdk.csproj" />
+    <Project Path="src/Templates/Templates.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Analyzers.Tests/Analyzers.Tests.csproj" />
+    <Project Path="tests/Mcp.Tests/Mcp.Tests.csproj" />
+    <Project Path="tests/Sdk.Tests/Sdk.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Fleet/Fleet.csproj" />
+    <Project Path="tools/Metrics/Metrics.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/Sdk.Benchmarks/Sdk.Benchmarks.csproj" />
+  </Folder>
+</Solution>

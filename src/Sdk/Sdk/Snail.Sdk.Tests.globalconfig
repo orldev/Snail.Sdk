@@ -1,0 +1,12 @@
+# What a test or benchmark project is spared, above Snail.Sdk.globalconfig. The kind is read from the project's name
+# (Snail.Sdk.props), so the relaxations follow the project rather than a folder pattern in each .editorconfig.
+
+is_global = true
+global_level = 110
+
+# xUnit names read Subject_Condition_ExpectedResult, and test bodies are async without the suffix.
+dotnet_naming_rule.async_methods_end_with_async.severity = none
+dotnet_diagnostic.CA1707.severity = none
+
+# xUnit disposes fixtures through IAsyncLifetime, not IDisposable; BenchmarkDotNet through [GlobalCleanup].
+dotnet_diagnostic.CA1001.severity = none

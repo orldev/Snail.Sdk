@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The conformance check: whether a repository is built the way the standard says (docs/conformance.md). Snail.Sdk carries it in tools/conformance and runs it with -t:SnailConformance, so the shared
+    CI fails a repository that drifts; in its fleet mode it reports on every repository of the folders it is given.
+    It reads files only: nothing is built, run or changed.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsAotCompatible>false</IsAotCompatible>
+    <AssemblyName>Snail.Sdk.Conformance</AssemblyName>
+    <RollForward>LatestMajor</RollForward>
+  </PropertyGroup>
+
+  <!-- The shared files the checks compare with travel inside the tool, of the same release as the SDK carrying it. -->
+  <ItemGroup>
+    <EmbeddedResource Include="../../global.json" LogicalName="global.json" />
+    <EmbeddedResource Include="../../.editorconfig" LogicalName="editorconfig" />
+    <EmbeddedResource Include="../../.github/workflows/*.yml" LogicalName="shared/.github/workflows/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="../../.github/actions/**/action.yml" LogicalName="shared/.github/actions/%(RecursiveDir)action.yml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Snail.Sdk.Sdk.Tests" />
+  </ItemGroup>
+
+</Project>

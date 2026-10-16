@@ -1,0 +1,79 @@
+name: release to NuGet
+
+# A version tag (v1.2.0, v1.2.0-preview.1) releases every package of the repository at that version; run by hand, it
+# packs and pushes only when asked. The moving major tag (v1) the shared workflows are called by is not a release and
+# starts nothing here.
+#
+# Two jobs, as in every repository the shared workflows serve: release builds, tests and packs with no id-token, and
+# push, which runs none of the repository's code, alone gets the trusted publishing key. nuget.org gives that key only
+# to a job whose job_workflow_ref is this repository's publish.yml, the file the trusted publishing policy names.
+
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The version to pack, such as 0.1.0-preview.1
+        required: true
+      push:
+        description: Push the packages to NuGet
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Version
+        id: version
+        env:
+          GIVEN: ${{ inputs.version }}
+        run: |
+          version="${GIVEN:-${GITHUB_REF_NAME#v}}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$version' is not a version"
+            exit 1
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+      - run: dotnet test Snail.Sdk.slnx -c Release
+
+      - name: Pack
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: dotnet pack Snail.Sdk.slnx -c Release -p:Version="$VERSION" -o artifacts/packages
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: |
+            artifacts/packages/*.nupkg
+            artifacts/packages/*.snupkg
+          retention-days: 7
+
+  push:
+    needs: release
+    if: github.event_name == 'push' || inputs.push
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      # The action of this very commit, the one the release carries.
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/actions
+      - uses: ./.github/actions/nuget-push
+        with:
+          user: ${{ secrets.NUGET_USER }}

@@ -1,0 +1,7 @@
+<Project>
+
+  <!-- What depends on the project body (its kind, read from its name) is decided before Microsoft.NET.Sdk's targets. -->
+  <Import Project="$(MSBuildThisFileDirectory)Snail.Sdk.targets" />
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" Condition="'$(_SnailImportsMicrosoftSdk)' == 'true'" />
+
+</Project>

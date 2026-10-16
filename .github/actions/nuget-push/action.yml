@@ -1,0 +1,60 @@
+name: Snail NuGet push
+description: Pushes the packages a Snail release job uploaded to nuget.org through NuGet trusted publishing.
+
+# The second job of a Snail repository's own publish.yml, after the shared release workflow:
+#
+#   jobs:
+#     release:
+#       uses: orldev/Snail.Sdk/.github/workflows/lib-publish.yml@v1    # or mcp-publish.yml
+#       with: { version: '${{ inputs.version }}', push: '${{ github.event_name == ''push'' || inputs.push }}' }
+#       secrets: inherit
+#     push:
+#       needs: release
+#       if: needs.release.outputs.push == 'true'
+#       runs-on: ubuntu-latest
+#       permissions: { id-token: write, contents: read }
+#       steps:
+#         - uses: orldev/Snail.Sdk/.github/actions/nuget-push@v1
+#           with: { user: '${{ secrets.NUGET_USER }}' }
+#
+# Why a job of the repository's own and not a step of the shared workflow: nuget.org gives a key only to a token whose
+# repository is the one its trusted publishing policy names and whose job_workflow_ref is a workflow file of that same
+# repository. A job inside orldev/Snail.Sdk's workflows carries Snail.Sdk's job_workflow_ref, so it is refused for
+# every other repository. An action runs inside the caller's job, whose job_workflow_ref is the caller's publish.yml:
+# the policy names that file. The shared workflow therefore builds, tests and packs without id-token, and only this
+# job, which runs none of the repository's code, holds it.
+#
+# Every package is pushed with --skip-duplicate, so a run repeated after a partial push completes it. A tool package
+# that points at per-platform packages (RuntimeIdentifierPackages in its DotnetToolSettings.xml) is pushed after every
+# other: pushed before them, it would install nothing until they arrive. A .snupkg beside a package goes with it.
+
+inputs:
+  user:
+    description: The nuget.org account the trusted publishing policy belongs to (secret NUGET_USER).
+    required: true
+  packages:
+    description: The artifacts holding the packages, as a download-artifact pattern.
+    required: false
+    default: packages*
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/download-artifact@v8
+      with:
+        pattern: ${{ inputs.packages }}
+        path: ${{ runner.temp }}/snail-nuget-push
+        merge-multiple: true
+
+    - name: NuGet login (OIDC, a key for this run only)
+      uses: NuGet/login@v1
+      id: login
+      with:
+        user: ${{ inputs.user }}
+
+    - name: Push, a package pointing at others last
+      shell: bash
+      env:
+        NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        PACKAGES: ${{ runner.temp }}/snail-nuget-push
+      run: bash "$GITHUB_ACTION_PATH/push.sh" "$PACKAGES"

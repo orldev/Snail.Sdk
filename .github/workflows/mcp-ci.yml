@@ -1,0 +1,219 @@
+name: server CI
+
+# The build and tests of a Snail MCP server, called from its own ci.yml:
+#
+#   jobs:
+#     ci:
+#       uses: orldev/Snail.Sdk/.github/workflows/mcp-ci.yml@v1
+#       with: { contract-variable: SNAIL_FOO_SERVER }
+#
+# The tests, the conformance check and the tool reference the build writes. A native server is then built for every
+# platform it ships to, failing on any trim or AOT warning, and asked over stdio wherever it can run; a
+# framework-dependent one is published and asked the same way. The contract tests name the program through
+# contract-variable (Snail.Sdk.Mcp.Testing). The program's name (AssemblyName), whether it is native (SnailMcpNative)
+# and its platforms (ToolPackageRuntimeIdentifiers) are read from the project, never repeated here.
+
+on:
+  workflow_call:
+    inputs:
+      project:
+        description: The server's project, a folder or a .csproj.
+        type: string
+        default: src
+      tests:
+        description: The test project, a folder or a .csproj.
+        type: string
+        default: tests
+      os:
+        description: The runner the tests run on, and a framework-dependent server is asked on; macos-latest for a server that reads the Mac.
+        type: string
+        default: ubuntu-latest
+      test-filter:
+        description: A dotnet test filter for the tests, such as one leaving out those that read the real machine.
+        type: string
+        default: ''
+      runtimes:
+        description: >-
+          The platforms a native server ships to, as a JSON list of { rid, os, runs }; empty takes them from the
+          project's ToolPackageRuntimeIdentifiers, so the workflow builds exactly the packages the pointer names.
+        type: string
+        default: ''
+      forgiven-native-warnings:
+        description: >-
+          An extended regular expression of native warnings that do not fail the build — a dependency's, explained in
+          the project, such as 'Jint\.dll|: Jint\.'. Every other trim or AOT warning still does.
+        type: string
+        default: ''
+      contract-variable:
+        description: The variable the stdio contract tests read the program from, such as SNAIL_CLEANUP_SERVER.
+        type: string
+        required: true
+      contract-filter:
+        description: The dotnet test filter that selects the contract tests.
+        type: string
+        default: FullyQualifiedName~Contract
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Tests
+        env:
+          FILTER: ${{ inputs.test-filter }}
+        run: |
+          arguments=(test -c Release --logger "trx;LogFileName=tests.trx" --results-directory artifacts/tests)
+          if [ -n "$FILTER" ]; then
+            arguments+=(--filter "$FILTER")
+          fi
+          dotnet "${arguments[@]}"
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test results
+          path: artifacts/tests
+
+      - name: Conformance
+        run: |
+          project="$(find src -name '*.csproj' -not -path '*/obj/*' | sort | head -n 1)"
+          dotnet msbuild "$project" -t:SnailConformance -nologo
+
+      - name: The reference is the one committed
+        env:
+          PROJECT: ${{ inputs.project }}
+        run: |
+          dotnet build "$PROJECT" -c Release -p:SnailReference=true
+          if [ -n "$(git status --porcelain -- docs)" ]; then
+            git status --short -- docs
+            echo "::error::docs/ differs from what the build writes: build with -p:SnailReference=true and commit it"
+            exit 1
+          fi
+
+  project:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      assembly: ${{ steps.read.outputs.assembly }}
+      native: ${{ steps.read.outputs.native }}
+      matrix: ${{ steps.read.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      # The project says once what it is: its program's name, whether it is native (SnailMcpNative), and the
+      # platforms it ships to (ToolPackageRuntimeIdentifiers), each of which becomes a runner of its system.
+      - name: What the project says
+        id: read
+        env:
+          GIVEN: ${{ inputs.runtimes }}
+          PROJECT: ${{ inputs.project }}
+        run: |
+          properties="$(dotnet msbuild "$PROJECT" -nologo -getProperty:AssemblyName -getProperty:SnailMcpNative -getProperty:ToolPackageRuntimeIdentifiers)"
+          python3 - "$properties" "$GIVEN" >> "$GITHUB_OUTPUT" <<'PY'
+          import json, sys
+          text, given = sys.argv[1], sys.argv[2].strip()
+          properties = json.loads(text[text.index("{"):])["Properties"]
+          native = properties["SnailMcpNative"].strip().lower() == "true"
+          runners = {
+              "osx-arm64": ("macos-latest", True), "osx-x64": ("macos-latest", False),
+              "linux-x64": ("ubuntu-latest", True), "linux-arm64": ("ubuntu-24.04-arm", True),
+              "win-x64": ("windows-latest", True), "win-arm64": ("windows-11-arm", True),
+          }
+          if given:
+              matrix = json.loads(given)
+          elif native:
+              rids = [rid.strip() for rid in properties["ToolPackageRuntimeIdentifiers"].split(";") if rid.strip() and rid.strip() != "any"]
+              unknown = [rid for rid in rids if rid not in runners]
+              if unknown:
+                  sys.exit(f"no runner for {', '.join(unknown)}")
+              matrix = [{"rid": rid, "os": runners[rid][0], "runs": runners[rid][1]} for rid in rids]
+          else:
+              matrix = []
+          print("assembly=" + properties["AssemblyName"].strip())
+          print("native=" + str(native).lower())
+          print("matrix=" + json.dumps(matrix))
+          PY
+
+  native:
+    needs: project
+    if: needs.project.outputs.native == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.project.outputs.matrix) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      RID: ${{ matrix.rid }}
+      PROJECT: ${{ inputs.project }}
+      TESTS: ${{ inputs.tests }}
+      NAME: ${{ needs.project.outputs.assembly }}
+      VARIABLE: ${{ inputs.contract-variable }}
+      FILTER: ${{ inputs.contract-filter }}
+      FORGIVEN: ${{ inputs.forgiven-native-warnings }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Native toolchain
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Published with Native AOT
+        run: |
+          dotnet publish "$PROJECT" -c Release -r "$RID" -o published 2>&1 | tee publish.log
+          if grep -E "warning (IL|AOT)[0-9]+" publish.log | grep -vE "${FORGIVEN:-^$}"; then
+            echo "::error::the native build warned; a warning here is a call that fails at run time"
+            exit 1
+          fi
+
+      - name: Answers over stdio
+        if: matrix.runs
+        run: |
+          program="$GITHUB_WORKSPACE/published/$NAME"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            program="$program.exe"
+          fi
+          export "$VARIABLE=$program"
+          dotnet test "$TESTS" -c Release --filter "$FILTER"
+
+  framework-dependent:
+    needs: project
+    if: needs.project.outputs.native != 'true'
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 30
+    env:
+      PROJECT: ${{ inputs.project }}
+      TESTS: ${{ inputs.tests }}
+      NAME: ${{ needs.project.outputs.assembly }}
+      VARIABLE: ${{ inputs.contract-variable }}
+      FILTER: ${{ inputs.contract-filter }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Published
+        run: dotnet publish "$PROJECT" -c Release -o published
+
+      - name: Answers over stdio
+        run: |
+          export "$VARIABLE=$GITHUB_WORKSPACE/published/$NAME.dll"
+          dotnet test "$TESTS" -c Release --filter "$FILTER"

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Measures the shapes the owner's rules judge — LINQ chains, lambdas within lambdas, method length, objects built inside
+    a return, a blank line before the final return — over every C# file of the folders given, so that each rule's
+    threshold is set where the code is, not where a guess puts it. Syntax only: no build, no restore.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" VersionOverride="5.9.0" />
+  </ItemGroup>
+
+</Project>

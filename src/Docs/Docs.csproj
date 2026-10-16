@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The reference generator the SDK levels carry in tools/docs: it reads a built assembly through MetadataLoadContext —
+    never loading or running it — and writes Markdown: a library's public API with its XML docs, a server's tools with
+    their descriptions, parameters and hints. Not a package of its own.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsAotCompatible>false</IsAotCompatible>
+    <AssemblyName>Snail.Sdk.Docs</AssemblyName>
+    <RollForward>LatestMajor</RollForward>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Reflection.MetadataLoadContext" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Snail.Sdk.Sdk.Tests" />
+  </ItemGroup>
+
+</Project>

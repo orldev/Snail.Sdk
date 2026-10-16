@@ -1,0 +1,67 @@
+# The site of Snail.Sdk, https://orldev.github.io/Snail.Sdk/. tools/site.sh builds it: the theme comes from
+# src/Docs/site/theme as for every Snail site, so this file names none. The analyzers link each rule to rules/<ID>/.
+site_name: Snail.Sdk
+site_description: The MSBuild SDK, analyzers, shared workflows and conformance check every Snail library and MCP server is built with
+site_url: https://orldev.github.io/Snail.Sdk/
+repo_url: https://github.com/orldev/Snail.Sdk
+repo_name: orldev/Snail.Sdk
+copyright: MIT
+edit_uri: ""
+docs_dir: .
+exclude_docs: |
+  mkdocs.yml
+
+plugins:
+  - search
+
+# A page the navigation leaves out is a page nobody reaches, and a link to a heading that is not there leads nowhere:
+# with --strict both fail the build instead of passing as a quiet INFO.
+validation:
+  nav:
+    omitted_files: warn
+  links:
+    anchors: warn
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Standard: standard.md
+  - Guidelines: guidelines.md
+  - Releasing: releasing.md
+  - Installing: installing.md
+  - Reference:
+      - MSBuild properties: properties.md
+      - Workflows: workflows.md
+      - Conformance: conformance.md
+      - Snail.Sdk.Mcp.Hosting: reference/Snail.Sdk.Mcp.Hosting.md
+      - Snail.Sdk.Mcp.Http: reference/Snail.Sdk.Mcp.Http.md
+      - Snail.Sdk.Mcp.Testing: reference/Snail.Sdk.Mcp.Testing.md
+  - Rules:
+      - Overview: rules/index.md
+      - S3L0001: rules/S3L0001.md
+      - S3L0002: rules/S3L0002.md
+      - S3L0003: rules/S3L0003.md
+      - S3L0004: rules/S3L0004.md
+      - S3L0005: rules/S3L0005.md
+      - S3L0006: rules/S3L0006.md
+      - S3L0007: rules/S3L0007.md
+      - S3L0008: rules/S3L0008.md
+      - S3L0009: rules/S3L0009.md
+      - S3L0010: rules/S3L0010.md
+      - S3LS0001: rules/S3LS0001.md
+      - S3LS0002: rules/S3LS0002.md
+  - Contributing: contributing.md

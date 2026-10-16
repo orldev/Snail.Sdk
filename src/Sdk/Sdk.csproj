@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    No code: the base MSBuild SDK every Snail library and server is built by, as a package of type MSBuildSdk.
+    A project names it in its Sdk attribute; NuGet resolves the version from global.json (msbuild-sdks).
+  -->
+  <PropertyGroup>
+    <PackageId>Snail.Sdk</PackageId>
+    <Description>
+      The base MSBuild SDK of every Snail library and server: the build rules, the analyzers by category so a newer .NET
+      SDK adds advice instead of breaking the build, the agreed rules as warnings, dependency audit and deterministic,
+      source-linked builds. Snail.Sdk.Library and Snail.Sdk.Mcp build on it.
+    </Description>
+    <PackageTags>msbuild;sdk;analyzers;code-style</PackageTags>
+    <PackageType>MSBuildSdk</PackageType>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <IsAotCompatible>false</IsAotCompatible>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="Sdk/*" Pack="true" PackagePath="Sdk/" />
+    <None Include="$(IntermediateOutputPath)Snail.Sdk.Version.props" Pack="true" PackagePath="Sdk/" Visible="false" />
+  </ItemGroup>
+
+  <!--
+    The conformance check travels in the package, framework-dependent, so a build runs it with the dotnet it has.
+    It is published with the global properties this project was given, so a parallel build of the solution builds it
+    once, in its own bin/, rather than once per packing project with properties of its own into the same obj/.
+  -->
+  <Target Name="SnailPackConformance" BeforeTargets="_GetPackageFiles">
+    <MSBuild Projects="../Conformance/Conformance.csproj" Targets="Publish" />
+    <MSBuild Projects="../Conformance/Conformance.csproj" Targets="GetTargetPath">
+      <Output TaskParameter="TargetOutputs" ItemName="_SnailConformanceBuilt" />
+    </MSBuild>
+    <PropertyGroup>
+      <_SnailConformancePublished>@(_SnailConformanceBuilt->'%(RootDir)%(Directory)publish/')</_SnailConformancePublished>
+    </PropertyGroup>
+    <ItemGroup>
+      <None Include="$(_SnailConformancePublished)*.dll;$(_SnailConformancePublished)*.json" Pack="true" PackagePath="tools/conformance/" Visible="false" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    The SDK names its own version, so that it brings the analyzers of the same release: written at pack time, since the
+    version is only known then (-p:Version from the tag, or the prefix and suffix).
+  -->
+  <Target Name="SnailWriteSdkVersion" BeforeTargets="_GetPackageFiles;GenerateNuspec">
+    <WriteLinesToFile File="$(IntermediateOutputPath)Snail.Sdk.Version.props"
+                      Lines="&lt;Project&gt;&lt;PropertyGroup&gt;&lt;SnailSdkVersion&gt;$(PackageVersion)&lt;/SnailSdkVersion&gt;&lt;/PropertyGroup&gt;&lt;/Project&gt;"
+                      Overwrite="true" WriteOnlyWhenDifferent="true" />
+  </Target>
+
+</Project>

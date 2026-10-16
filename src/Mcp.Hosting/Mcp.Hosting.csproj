@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>
+      What every Snail MCP server starts from: the empty host with log lines on stderr and the heap compacted when the
+      server goes quiet, the MCP SDK's JSON options with a server's generated types put first, settings read from its
+      settings file and its prefixed environment variables, the folders it keeps in the user's home under its s3l name,
+      and the stable name of the running program for what it writes about itself.
+    </Description>
+    <PackageTags>mcp;mcp-server;modelcontextprotocol;hosting;native-aot</PackageTags>
+  </PropertyGroup>
+
+  <!--
+    A library of the servers: its public API written down in PublicAPI.*.txt, the package checked against the last
+    release (PackageValidationBaselineVersion, set from the first release on), and its symbols in a .snupkg beside it.
+  -->
+  <PropertyGroup>
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <IncludeSymbols>true</IncludeSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Snail.Sdk.Mcp.Tests" />
+  </ItemGroup>
+
+</Project>

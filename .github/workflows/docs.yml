@@ -1,0 +1,96 @@
+name: documentation
+
+# The site of a Snail library or server on GitHub Pages, called from its own docs.yml on a push to the default
+# branch:
+#
+#   on: { push: { branches: [master] }, workflow_dispatch: {} }     # the repository's default branch
+#   jobs:
+#     docs:
+#       permissions: { contents: read, pages: write, id-token: write }
+#       uses: orldev/Snail.Sdk/.github/workflows/docs.yml@v1
+#
+# The reference is written again by the build (-p:SnailReference=true) so the site never shows an older one than the
+# code, then the SnailSite target builds the site exactly as it builds on a machine: the theme the SDK carries over the
+# repository's docs/mkdocs.yml, or over README.md, docs/ and the reference when there is none — strictly, so a broken
+# link fails it. A page the repository writes itself is the prepare input's work.
+
+on:
+  workflow_call:
+    inputs:
+      solution:
+        description: The solution to build; the one .slnx at the root when empty.
+        type: string
+        default: ''
+      project:
+        description: A project of the repository that runs the SnailSite target; the first under src/ that has it when empty.
+        type: string
+        default: ''
+      prepare:
+        description: A command run after the reference is written and before the site is built, such as one that measures coverage into a page.
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: The reference
+        env:
+          GIVEN: ${{ inputs.solution }}
+        run: |
+          solution="${GIVEN:-$(find . -maxdepth 1 -name '*.slnx' | head -n 1)}"
+          dotnet build "$solution" -c Release -p:SnailReference=true
+
+      - name: Pages the repository writes itself
+        if: inputs.prepare != ''
+        env:
+          PREPARE: ${{ inputs.prepare }}
+        run: bash -c "$PREPARE"
+
+      - name: The site
+        env:
+          GIVEN: ${{ inputs.project }}
+          REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          project="$GIVEN"
+          if [ -z "$project" ]; then
+            while IFS= read -r candidate; do
+              if [ "$(dotnet msbuild "$candidate" -getProperty:SnailSiteProject)" = true ]; then
+                project="$candidate"
+                break
+              fi
+            done < <(find src -name '*.csproj' -not -path '*/obj/*' | sort)
+          fi
+          dotnet msbuild "$project" -t:SnailSite -nologo \
+            -p:SnailSiteFolder="$GITHUB_WORKSPACE/site" -p:SnailSiteRepositoryUrl="$REPOSITORY_URL"
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

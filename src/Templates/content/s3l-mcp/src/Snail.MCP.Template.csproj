@@ -1,0 +1,29 @@
+<Project Sdk="Snail.Sdk.Mcp">
+
+  <PropertyGroup>
+<!--#if (!native) -->
+    <SnailMcpNative>false</SnailMcpNative>
+<!--#endif -->
+<!--#if (UsesHttp) -->
+    <SnailMcpTransport>TEMPLATE_TRANSPORT</SnailMcpTransport>
+<!--#endif -->
+<!--#if (container) -->
+    <SnailMcpContainer>true</SnailMcpContainer>
+<!--#endif -->
+    <Version>0.1.0</Version>
+    <Description>TEMPLATE_DESCRIPTION</Description>
+    <PackageTags>mcp;mcp-server;modelcontextprotocol;ai</PackageTags>
+    <RepositoryUrl>https://github.com/orldev/Snail.MCP.Template</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/orldev/Snail.MCP.Template</PackageProjectUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Snail.MCP.Template.Tests" />
+    <InternalsVisibleTo Include="Snail.MCP.Template.Benchmarks" />
+  </ItemGroup>
+
+</Project>

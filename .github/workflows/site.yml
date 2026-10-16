@@ -1,0 +1,60 @@
+name: site
+
+# The site of Snail.Sdk itself, https://orldev.github.io/Snail.Sdk/, where the analyzers' help links lead. docs.yml is
+# the shared workflow of the libraries and servers and builds a site through a project's SnailSite target; Snail.Sdk
+# builds on no Snail level, so tools/site.sh does the same here: the API reference written again from the libraries,
+# then MkDocs, strictly, with the theme and versions of src/Docs/site. A pull request builds it, so a broken link fails
+# before the merge; master deploys it.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: The site
+        run: tools/site.sh
+
+      - name: The reference is the one committed
+        run: |
+          if [ -n "$(git status --porcelain -- docs)" ]; then
+            git status --short -- docs
+            echo "::error::docs/ differs from what the build writes: run tools/site.sh and commit docs/reference"
+            exit 1
+          fi
+
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: obj/site/site
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

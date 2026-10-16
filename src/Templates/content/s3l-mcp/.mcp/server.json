@@ -1,0 +1,51 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.orldev/snail-mcp-tmplshort",
+  "description": "TEMPLATE_DESCRIPTION",
+  "version": "0.1.0",
+  "packages": [
+//#if (UsesStdio)
+    {
+      "registryType": "nuget",
+      "identifier": "Snail.MCP.Template",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [],
+      "environmentVariables": []
+//#if (IsBoth)
+    },
+//#else
+    }
+//#endif
+//#endif
+//#if (UsesHttp)
+    {
+      "registryType": "nuget",
+      "identifier": "Snail.MCP.Template",
+      "version": "0.1.0",
+      "transport": {
+        "type": "streamable-http",
+        "url": "http://127.0.0.1:9300/mcp"
+      },
+      "packageArguments": [],
+//#if (IsBoth)
+      "environmentVariables": [
+        {
+          "name": "SNAIL_MCP_TMPLSHORT_TRANSPORT",
+          "description": "Serve over HTTP rather than stdio.",
+          "value": "http"
+        }
+      ]
+//#else
+      "environmentVariables": []
+//#endif
+    }
+//#endif
+  ],
+  "repository": {
+    "url": "https://github.com/orldev/Snail.MCP.Template",
+    "source": "github"
+  }
+}

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The hot paths of the SDK's own libraries and analyzers, measured as the standard asks of every repository:
+    BenchmarkDotNet with [MemoryDiagnoser], and the CSV reports of an accepted run in baseline/ beside the project
+    (allocations are the stable number; times move between machines). Run with dotnet run -c Release and the short job.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- BenchmarkDotNet builds its host from the project it finds by the assembly's name, so the assembly is named as the project is. -->
+    <AssemblyName>$(MSBuildProjectName)</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsAotCompatible>false</IsAotCompatible>
+    <!-- A benchmark is named by what it measures, not documented. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- Roslyn comes with the analyzers project, at the version they are built for: the project BenchmarkDotNet generates copies these references and takes the central versions. -->
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Analyzers/Analyzers.csproj" />
+    <ProjectReference Include="../../src/Mcp.Testing/Mcp.Testing.csproj" />
+  </ItemGroup>
+
+</Project>

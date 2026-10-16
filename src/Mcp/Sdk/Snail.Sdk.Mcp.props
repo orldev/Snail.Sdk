@@ -1,0 +1,43 @@
+<Project>
+
+  <!--
+    A Snail MCP server is described by three properties; everything else follows from them in Snail.Sdk.Mcp.targets.
+
+      SnailMcpNative     true: published with Native AOT. false for code loaded at run time (Roslyn, MSBuild, Razor,
+                         Playwright, EF Core with ONNX).
+      SnailMcpTransport  Stdio, Http or Both. Http and Both bring Snail.Sdk.Mcp.Http and a launchd job.
+      SnailMcpContainer  true: an image is built from the repository; a publish without a runtime stays
+                         framework-dependent, as a Dockerfile needs.
+
+    The test project of a server (*.Tests) uses this SDK too and gets Snail.Sdk.Mcp.Testing instead of the server's lines.
+  -->
+  <!--
+    A server is a program. Said here, before the project body, and not in the targets: beside the Razor or Web SDK, the
+    Microsoft targets decide by then whether to write the runtimeconfig.json and the apphost.
+  -->
+  <PropertyGroup Condition="'$(SnailProjectKind)' == ''">
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <!-- Defaults, so a repository's Directory.Build.props may set any of them for all its projects. -->
+  <PropertyGroup>
+    <SnailMcpNative Condition="'$(SnailMcpNative)' == ''">true</SnailMcpNative>
+    <SnailMcpTransport Condition="'$(SnailMcpTransport)' == ''">Stdio</SnailMcpTransport>
+    <SnailMcpContainer Condition="'$(SnailMcpContainer)' == ''">false</SnailMcpContainer>
+    <InvariantGlobalization Condition="'$(InvariantGlobalization)' == ''">true</InvariantGlobalization>
+    <RollForward Condition="'$(RollForward)' == ''">LatestMajor</RollForward>
+  </PropertyGroup>
+
+  <!--
+    The workstation GC: a server answers one client at a time, and the server GC's heap per core and larger budgets cost
+    memory for throughput it never needs. Measured on Snail.MCP.Roslyn with one solution loaded (2026-10-13): 283 MB of
+    footprint at idle with the workstation GC, 481 MB with the server GC. The concurrent GC stays on, the runtime's
+    default: without it the same server sat at 355 MB. The Web SDK turns the server GC on before this file is read, so
+    under it the value is set whatever it holds; a server that wants the server GC sets ServerGarbageCollection in its
+    project file, which comes after.
+  -->
+  <PropertyGroup>
+    <ServerGarbageCollection Condition="'$(ServerGarbageCollection)' == '' or '$(UsingMicrosoftNETSdkWeb)' == 'true'">false</ServerGarbageCollection>
+  </PropertyGroup>
+
+</Project>

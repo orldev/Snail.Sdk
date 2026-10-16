@@ -1,0 +1,305 @@
+name: server release
+
+# The release of a Snail MCP server as a dotnet tool, called from its own publish.yml with a second job of the caller's
+# own that pushes, as lib-publish.yml shows; the inputs of mcp-ci.yml the server sets there are set here too:
+#
+#   jobs:
+#     release:
+#       uses: orldev/Snail.Sdk/.github/workflows/mcp-publish.yml@v1
+#       with:
+#         contract-variable: SNAIL_FOO_SERVER
+#         version: ${{ inputs.version }}
+#         push: ${{ github.event_name == 'push' || inputs.push }}
+#     push:
+#       needs: release
+#       if: needs.release.outputs.push == 'true'
+#       runs-on: ubuntu-latest
+#       permissions: { id-token: write, contents: read }
+#       steps:
+#         - uses: orldev/Snail.Sdk/.github/actions/nuget-push@v1
+#           with: { user: '${{ secrets.NUGET_USER }}' }
+#
+# A native server is a tool package per platform, each built and asked over stdio on that platform, a
+# framework-dependent fallback for the rest, and the package that points at them; a framework-dependent server is one
+# package. Every package carries the version being released, in its assemblies too (the server reports it), and so
+# does the registry manifest (.mcp/server.json). They are uploaded as the artifacts packages-<rid> and
+# packages-portable; this workflow pushes nothing and holds no id-token. nuget.org gives a trusted publishing key only
+# to a job whose job_workflow_ref is a workflow file of the publishing repository itself, never to a job of
+# orldev/Snail.Sdk's, so the push is the caller's job: the nuget-push action, which pushes the pointer last, since
+# pushed before the packages it names it would install nothing for a while. The caller's push job needs this one, so it
+# runs only when every package was built, tested and asked.
+
+on:
+  workflow_call:
+    inputs:
+      project:
+        description: The server's project, a folder or a .csproj.
+        type: string
+        default: src
+      tests:
+        description: The test project, a folder or a .csproj.
+        type: string
+        default: tests
+      os:
+        description: The runner the tests run on.
+        type: string
+        default: ubuntu-latest
+      test-filter:
+        description: A dotnet test filter for the tests, such as one leaving out those that read the real machine.
+        type: string
+        default: ''
+      runtimes:
+        description: >-
+          The platforms a native server ships to, as a JSON list of { rid, os, runs }; empty takes them from the
+          project's ToolPackageRuntimeIdentifiers, so the workflow builds exactly the packages the pointer names.
+        type: string
+        default: ''
+      forgiven-native-warnings:
+        description: >-
+          An extended regular expression of native warnings that do not fail the build — a dependency's, explained in
+          the project, such as 'Jint\.dll|: Jint\.'. Every other trim or AOT warning still does.
+        type: string
+        default: ''
+      contract-variable:
+        description: The variable the stdio contract tests read the program from.
+        type: string
+        required: true
+      contract-filter:
+        description: The dotnet test filter that selects the contract tests.
+        type: string
+        default: FullyQualifiedName~Contract
+      also-pack:
+        description: Other projects released with the server, separated by spaces, such as src/Core.
+        type: string
+        default: ''
+      version:
+        description: The version to pack; the tag without its v when empty.
+        type: string
+        default: ''
+      push:
+        description: Whether the caller pushes the packages to NuGet; passed through to the output push.
+        type: boolean
+        default: false
+    outputs:
+      version:
+        description: The version the packages carry.
+        value: ${{ jobs.version.outputs.value }}
+      push:
+        description: "'true' when the packages are to be pushed: the condition of the caller's push job."
+        value: ${{ jobs.version.outputs.push }}
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      value: ${{ steps.version.outputs.value }}
+      push: ${{ inputs.push }}
+    steps:
+      - id: version
+        env:
+          GIVEN: ${{ inputs.version }}
+        run: |
+          version="${GIVEN:-${GITHUB_REF_NAME#v}}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$version' is not a version"
+            exit 1
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+  test:
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      # A release takes nothing from a local feed: the conformance check with the release checks on fails on a
+      # LocalPackages source or mapping, and on a -local version of the SDK or of a package.
+      - name: Conformance for a release
+        run: |
+          project="$(find src -name '*.csproj' -not -path '*/obj/*' | sort | head -n 1)"
+          dotnet msbuild "$project" -t:SnailConformance -p:SnailConformanceRelease=true -nologo
+
+      - name: Tests
+        env:
+          FILTER: ${{ inputs.test-filter }}
+        run: |
+          arguments=(test -c Release)
+          if [ -n "$FILTER" ]; then
+            arguments+=(--filter "$FILTER")
+          fi
+          dotnet "${arguments[@]}"
+
+  project:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      assembly: ${{ steps.read.outputs.assembly }}
+      package: ${{ steps.read.outputs.package }}
+      native: ${{ steps.read.outputs.native }}
+      matrix: ${{ steps.read.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      # The project says once what it is: its program's name, its package's, whether it is native (SnailMcpNative), and
+      # the platforms it ships to (ToolPackageRuntimeIdentifiers), each of which becomes a runner of its system.
+      - name: What the project says
+        id: read
+        env:
+          GIVEN: ${{ inputs.runtimes }}
+          PROJECT: ${{ inputs.project }}
+        run: |
+          properties="$(dotnet msbuild "$PROJECT" -nologo -getProperty:AssemblyName -getProperty:PackageId -getProperty:SnailMcpNative -getProperty:ToolPackageRuntimeIdentifiers)"
+          python3 - "$properties" "$GIVEN" >> "$GITHUB_OUTPUT" <<'PY'
+          import json, sys
+          text, given = sys.argv[1], sys.argv[2].strip()
+          properties = json.loads(text[text.index("{"):])["Properties"]
+          native = properties["SnailMcpNative"].strip().lower() == "true"
+          runners = {
+              "osx-arm64": ("macos-latest", True), "osx-x64": ("macos-latest", False),
+              "linux-x64": ("ubuntu-latest", True), "linux-arm64": ("ubuntu-24.04-arm", True),
+              "win-x64": ("windows-latest", True), "win-arm64": ("windows-11-arm", True),
+          }
+          if given:
+              matrix = json.loads(given)
+          elif native:
+              rids = [rid.strip() for rid in properties["ToolPackageRuntimeIdentifiers"].split(";") if rid.strip() and rid.strip() != "any"]
+              unknown = [rid for rid in rids if rid not in runners]
+              if unknown:
+                  sys.exit(f"no runner for {', '.join(unknown)}")
+              matrix = [{"rid": rid, "os": runners[rid][0], "runs": runners[rid][1]} for rid in rids]
+          else:
+              matrix = []
+          print("assembly=" + properties["AssemblyName"].strip())
+          print("package=" + properties["PackageId"].strip())
+          print("native=" + str(native).lower())
+          print("matrix=" + json.dumps(matrix))
+          PY
+
+  native:
+    needs: [version, project]
+    if: needs.project.outputs.native == 'true'
+    strategy:
+      fail-fast: true
+      matrix:
+        include: ${{ fromJSON(needs.project.outputs.matrix) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.version.outputs.value }}
+      RID: ${{ matrix.rid }}
+      PROJECT: ${{ inputs.project }}
+      TESTS: ${{ inputs.tests }}
+      VARIABLE: ${{ inputs.contract-variable }}
+      FILTER: ${{ inputs.contract-filter }}
+      NAME: ${{ needs.project.outputs.assembly }}
+      FORGIVEN: ${{ inputs.forgiven-native-warnings }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Native toolchain
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Version in the registry manifest
+        run: |
+          if [ -f .mcp/server.json ]; then
+            jq --arg v "$VERSION" '.version = $v | .packages[].version = $v' .mcp/server.json > server.json.tmp
+            mv server.json.tmp .mcp/server.json
+          fi
+
+      - name: Pack
+        run: |
+          dotnet pack "$PROJECT" -c Release -r "$RID" -p:Version="$VERSION" -o artifacts/packages 2>&1 | tee pack.log
+          if grep -E "warning (IL|AOT)[0-9]+" pack.log | grep -vE "${FORGIVEN:-^$}"; then
+            echo "::error::the native build warned; a warning here is a call that fails at run time"
+            exit 1
+          fi
+
+      - name: Published for the contract
+        if: matrix.runs
+        run: dotnet publish "$PROJECT" -c Release -r "$RID" -p:Version="$VERSION" -o published
+
+      - name: Answers over stdio
+        if: matrix.runs
+        run: |
+          program="$GITHUB_WORKSPACE/published/$NAME"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            program="$program.exe"
+          fi
+          export "$VARIABLE=$program"
+          dotnet test "$TESTS" -c Release --filter "$FILTER"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: packages-${{ matrix.rid }}
+          path: artifacts/packages/*.nupkg
+          retention-days: 7
+
+  portable:
+    needs: [version, project]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VERSION: ${{ needs.version.outputs.value }}
+      PROJECT: ${{ inputs.project }}
+      PACKAGE_ID: ${{ needs.project.outputs.package }}
+      NATIVE: ${{ needs.project.outputs.native }}
+      ALSO: ${{ inputs.also-pack }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Version in the registry manifest
+        run: |
+          if [ -f .mcp/server.json ]; then
+            jq --arg v "$VERSION" '.version = $v | .packages[].version = $v' .mcp/server.json > server.json.tmp
+            mv server.json.tmp .mcp/server.json
+          fi
+
+      - name: Pack the fallback, the pointer and what is released with them
+        run: |
+          if [ "$NATIVE" = "true" ]; then
+            dotnet pack "$PROJECT" -c Release -r any -p:PublishAot=false -p:Version="$VERSION" -o artifacts/packages
+          fi
+          dotnet pack "$PROJECT" -c Release -p:Version="$VERSION" -o artifacts/packages
+          for extra in $ALSO; do
+            dotnet pack "$extra" -c Release -p:Version="$VERSION" -o artifacts/packages
+          done
+
+      # The push orders a package by what it holds: the one whose DotnetToolSettings.xml names RuntimeIdentifierPackages
+      # goes last. A native server's must be that package, or it would be pushed among the ones it points at.
+      - name: The server's package, and the pointer among them
+        run: |
+          package="artifacts/packages/$PACKAGE_ID.$VERSION.nupkg"
+          if [ ! -f "$package" ]; then
+            echo "::error::$package was not packed"
+            exit 1
+          fi
+          settings="$(unzip -p "$package" 'tools/*/any/DotnetToolSettings.xml' 2>/dev/null || true)"
+          if [ "$NATIVE" = "true" ] && [[ "$settings" != *"<RuntimeIdentifierPackages>"* ]]; then
+            echo "::error::$package names no RuntimeIdentifierPackages: it is not the pointer of a native server"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: packages-portable
+          path: artifacts/packages/*.nupkg
+          retention-days: 7

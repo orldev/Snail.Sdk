@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    The one Snail.MCP.Template server of this Mac, over HTTP on 127.0.0.1:9300, started at login and again whenever it
+    ends. Publishing with -p:SnailMcpInstall=true writes this job with the machine's paths beside the publications in
+    ~/.s3l-mcp/Snail.MCP.Template/ and restarts it when launchd holds this very job; otherwise it prints the commands
+    that load it, which are the owner's to run.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>s3l.mcp.tmplshort</string>
+    <key>ProgramArguments</key>
+    <array>
+<!--#if (native) -->
+        <string>{{CURRENT}}/Snail.MCP.Template</string>
+<!--#else -->
+        <string>{{DOTNET}}</string>
+        <string>{{CURRENT}}/Snail.MCP.Template.dll</string>
+<!--#endif -->
+    </array>
+    <key>WorkingDirectory</key>
+    <string>{{HOME}}</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>SNAIL_MCP_TMPLSHORT_TRANSPORT</key>
+        <string>http</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>StandardErrorPath</key>
+    <string>{{HOME}}/Library/Logs/Snail.MCP.Template.log</string>
+</dict>
+</plist>

@@ -1,0 +1,67 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The templates every new Snail project starts from: `dotnet new s3l-lib` and `dotnet new s3l-mcp`. They are the
+    standard as files — a project made from one builds, tests and passes the shared CI with no line changed — so a
+    change to the standard is a change here. The global.json of each names the Snail.Sdk version this package was
+    released with: SNAIL_SDK_VERSION is replaced at pack time.
+  -->
+  <PropertyGroup>
+    <PackageType>Template</PackageType>
+    <Description>The templates of a Snail library (dotnet new s3l-lib) and a Snail MCP server (dotnet new s3l-mcp), built on Snail.Sdk of the same release.</Description>
+    <PackageTags>dotnet-new;templates;mcp;mcp-server;library;snail</PackageTags>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IncludeContentInPack>false</IncludeContentInPack>
+    <NoDefaultExcludes>true</NoDefaultExcludes>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <IsAotCompatible>false</IsAotCompatible>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <NoWarn>$(NoWarn);NU5128;NU5110;NU5111</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SnailTemplateFile Include="content/**/*" Exclude="content/**/bin/**;content/**/obj/**" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);SnailStampTemplates</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
+  <!-- A replacement that leaves the rest of the file as it was: WriteLinesToFile would split it at every semicolon. -->
+  <UsingTask TaskName="SnailReplaceInFiles" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Files ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <Token Required="true" />
+      <Value Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        foreach (var file in Files)
+        {
+            var path = file.GetMetadata("FullPath");
+            System.IO.File.WriteAllText(path, System.IO.File.ReadAllText(path).Replace(Token, Value));
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="SnailStampTemplates">
+    <PropertyGroup>
+      <_SnailStamped>$(MSBuildProjectDirectory)/$(IntermediateOutputPath)content/</_SnailStamped>
+    </PropertyGroup>
+    <RemoveDir Directories="$(_SnailStamped)" />
+    <Copy SourceFiles="@(SnailTemplateFile)" DestinationFiles="@(SnailTemplateFile->'$(_SnailStamped)%(RecursiveDir)%(Filename)%(Extension)')" />
+    <ItemGroup>
+      <_SnailGlobalJson Include="$(_SnailStamped)**/global.json" />
+    </ItemGroup>
+    <SnailReplaceInFiles Files="@(_SnailGlobalJson)" Token="SNAIL_SDK_VERSION" Value="$(PackageVersion)" />
+    <ItemGroup>
+      <_SnailStampedFile Include="$(_SnailStamped)**/*" />
+      <TfmSpecificPackageFile Include="@(_SnailStampedFile)" PackagePath="content/" />
+      <!-- With IncludeContentInPack false the README item of Directory.Build.props is not packed by itself. -->
+      <TfmSpecificPackageFile Include="@(None)" Condition="'%(None.PackagePath)' == 'README.md'" PackagePath="README.md" />
+    </ItemGroup>
+  </Target>
+
+</Project>

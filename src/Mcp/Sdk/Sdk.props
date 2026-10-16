@@ -1,0 +1,8 @@
+<Project>
+
+  <!-- Snail.Sdk of the same release first, then what a server adds; the project body comes after and may override. -->
+  <Import Project="$(MSBuildThisFileDirectory)Snail.Sdk.Version.props" Condition="Exists('$(MSBuildThisFileDirectory)Snail.Sdk.Version.props')" />
+  <Import Project="Sdk.props" Sdk="Snail.Sdk" Version="$(SnailSdkVersion)" />
+  <Import Project="$(MSBuildThisFileDirectory)Snail.Sdk.Mcp.props" />
+
+</Project>

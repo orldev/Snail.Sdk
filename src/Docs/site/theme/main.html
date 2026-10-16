@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="{{ config.theme.locale|default('en') }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>{% if page and page.title and not page.is_homepage %}{{ page.title }} · {% endif %}{{ config.site_name }}</title>
+    <meta name="description" content="{{ page.meta.description if page and page.meta and page.meta.description else config.site_description }}">
+    {% if page and page.canonical_url %}<link rel="canonical" href="{{ page.canonical_url }}">{% endif %}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="{{ 'css/site.css'|url }}">
+  </head>
+  <body>
+    <a class="skip" href="#content">Skip to content</a>
+
+    {% include "partials/header.html" %}
+
+    <main class="page" id="content">
+      <div class="wrap">
+          <article class="prose">
+          {% block content %}{{ page.content }}{% endblock %}
+        </article>
+      </div>
+    </main>
+
+    {% include "partials/footer.html" %}
+
+    <script>window.SEARCH_INDEX = {{ ('search/search_index.json'|url)|tojson }};</script>
+    <script src="{{ 'js/site.js'|url }}" defer></script>
+
+    {%- if page and '<pre class="mermaid">' in page.content %}
+    {# Only the pages that carry a diagram pay for the library. Its palette is
+       the system's: white nodes, hairline borders, ink labels — line art. #}
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+    <script>
+      // superfences writes <pre class="mermaid"><code>…</code></pre> and escapes
+      // the source; mermaid 11 wants the bare text, so unwrap before running.
+      document.querySelectorAll('pre.mermaid > code').forEach(function (code) {
+        code.parentNode.textContent = code.textContent;
+      });
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        theme: 'base',
+        fontFamily: '"IBM Plex Sans", sans-serif',
+        themeVariables: {
+          background: '#ffffff',
+          primaryColor: '#ffffff',
+          primaryBorderColor: '#b4b4b4',
+          primaryTextColor: '#000000',
+          secondaryColor: '#ffffff',
+          tertiaryColor: '#ffffff',
+          lineColor: '#b4b4b4',
+          textColor: '#141414',
+          fontSize: '12px'
+        }
+      });
+      mermaid.run({ querySelector: 'pre.mermaid' });
+    </script>
+    {%- endif %}
+  </body>
+</html>

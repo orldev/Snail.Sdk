@@ -1,0 +1,27 @@
+<Project>
+
+  <!--
+    A package is checked against the last one published before it can break its users (its symbols: Snail.Sdk.Library.targets).
+    A build that names no version packs as that last release rather than as 1.0.0, which is below every baseline from
+    1.0.0 on and fails the check; a release names its version. Read here from Directory.Build.props, before another SDK's
+    targets set 1.0.0, and again in the targets for a baseline the project body sets.
+  -->
+  <PropertyGroup>
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <VersionPrefix Condition="'$(VersionPrefix)' == '' and '$(Version)' == '' and '$(SnailPackageBaseline)' != ''">$(SnailPackageBaseline)</VersionPrefix>
+  </PropertyGroup>
+
+  <!--
+    The public API as written down: PublicAPI.Shipped.txt for what was released, PublicAPI.Unshipped.txt for what was not
+    yet, beside the project. Microsoft.CodeAnalysis.PublicApiAnalyzers (Snail.Sdk.Library.targets) adds both files itself.
+  -->
+
+  <ItemGroup>
+    <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)Snail.Sdk.Library.globalconfig" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <SnailPublicApiAnalyzersVersion Condition="'$(SnailPublicApiAnalyzersVersion)' == ''">5.6.0</SnailPublicApiAnalyzersVersion>
+  </PropertyGroup>
+
+</Project>

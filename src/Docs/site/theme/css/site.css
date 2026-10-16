@@ -1,0 +1,772 @@
+/* ==========================================================================
+   The Snail design system v191125, the one theme of every Snail site
+   One grotesque, one mono, eight greys. Everything else is space and rules.
+
+   It travels in the Snail.Sdk levels, so every library and server site reads as
+   one family: change a token here and every site follows with the next SDK.
+   Drawn in Figma before it was written: desktop 276:947, mobile 282:1127.
+   Sizes are in px because the system is specified in px.
+   ========================================================================== */
+
+:root {
+  /* Light only, and on purpose. The system describes one set of eight greys
+     and no dark counterpart, so there is nothing honest to switch to.
+     Declaring the scheme keeps the browser from dressing the search field and
+     the scrollbars in its own dark treatment on a dark machine. */
+  color-scheme: light;
+
+  --bg:          #ffffff;
+  --ink:         #000000;
+  --data:        #141414;
+  --sec:         #565656;
+  --muted:       #7a7a7a;
+  --hl:          #a1a1a1;
+  --line:        #dadada;
+  --line-strong: #b4b4b4;
+  --err:         #b3261e;
+
+  /* Grid from the handoff sheet: page 1440, margin 152 @ 24, content 1056 @ 216 */
+  --page:    1440px;
+  --marg:    152px;
+  --gap:     40px;
+  --content: 1056px;
+
+  --sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--data);
+  font: 400 15px/24px var(--sans);
+  border-top: 2px solid var(--ink);
+}
+
+.skip {
+  position: absolute;
+  left: -9999px;
+}
+
+.skip:focus {
+  left: 24px;
+  top: 8px;
+  z-index: 10;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+/* The page is 1440 wide; the margin column hugs the left edge and the air is
+   left on the right, exactly as drawn. */
+.wrap {
+  max-width: var(--page);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* --- Header ---------------------------------------------------------------
+   One row: wordmark, navigation as commas, search. A single hairline closes
+   it, and the field darkens its own stretch of that same line. */
+
+.head-wrap {
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.head-row {
+  display: grid;
+  grid-template-columns: var(--marg) minmax(0, 1fr) 240px;
+  column-gap: var(--gap);
+  align-items: end;
+  max-width: calc(var(--marg) + var(--gap) + var(--content));
+  padding-top: 20px;
+}
+
+.wordmark {
+  grid-column: 1;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 30px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+/* Pinned, so the row keeps its shape on the home page where column one is
+   empty — auto-placement would otherwise slide the commas into the margin. */
+.head-row > .nav {
+  grid-column: 2;
+}
+
+.head-row > .search {
+  grid-column: 3;
+}
+
+.nav {
+  font-size: 13px;
+  line-height: 30px;
+  color: var(--sec);
+}
+
+/* The second row appears only inside a section, so it is a disclosure: the
+   system gives one 32 above, and nothing below may crowd it. The 20 here plus
+   the 104 under the rule are that room — a full 56 would tear the rule off the
+   words it closes. */
+.nav-sub {
+  max-width: calc(var(--marg) + var(--gap) + var(--content));
+  padding: 32px 0 20px calc(var(--marg) + var(--gap));
+  line-height: 20px;
+}
+
+.nav-link {
+  color: var(--sec);
+  text-decoration: none;
+}
+
+.nav-link:hover,
+.nav-link:focus-visible {
+  color: var(--ink);
+}
+
+.nav-link.is-active {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.sep {
+  color: var(--hl);
+}
+
+/* Two text links instead of a hamburger and a magnifier; mobile only. */
+.acts {
+  display: none;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 30px;
+}
+
+.act {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sec);
+  font: 400 13px/30px var(--sans);
+  cursor: pointer;
+}
+
+.act:hover,
+.act.is-on {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* The field has no box: its underline is the header rule, one pixel darker. */
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: -1px;
+  border-bottom: 1px solid var(--ink);
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0 0 6px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: 400 13px/20px var(--sans);
+  appearance: none;
+}
+
+.search-input::placeholder {
+  color: var(--hl);
+}
+
+.search-input:focus {
+  outline: none;
+}
+
+.search-input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.search-key {
+  padding: 0 0 6px 8px;
+  color: var(--hl);
+  font: 400 11px/20px var(--mono);
+}
+
+/* --- Search results -------------------------------------------------------
+   A data table, like every other list on the site: name in weight, location
+   quiet under it, rows parted by a hairline. */
+
+.results {
+  max-width: calc(var(--marg) + var(--gap) + var(--content));
+  margin-left: calc(var(--marg) + var(--gap));
+  padding: 16px 0 24px;
+}
+
+.results[hidden] {
+  display: none;
+}
+
+.result {
+  display: block;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+  text-decoration: none;
+}
+
+.result:last-child {
+  border-bottom: 0;
+}
+
+.result:hover {
+  border-bottom-color: var(--ink);
+}
+
+.result-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.result-where {
+  display: block;
+  margin-top: 2px;
+  font: 400 12px/18px var(--mono);
+  color: var(--muted);
+}
+
+.result-none {
+  padding: 14px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* --- The page -------------------------------------------------------------
+   Two columns: captions live in the margin, everything else in the content
+   column. A section heading is a caption, so it goes left; the paragraph that
+   follows it lands beside it in the same row. */
+
+.page {
+  padding: 0 0 96px;
+}
+
+.prose {
+  display: grid;
+  grid-template-columns: var(--marg) minmax(0, var(--content));
+  column-gap: var(--gap);
+  align-items: start;
+  padding-top: 104px;
+}
+
+.prose > * {
+  grid-column: 2;
+  margin: 0 0 20px;
+}
+
+/* Tool descriptions quote JSON inline — [{"type":"SOLID","color":{...}}] is one
+   unbreakable token 480px long, and on 390 it dragged the whole page sideways.
+   Prose may break a long word; inline code may break anywhere. */
+.prose {
+  overflow-wrap: break-word;
+}
+
+.prose :not(pre) > code {
+  overflow-wrap: anywhere;
+}
+
+/* A tool name in the margin is one long token. It breaks only where the
+   generator marks a seam with <wbr> — after an underscore — never mid-word. */
+.prose > h2 code {
+  overflow-wrap: normal;
+}
+
+.prose > h1 {
+  margin: 0 0 32px;
+  font-size: 30px;
+  line-height: 38px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.prose > h2 {
+  grid-column: 1;
+  margin: 80px 0 0;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* Its neighbour carries the same offset so the two tops meet on one line. */
+.prose > h2 + * {
+  margin-top: 80px;
+}
+
+/* A code block, a note, a folded schema or an h3 carries a margin of its own
+   that outranks the rule above, and rode up to 28 or 32 above the caption it
+   belongs to. Named here so the first thing under a caption meets it too. */
+.prose > h2 + :is(h3, details, .highlight, .admonition) {
+  margin-top: 80px;
+}
+
+.prose > h3 {
+  margin: 32px 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.prose > h4,
+.prose > h5,
+.prose > h6 {
+  margin: 24px 0 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.prose a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 2px;
+}
+
+.prose a:hover,
+.prose a:focus-visible {
+  text-decoration-color: var(--ink);
+}
+
+.prose strong {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 28px;
+}
+
+.prose li {
+  margin-bottom: 8px;
+}
+
+.prose li::marker {
+  color: var(--ink);
+}
+
+.prose hr {
+  height: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+/* The anchor is a sign, and a sign that is always on is decoration. */
+.headerlink {
+  margin-left: 8px;
+  color: var(--hl);
+  text-decoration: none;
+  opacity: 0;
+}
+
+.prose :is(h1, h2, h3, h4):hover > .headerlink,
+.headerlink:focus-visible {
+  opacity: 1;
+}
+
+/* --- Code -----------------------------------------------------------------
+   No filled box: mono between two hairlines. Weight separates a key from a
+   value, not hue — the greys of the system are the whole palette. */
+
+.prose code {
+  font: 400 13px/20px var(--mono);
+  color: var(--data);
+}
+
+.prose .highlight {
+  margin: 28px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+
+.prose .highlight pre {
+  margin: 0;
+  padding: 18px 0;
+}
+
+.prose pre {
+  overflow-x: auto;
+}
+
+.prose .highlight .nt,
+.prose .highlight .k,
+.prose .highlight .kd,
+.prose .highlight .kn,
+.prose .highlight .kc,
+.prose .highlight .nf {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.prose .highlight .s,
+.prose .highlight .s1,
+.prose .highlight .s2,
+.prose .highlight .sb,
+.prose .highlight .sd {
+  color: var(--sec);
+}
+
+.prose .highlight .c,
+.prose .highlight .c1,
+.prose .highlight .cm,
+.prose .highlight .cp {
+  color: var(--hl);
+  font-style: normal;
+}
+
+.prose .highlight .p,
+.prose .highlight .o,
+.prose .highlight .ow {
+  color: var(--muted);
+}
+
+/* --- Data table -----------------------------------------------------------
+   Header 12 muted under a strong rule; the name carries weight, rows are
+   parted by hairlines. Hovering darkens the rule — there are no fills here. */
+
+.scroll {
+  grid-column: 2;
+  margin: 0 0 20px;
+  overflow-x: auto;
+}
+
+/* Said only while the table really is wider than its column. */
+.scroll-note {
+  grid-column: 2;
+  margin: -12px 0 20px;
+  color: var(--hl);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.scroll-note[hidden] {
+  display: none;
+}
+
+/* The action sits above the block, right-aligned to the column edge, and is a
+   word in the quiet grey — hover is what makes it ink. */
+.prose .highlight {
+  position: relative;
+}
+
+.code-copy {
+  position: absolute;
+  top: -26px;
+  right: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--hl);
+  font: 400 12px/18px var(--sans);
+  cursor: pointer;
+}
+
+.code-copy:hover,
+.code-copy:focus-visible {
+  color: var(--ink);
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.prose th {
+  padding: 0 24px 8px 0;
+  border-bottom: 1px solid var(--line-strong);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.prose td {
+  padding: 16px 24px 16px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--sec);
+  vertical-align: top;
+}
+
+.prose tbody tr:hover td {
+  border-bottom-color: var(--ink);
+}
+
+.prose td:first-child {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* Name, type, required and default are single tokens: they keep their line and
+   the table scrolls inside its box, which says so, rather than spelling
+   "integer?" down a column one letter at a time. */
+.prose td:nth-child(-n + 4) code {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+/* --- Notes and folded blocks ----------------------------------------------
+   A note is a paragraph with a rule to its left, not a coloured box. The JSON
+   schema on every tool page is the heaviest user of <details>. */
+
+.prose details,
+.prose .admonition {
+  margin: 28px 0;
+  padding-left: 24px;
+  border-left: 1px solid var(--line-strong);
+}
+
+.prose summary,
+.prose .admonition-title {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  list-style: none;
+}
+
+.prose summary::-webkit-details-marker {
+  display: none;
+}
+
+.prose details[open] > summary {
+  color: var(--ink);
+}
+
+.prose .admonition.warning,
+.prose .admonition.danger {
+  border-left-color: var(--err);
+}
+
+/* --- Footer ---------------------------------------------------------------
+   Mono 11 under a hairline. No dark band. */
+
+.foot-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  max-width: calc(var(--marg) + var(--gap) + var(--content));
+  padding: 20px 0 96px;
+  border-top: 1px solid var(--line);
+}
+
+.foot-meta {
+  font: 400 11px/18px var(--mono);
+  color: var(--muted);
+}
+
+.foot-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.foot-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* --- Mobile 390 -----------------------------------------------------------
+   From the system's own line: the margin becomes a row above the content,
+   the content is 358 at 16, "Menu" is a link in the header, nothing sticks. */
+
+@media (max-width: 999px) {
+  .wrap {
+    padding: 0 16px;
+  }
+
+  .head-row {
+    grid-template-columns: 1fr auto;
+    column-gap: 16px;
+    align-items: baseline;
+    padding-top: 18px;
+    padding-bottom: 14px;
+  }
+
+  /* Pinned to the first row: when the commas unfold below, the two links must
+     stay next to the wordmark, not drift under the list they opened. */
+  .acts {
+    display: flex;
+    grid-row: 1;
+    grid-column: 2;
+    justify-self: end;
+  }
+
+  /* Folded away until "Menu" or "Search" is asked for — the system keeps no
+     drawer, so the header simply grows downwards in place. */
+  .nav,
+  .nav-sub,
+  .search {
+    display: none;
+  }
+
+  .head-row > .search,
+  .head-row > .nav {
+    grid-column: 1 / -1;
+  }
+
+  .head.is-open .nav {
+    display: block;
+    grid-column: 1 / -1;
+    padding-top: 16px;
+    font-size: 15px;
+    line-height: 24px;
+  }
+
+  .head.is-open .nav-sub {
+    display: block;
+    padding: 16px 0 0;
+    font-size: 15px;
+    line-height: 24px;
+  }
+
+  .head.is-open .nav-sub::before {
+    content: attr(aria-label);
+    display: block;
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 18px;
+  }
+
+  .head.is-searching .search {
+    display: flex;
+    grid-column: 1 / -1;
+    margin-top: 20px;
+    margin-bottom: -15px;
+  }
+
+  .search-input {
+    font-size: 15px;
+    padding-bottom: 8px;
+  }
+
+  .results {
+    margin-left: 0;
+  }
+
+  .prose {
+    display: block;
+    padding-top: 104px;
+  }
+
+  .prose > h2 {
+    margin: 80px 0 26px;
+  }
+
+  /* A flow chart shrunk to 358 is a grey smudge, and the system says formulas
+     are hidden here. The paragraph above says the same in words, and
+     Architecture is one line down in "Where to go next". */
+  .prose pre.mermaid {
+    display: none;
+  }
+
+  .prose > h2 + *,
+  .prose > h2 + :is(h3, details, .highlight, .admonition) {
+    margin-top: 0;
+  }
+
+  /* Four columns and more are the generated tables, and in them name, type,
+     required and default keep their line — at 358 the description was left a
+     sliver and every row grew a screen tall. It keeps a readable measure and
+     the table scrolls in its box instead, which the note under it says. */
+  .prose table:has(th:nth-child(4)) {
+    width: 760px;
+  }
+
+  /* Two and three columns are a name and what is said of it, and side by side
+     at 358 the words were left one to a line beside a long signature. So each
+     row stacks: the name on its own line, then every other cell under the
+     label of its column, which site.js copies onto it from the header. */
+  .prose table:not(:has(th:nth-child(4))),
+  .prose table:not(:has(th:nth-child(4))) tbody,
+  .prose table:not(:has(th:nth-child(4))) tr,
+  .prose table:not(:has(th:nth-child(4))) td {
+    display: block;
+    width: auto;
+  }
+
+  .prose table:not(:has(th:nth-child(4))) thead {
+    display: none;
+  }
+
+  .prose table:not(:has(th:nth-child(4))) tr {
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .prose table:not(:has(th:nth-child(4))) tbody tr:hover {
+    border-bottom-color: var(--ink);
+  }
+
+  .prose table:not(:has(th:nth-child(4))) td {
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .prose table:not(:has(th:nth-child(4))) td + td {
+    margin-top: 8px;
+  }
+
+  /* A cell with nothing in it would leave its label standing alone. */
+  .prose table:not(:has(th:nth-child(4))) td:empty {
+    display: none;
+  }
+
+  .prose table:not(:has(th:nth-child(4))) td + td[data-label]:not([data-label=""])::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  .prose table:not(:has(th:nth-child(4))) td code {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .foot-row {
+    display: block;
+    padding-bottom: 64px;
+  }
+
+  .foot-link {
+    display: block;
+    margin-top: 8px;
+  }
+}

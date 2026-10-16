@@ -1,0 +1,101 @@
+<Project>
+
+  <!--
+    What every Snail library and server is built with, set before the project body so that a project can still say
+    otherwise. The target framework stays in each project: set here, it would turn a project with TargetFrameworks
+    into a single-target build.
+
+    Two kinds of setting. A default — the language version, implicit usings, the versions of the analyzers below — is
+    the repository's to change in its Directory.Build.props, and is set only when nothing above has set it. A rule of
+    the standard — nullable references, XML docs, warnings as errors, code style and analysis in the build, the audit —
+    is set whatever Directory.Build.props says: a whole repository does not opt out of the standard in one line.
+  -->
+  <PropertyGroup>
+    <LangVersion Condition="'$(LangVersion)' == ''">latest</LangVersion>
+    <ImplicitUsings Condition="'$(ImplicitUsings)' == ''">enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <!--
+    A project's kind is read from its name, so that a test or benchmark project needs no lines of its own:
+    *.Tests is a test project, *.Benchmarks a benchmark program, *.NativeProbe the native app that proves a library
+    works when published with Native AOT. Read here, before any level's targets, so each level can act on it; a project
+    whose name says otherwise sets SnailProjectKind in its body. Tool, which no name implies, is a program of the
+    repository's own — a generator, a probe: neither packed nor a test.
+  -->
+  <PropertyGroup>
+    <SnailProjectKind Condition="$(MSBuildProjectName.EndsWith('.Tests'))">Tests</SnailProjectKind>
+    <SnailProjectKind Condition="$(MSBuildProjectName.EndsWith('.Benchmarks'))">Benchmarks</SnailProjectKind>
+    <SnailProjectKind Condition="$(MSBuildProjectName.EndsWith('.NativeProbe'))">NativeProbe</SnailProjectKind>
+  </PropertyGroup>
+
+  <!--
+    A test project that sits directly in tests/ would compile the native probe beside it, tests/<Name>.NativeProbe/, as
+    its own code: the probe is a project of its own and is left out of the test project's items.
+  -->
+  <PropertyGroup Condition="'$(SnailProjectKind)' == 'Tests'">
+    <DefaultItemExcludes>$(DefaultItemExcludes);*.NativeProbe/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <!--
+    Analysis: the rules of whichever SDK builds the code, in its Default mode. Recommended would give some 145 rules a
+    warning each, one by one, and a rule named by itself outranks a category, so the first rule a newer SDK added would
+    fail the build. Snail.Sdk.globalconfig turns every category into advice and names the agreed rules as warnings.
+  -->
+  <PropertyGroup>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Default</AnalysisMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)Snail.Sdk.globalconfig" />
+  </ItemGroup>
+
+  <!--
+    A known vulnerability in any package, direct or transitive, fails the build under warnings as errors. A repository
+    that has to live with one advisory for a while names it, <NuGetAuditSuppress Include="<advisory URL>" />, rather
+    than lowering the level for every package.
+  -->
+  <PropertyGroup>
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+  </PropertyGroup>
+
+  <!-- The same sources give the same binaries, and a package says which commit it was built from. -->
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true' or '$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <RepositoryType>git</RepositoryType>
+    <Authors Condition="'$(Authors)' == ''">orldev</Authors>
+    <PackageLicenseExpression Condition="'$(PackageLicenseExpression)' == ''">MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <!--
+    Analyzers that update with the SDK package rather than with each repository: the owner's own, of the same release as
+    this SDK, and the threading analyzers.
+  -->
+  <Import Project="$(MSBuildThisFileDirectory)Snail.Sdk.Version.props" Condition="Exists('$(MSBuildThisFileDirectory)Snail.Sdk.Version.props')" />
+
+  <PropertyGroup>
+    <SnailThreadingAnalyzersVersion Condition="'$(SnailThreadingAnalyzersVersion)' == ''">17.14.15</SnailThreadingAnalyzersVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Snail.Sdk.Analyzers"
+                      Version="$(SnailSdkVersion)"
+                      PrivateAssets="all"
+                      IsImplicitlyDefined="true"
+                      Condition="'$(SnailSdkVersion)' != '' and '$(SnailAnalyzers)' != 'false'" />
+    <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers"
+                      Version="$(SnailThreadingAnalyzersVersion)"
+                      PrivateAssets="all"
+                      IsImplicitlyDefined="true" />
+  </ItemGroup>
+
+</Project>

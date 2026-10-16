@@ -1,0 +1,75 @@
+<Project>
+
+  <!--
+    A library is native-compatible unless it says why not, in one property: SnailNotNativeBecause. The reason is the
+    whole exception — Minio, whose own dependency reads wrong under Native AOT, is the example the audit found.
+  -->
+  <PropertyGroup Condition="'$(SnailProjectKind)' == ''">
+    <IsAotCompatible Condition="'$(IsAotCompatible)' == '' and '$(SnailNotNativeBecause)' == ''">true</IsAotCompatible>
+    <IsAotCompatible Condition="'$(SnailNotNativeBecause)' != ''">false</IsAotCompatible>
+    <PackageValidationBaselineVersion Condition="'$(PackageValidationBaselineVersion)' == '' and '$(SnailPackageBaseline)' != ''">$(SnailPackageBaseline)</PackageValidationBaselineVersion>
+  </PropertyGroup>
+
+  <!--
+    Beside another SDK (Razor, Web) these targets come after Microsoft.NET.Sdk.Analyzers.targets, which has already read
+    IsAotCompatible to turn the trim and AOT analyzers on, found it empty and set them off: a library that claims to be
+    native would then be checked by nothing. They are turned on here as Microsoft.NET.Sdk would have, with the pack that carries them.
+  -->
+  <PropertyGroup Condition="'$(SnailProjectKind)' == '' and '$(_SnailImportsMicrosoftSdk)' != 'true' and '$(IsAotCompatible)' == 'true'">
+    <IsTrimmable Condition="'$(IsTrimmable)' == ''">true</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    <_RequiresILLinkPack>true</_RequiresILLinkPack>
+  </PropertyGroup>
+
+  <!--
+    A package carries its symbols, unless it carries no assembly at all (IncludeBuildOutput false: MSBuild targets,
+    content): its symbol package would be empty, which NuGet refuses (NU5017).
+  -->
+  <PropertyGroup Condition="'$(SnailProjectKind)' == ''">
+    <IncludeSymbols Condition="'$(IncludeSymbols)' == '' and '$(IncludeBuildOutput)' != 'false'">true</IncludeSymbols>
+    <SymbolPackageFormat Condition="'$(SymbolPackageFormat)' == ''">snupkg</SymbolPackageFormat>
+    <VersionPrefix Condition="'$(VersionPrefix)' == '' and '$(Version)' == '' and '$(SnailPackageBaseline)' != ''">$(SnailPackageBaseline)</VersionPrefix>
+  </PropertyGroup>
+
+  <!-- The public API is kept for the library itself; its tests and benchmarks have none. -->
+  <ItemGroup Condition="'$(SnailProjectKind)' == ''">
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers"
+                      Version="$(SnailPublicApiAnalyzersVersion)"
+                      PrivateAssets="all"
+                      IsImplicitlyDefined="true" />
+  </ItemGroup>
+
+  <!--
+    The API reference, on request: build with -p:SnailReference=true and <assembly>.md in the pages folder,
+    SnailReferenceFolder — docs/reference beside the repository's global.json unless the project names another — is
+    written again from the assembly just built. It is read without being run, through the references the compiler used,
+    so what the page shows is what a user compiles against.
+  -->
+  <PropertyGroup>
+    <_SnailLibraryRepository>$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), global.json))</_SnailLibraryRepository>
+    <_SnailLibraryRepository Condition="'$(_SnailLibraryRepository)' == ''">$(MSBuildProjectDirectory)</_SnailLibraryRepository>
+    <SnailReferenceFolder Condition="'$(SnailReferenceFolder)' == ''">$(_SnailLibraryRepository)/docs/reference</SnailReferenceFolder>
+    <_SnailDocsTool>$(MSBuildThisFileDirectory)../tools/docs/Snail.Sdk.Docs.dll</_SnailDocsTool>
+    <_SnailDotnet>$(DOTNET_HOST_PATH)</_SnailDotnet>
+    <_SnailDotnet Condition="'$(_SnailDotnet)' == ''">dotnet</_SnailDotnet>
+  </PropertyGroup>
+
+  <Target Name="SnailReference"
+          AfterTargets="Build"
+          Condition="'$(SnailReference)' == 'true' and '$(SnailProjectKind)' == '' and '$(TargetFramework)' != ''">
+    <PropertyGroup>
+      <_SnailReferences>$(IntermediateOutputPath)Snail.Sdk.References.txt</_SnailReferences>
+      <_SnailReferencePages>$(SnailReferenceFolder.TrimEnd('/\'))</_SnailReferencePages>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_SnailReferences)" Lines="@(ReferencePath->'%(FullPath)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <Exec Command="&quot;$(_SnailDotnet)&quot; &quot;$(_SnailDocsTool)&quot; api &quot;@(IntermediateAssembly->'%(FullPath)')&quot; &quot;@(DocFileItem->'%(FullPath)')&quot; &quot;$(_SnailReferences)&quot; &quot;$(_SnailReferencePages)&quot;" />
+    <ItemGroup>
+      <FileWrites Include="$(_SnailReferences)" />
+    </ItemGroup>
+  </Target>
+
+  <Import Project="$(MSBuildThisFileDirectory)Snail.Sdk.Site.targets" />
+
+</Project>

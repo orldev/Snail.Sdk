@@ -1,0 +1,92 @@
+<Project>
+
+  <!--
+    The documentation site, on request, the same on a machine and in docs.yml:
+
+      dotnet msbuild <a project of the repository> -t:SnailSite                         # builds into obj/snail-site/site
+      dotnet msbuild <a project of the repository> -t:SnailSite -p:SnailSiteServe=true  # serves it, reloading on a change
+
+    Snail.Sdk.Docs writes the MkDocs configuration with the theme this package carries, so every site looks the same and
+    changes with the SDK: a repository keeps no theme of its own. A repository with docs/mkdocs.yml keeps its navigation
+    and pages and gets the theme; any other gets README.md as its home page, the pages of docs/ and the reference last.
+    MkDocs runs from a virtual environment in obj/ with the versions the SDK pins, made on the first build of each SDK
+    version; SnailSitePython names an interpreter that already has them instead. The build is strict: a broken link or a
+    page the navigation leaves out fails it.
+
+    SnailSiteTheme is public for a server whose own HTTP pages wear the theme (its css/site.css); SnailSiteProject says
+    whether a project builds the site, so docs.yml finds one without being told.
+  -->
+  <PropertyGroup>
+    <SnailSiteTheme>$([MSBuild]::NormalizeDirectory($(MSBuildThisFileDirectory), '..', 'tools', 'docs', 'site', 'theme'))</SnailSiteTheme>
+    <_SnailSiteRequirements>$(MSBuildThisFileDirectory)../tools/docs/site/requirements.txt</_SnailSiteRequirements>
+    <_SnailSiteRepository>$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), global.json))</_SnailSiteRepository>
+    <_SnailSiteRepository Condition="'$(_SnailSiteRepository)' == ''">$(MSBuildProjectDirectory)</_SnailSiteRepository>
+    <_SnailSiteWork>$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(BaseIntermediateOutputPath), 'snail-site'))</_SnailSiteWork>
+    <SnailSiteFolder Condition="'$(SnailSiteFolder)' == ''">$(_SnailSiteWork)site</SnailSiteFolder>
+    <SnailSiteDescription Condition="'$(SnailSiteDescription)' == ''">$(Description)</SnailSiteDescription>
+    <SnailSiteRepositoryUrl Condition="'$(SnailSiteRepositoryUrl)' == ''">$(RepositoryUrl)</SnailSiteRepositoryUrl>
+    <SnailSiteLicense Condition="'$(SnailSiteLicense)' == ''">$(PackageLicenseExpression)</SnailSiteLicense>
+    <SnailSiteProject Condition="'$(SnailProjectKind)' == ''">true</SnailSiteProject>
+    <_SnailSiteBasePython Condition="'$(_SnailSiteBasePython)' == '' and '$(OS)' == 'Windows_NT'">python</_SnailSiteBasePython>
+    <_SnailSiteBasePython Condition="'$(_SnailSiteBasePython)' == ''">python3</_SnailSiteBasePython>
+  </PropertyGroup>
+
+  <Target Name="SnailSite">
+    <Error Condition="'$(SnailSiteProject)' != 'true'" Text="SnailSite runs on the library or the server, not on a project of kind '$(SnailProjectKind)'." />
+
+    <!--
+      Paths reach the commands without a trailing separator: on Windows "C:\…\snail-site\" would end in \", which the
+      command line reads as a quote kept in the argument rather than as its end.
+    -->
+    <PropertyGroup>
+      <_SnailSiteWorkPath>$(_SnailSiteWork.TrimEnd('/\'))</_SnailSiteWorkPath>
+      <_SnailSiteOutput>$(SnailSiteFolder.TrimEnd('/\'))</_SnailSiteOutput>
+      <_SnailSiteFacts>$(_SnailSiteWork)facts.txt</_SnailSiteFacts>
+      <_SnailSiteVenv>$(_SnailSiteWork)venv</_SnailSiteVenv>
+      <_SnailSiteInstalled>$(_SnailSiteVenv)/snail-sdk-$(SnailSdkVersion)</_SnailSiteInstalled>
+      <_SnailSitePython>$(SnailSitePython)</_SnailSitePython>
+      <_SnailSitePython Condition="'$(_SnailSitePython)' == '' and '$(OS)' == 'Windows_NT'">$(_SnailSiteVenv)/Scripts/python.exe</_SnailSitePython>
+      <_SnailSitePython Condition="'$(_SnailSitePython)' == ''">$(_SnailSiteVenv)/bin/python</_SnailSitePython>
+      <_SnailSiteCommand Condition="'$(SnailSiteServe)' == 'true'">serve</_SnailSiteCommand>
+      <_SnailSiteCommand Condition="'$(SnailSiteServe)' != 'true'">build --site-dir &quot;$(_SnailSiteOutput)&quot;</_SnailSiteCommand>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(_SnailSiteWork)" />
+    <WriteLinesToFile File="$(_SnailSiteFacts)"
+                      Overwrite="true"
+                      Lines="$([MSBuild]::Escape('repository=$(_SnailSiteRepository)'));$([MSBuild]::Escape('theme=$(SnailSiteTheme)'));$([MSBuild]::Escape('name=$(SnailSiteName)'));$([MSBuild]::Escape('description=$(SnailSiteDescription)'));$([MSBuild]::Escape('repository-url=$(SnailSiteRepositoryUrl)'));$([MSBuild]::Escape('license=$(SnailSiteLicense)'))" />
+    <Exec Command="&quot;$(_SnailDotnet)&quot; &quot;$(_SnailDocsTool)&quot; site &quot;$(_SnailSiteFacts)&quot; &quot;$(_SnailSiteWorkPath)&quot;" />
+
+    <Error Condition="'$(SnailSitePython)' != '' and !Exists('$(SnailSitePython)')"
+           Text="SnailSitePython names $(SnailSitePython), which does not exist: name an interpreter that has the packages of $(_SnailSiteRequirements), or leave SnailSitePython empty for the build to make its own environment." />
+
+    <!--
+      The environment is made again when it is missing, when it was made for another SDK version, or when its interpreter
+      is gone — a venv keeps a link to the Python it was made from, and an upgrade of that Python breaks it.
+    -->
+    <PropertyGroup Condition="'$(SnailSitePython)' == '' and (!Exists('$(_SnailSiteInstalled)') or !Exists('$(_SnailSitePython)'))">
+      <_SnailSiteMakeVenv>true</_SnailSiteMakeVenv>
+    </PropertyGroup>
+
+    <Exec Condition="'$(_SnailSiteMakeVenv)' == 'true'"
+          Command="$(_SnailSiteBasePython) -m venv --clear &quot;$(_SnailSiteVenv)&quot;"
+          IgnoreExitCode="true">
+      <Output TaskParameter="ExitCode" PropertyName="_SnailSiteVenvExitCode" />
+    </Exec>
+    <Error Condition="'$(_SnailSiteMakeVenv)' == 'true' and '$(_SnailSiteVenvExitCode)' != '0'"
+           Text="SnailSite makes MkDocs a virtual environment with $(_SnailSiteBasePython), which could not make one (exit code $(_SnailSiteVenvExitCode)): install Python 3 with its venv module, or set SnailSitePython to an interpreter that has the packages of $(_SnailSiteRequirements)." />
+
+    <Exec Condition="'$(_SnailSiteMakeVenv)' == 'true'"
+          Command="&quot;$(_SnailSitePython)&quot; -m pip install --quiet --disable-pip-version-check --requirement &quot;$(_SnailSiteRequirements)&quot;"
+          IgnoreExitCode="true">
+      <Output TaskParameter="ExitCode" PropertyName="_SnailSitePipExitCode" />
+    </Exec>
+    <Error Condition="'$(_SnailSiteMakeVenv)' == 'true' and '$(_SnailSitePipExitCode)' != '0'"
+           Text="pip could not install the packages of $(_SnailSiteRequirements) into $(_SnailSiteVenv) (exit code $(_SnailSitePipExitCode)): check that the package index is reachable, or set SnailSitePython to an interpreter that has them." />
+    <Touch Condition="'$(_SnailSiteMakeVenv)' == 'true'" Files="$(_SnailSiteInstalled)" AlwaysCreate="true" />
+
+    <Exec Command="&quot;$(_SnailSitePython)&quot; -m mkdocs $(_SnailSiteCommand) --strict --config-file &quot;$(_SnailSiteWork)mkdocs.yml&quot;" />
+    <Message Condition="'$(SnailSiteServe)' != 'true'" Importance="high" Text="Snail site: $(_SnailSiteOutput)" />
+  </Target>
+
+</Project>

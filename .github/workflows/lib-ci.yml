@@ -1,0 +1,167 @@
+name: library CI
+
+# The build and tests of a Snail library, called from its own ci.yml:
+#
+#   jobs:
+#     ci:
+#       uses: orldev/Snail.Sdk/.github/workflows/lib-ci.yml@v1
+#       secrets: inherit    # only for tests that pull a signed-in Docker Hub image
+#
+# The tests; the conformance check; the API reference the build writes, which must be the one committed; the package
+# packed and validated against the last release (SnailPackageBaseline); and the native probe, when the repository keeps
+# one, published with Native AOT and run.
+
+on:
+  workflow_call:
+    inputs:
+      solution:
+        description: The solution to build; the one .slnx at the root when empty.
+        type: string
+        default: ''
+      os:
+        description: The runner the tests run on.
+        type: string
+        default: ubuntu-latest
+      test-filter:
+        description: A dotnet test filter, such as one that leaves out tests needing a container.
+        type: string
+        default: ''
+      test-environment:
+        description: Variables the tests run with, one NAME=value a line, such as one that turns a skipped container test into a failure.
+        type: string
+        default: ''
+      forgiven-native-warnings:
+        description: >-
+          An extended regular expression of native warnings a probe may hear — a dependency's, explained in the probe
+          project, such as 'Microsoft\.AspNetCore\.Components'. Every other trim or AOT warning still fails.
+        type: string
+        default: ''
+    secrets:
+      DOCKERHUB_USERNAME:
+        required: false
+      DOCKERHUB_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 30
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+    steps:
+      - uses: actions/checkout@v7
+      # A test container whose image Docker Hub gives only to a signed-in pull (minio/minio): the caller passes
+      # secrets: inherit and keeps DOCKERHUB_USERNAME and DOCKERHUB_TOKEN; without them the step is skipped.
+      - name: Docker Hub
+        if: env.DOCKERHUB_USERNAME != ''
+        uses: docker/login-action@v4
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Solution
+        id: solution
+        env:
+          GIVEN: ${{ inputs.solution }}
+        run: |
+          solution="${GIVEN:-$(find . -maxdepth 1 -name '*.slnx' | head -n 1)}"
+          if [ ! -f "$solution" ]; then
+            echo "::error::no solution found: name one in the 'solution' input"
+            exit 1
+          fi
+          echo "path=$solution" >> "$GITHUB_OUTPUT"
+
+      - name: Tests
+        env:
+          SOLUTION: ${{ steps.solution.outputs.path }}
+          FILTER: ${{ inputs.test-filter }}
+          ENVIRONMENT: ${{ inputs.test-environment }}
+        run: |
+          arguments=(test "$SOLUTION" -c Release --logger "trx;LogFileName=tests.trx" --results-directory artifacts/tests)
+          if [ -n "$FILTER" ]; then
+            arguments+=(--filter "$FILTER")
+          fi
+          while IFS= read -r variable; do
+            if [ -n "$variable" ]; then
+              export "${variable?}"
+            fi
+          done <<< "$ENVIRONMENT"
+          dotnet "${arguments[@]}"
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test results
+          path: artifacts/tests
+
+      - name: Conformance
+        run: |
+          project="$(find src -name '*.csproj' -not -path '*/obj/*' | sort | head -n 1)"
+          dotnet msbuild "$project" -t:SnailConformance -nologo
+
+      - name: The reference is the one committed
+        env:
+          SOLUTION: ${{ steps.solution.outputs.path }}
+        run: |
+          dotnet build "$SOLUTION" -c Release -p:SnailReference=true
+          if [ -n "$(git status --porcelain -- docs)" ]; then
+            git status --short -- docs
+            echo "::error::docs/ differs from what the build writes: build with -p:SnailReference=true and commit it"
+            exit 1
+          fi
+
+      - name: The package, validated against the last release
+        env:
+          SOLUTION: ${{ steps.solution.outputs.path }}
+        run: dotnet pack "$SOLUTION" -c Release -o artifacts/packages
+
+  native-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FORGIVEN: ${{ inputs.forgiven-native-warnings }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Probes
+        id: probe
+        run: |
+          find . -name '*.NativeProbe.csproj' -not -path '*/obj/*' | sort > probes.txt
+          echo "count=$(wc -l < probes.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+
+      - if: steps.probe.outputs.count != '0'
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Native toolchain
+        if: steps.probe.outputs.count != '0'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      # IsAotCompatible sees warnings only; a library can be clean and still bind nothing in a native app. Each probe
+      # is such an app: it must publish without a trim or AOT warning, then run and exit 0. Every probe of the
+      # repository runs, and each is started by its assembly's name, which need not be its project's. A dependency's
+      # own warnings, named in forgiven-native-warnings, are heard but forgiven; any other fails.
+      - name: Published with Native AOT and run
+        if: steps.probe.outputs.count != '0'
+        run: |
+          while IFS= read -r project; do
+            name="$(basename "$project" .csproj)"
+            mkdir -p "probe/$name"
+            dotnet publish "$project" -c Release -r linux-x64 -o "probe/$name" 2>&1 | tee "probe/$name.log"
+            if grep -E "warning (IL|AOT)[0-9]+" "probe/$name.log" | grep -vE "${FORGIVEN:-^$}"; then
+              echo "::error::$name: the native build warned; a warning here is a call that fails at run time"
+              exit 1
+            fi
+            program="probe/$name/$(dotnet msbuild "$project" -getProperty:AssemblyName -p:RuntimeIdentifier=linux-x64)"
+            echo "::group::$name"
+            "$program"
+            echo "::endgroup::"
+          done < probes.txt

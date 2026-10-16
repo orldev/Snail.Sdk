@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    No code: the MSBuild SDK of a Snail MCP server, on top of Snail.Sdk of the same release. A server and its tests name
+    it in their Sdk attribute: <Project Sdk="Snail.Sdk.Mcp/1.0.0">, with the version in global.json's msbuild-sdks.
+  -->
+  <PropertyGroup>
+    <Description>
+      The MSBuild SDK of a Snail MCP server: Snail.Sdk, plus a dotnet tool of the McpServer kind described by three
+      properties (native, transport, container), the hosting libraries implicitly, the tool reference generated from the
+      server itself, and publishing into ~/.s3l-mcp/&lt;name&gt;/&lt;date-time&gt;.&lt;commit&gt;/ with
+      `dotnet publish -c Release -r &lt;rid&gt; -p:SnailMcpInstall=true`.
+    </Description>
+    <PackageTags>mcp;mcp-server;msbuild;sdk;publish;native-aot</PackageTags>
+    <PackageType>MSBuildSdk</PackageType>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <IsAotCompatible>false</IsAotCompatible>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="Sdk/*" Pack="true" PackagePath="Sdk/" />
+    <None Include="$(IntermediateOutputPath)Snail.Sdk.Version.props" Pack="true" PackagePath="Sdk/" Visible="false" />
+  </ItemGroup>
+
+  <!--
+    The reference generator travels in the package, framework-dependent, so a build runs it with the dotnet it has.
+    It is published with the global properties this project was given, so a parallel build of the solution builds it
+    once, in its own bin/, rather than once per packing project with properties of its own into the same obj/.
+  -->
+  <Target Name="SnailPackDocs" BeforeTargets="_GetPackageFiles">
+    <MSBuild Projects="../Docs/Docs.csproj" Targets="Publish" />
+    <MSBuild Projects="../Docs/Docs.csproj" Targets="GetTargetPath">
+      <Output TaskParameter="TargetOutputs" ItemName="_SnailDocsBuilt" />
+    </MSBuild>
+    <PropertyGroup>
+      <_SnailDocsPublished>@(_SnailDocsBuilt->'%(RootDir)%(Directory)publish/')</_SnailDocsPublished>
+    </PropertyGroup>
+    <ItemGroup>
+      <None Include="$(_SnailDocsPublished)*.dll;$(_SnailDocsPublished)*.json" Pack="true" PackagePath="tools/docs/" Visible="false" />
+    </ItemGroup>
+  </Target>
+
+  <!-- The site: its target beside the level's own, the theme and the pinned MkDocs beside the generator. -->
+  <ItemGroup>
+    <None Include="../Docs/Snail.Sdk.Site.targets" Pack="true" PackagePath="Sdk/" Visible="false" />
+    <None Include="../Docs/site/**" Pack="true" PackagePath="tools/docs/site/" Visible="false" />
+  </ItemGroup>
+
+  <!-- The level names the version of Snail.Sdk it stands on — its own, as both are released together. -->
+  <Target Name="SnailWriteSdkVersion" BeforeTargets="_GetPackageFiles;GenerateNuspec">
+    <WriteLinesToFile File="$(IntermediateOutputPath)Snail.Sdk.Version.props"
+                      Lines="&lt;Project&gt;&lt;PropertyGroup&gt;&lt;SnailSdkVersion&gt;$(PackageVersion)&lt;/SnailSdkVersion&gt;&lt;/PropertyGroup&gt;&lt;/Project&gt;"
+                      Overwrite="true" WriteOnlyWhenDifferent="true" />
+  </Target>
+
+</Project>

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Measures what one session of Claude Code pays for its stdio MCP servers: every server of ~/.claude.json started the
+    way the client starts it, its handshake, tool list, one harmless call and its memory after ten seconds of rest.
+    Arguments: a label, the output file, and optionally server=command pairs to measure only those servers, started so.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" />
+  </ItemGroup>
+
+</Project>

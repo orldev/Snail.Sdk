@@ -1,0 +1,133 @@
+<Project>
+
+  <!--
+    Project folders are short (Mcp, Mcp.Hosting, Mcp.Testing) so the solution stays readable in an IDE; the names that
+    reach the outside world are derived here: Snail.Sdk.Mcp, Snail.Sdk.Mcp.Hosting, Snail.Sdk.Mcp.Testing.
+  -->
+  <PropertyGroup>
+    <Product>Snail.Sdk</Product>
+    <PackageId>$(Product).$(MSBuildProjectName)</PackageId>
+    <AssemblyName>$(PackageId)</AssemblyName>
+    <RootNamespace>$(PackageId)</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Every server built on these packages is a native program; what would break that breaks this build first. -->
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <!--
+    The rules this repository ships, applied to itself from source: it cannot build on the package it makes, so the
+    config comes from src/Sdk/Sdk, the analyzers from src/Analyzers built a moment before, and the threading analyzers
+    from the same version Snail.Sdk.props gives the fleet. The kind is read from the name as Snail.Sdk.props reads it,
+    for the test relaxations and for S3L0005, which treats a test's text as data.
+  -->
+  <PropertyGroup>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Default</AnalysisMode>
+    <SnailProjectKind Condition="$(MSBuildProjectName.EndsWith('.Tests'))">Tests</SnailProjectKind>
+    <SnailProjectKind Condition="$(MSBuildProjectName.EndsWith('.Benchmarks'))">Benchmarks</SnailProjectKind>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)src/Sdk/Sdk/Snail.Sdk.globalconfig" />
+    <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)src/Sdk/Sdk/Snail.Sdk.Tests.globalconfig"
+                               Condition="'$(SnailProjectKind)' != ''" />
+    <CompilerVisibleProperty Include="SnailProjectKind" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'Analyzers'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Analyzers/Analyzers.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!--
+    One version for every package in the repository, stated as a prefix so that `dotnet pack -p:VersionSuffix=local`
+    gives 0.1.0-local, the form the local feed holds.
+  -->
+  <PropertyGroup>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <Authors>orldev</Authors>
+    <Copyright>Copyright (c) orldev</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/orldev/Snail.Sdk</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/orldev/Snail.Sdk</PackageProjectUrl>
+  </PropertyGroup>
+
+  <!--
+    The same sources give the same binaries, and a package says which commit it was built from: SourceLink comes with
+    the .NET SDK, and a CI build maps the paths it compiled from to the repository's, so no machine's folder is written
+    into a package. A package with an assembly of its own sets IncludeSymbols and carries its symbols beside it.
+  -->
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true' or '$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <!--
+    Every package carries a README of its own, written for nuget.org with absolute links: pack/<PackageId>.md, packed as
+    README.md. A packable project without one fails to pack (NU5039).
+  -->
+  <PropertyGroup>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <None Include="$(MSBuildThisFileDirectory)pack/$(PackageId).md" Pack="true" PackagePath="README.md" Visible="false" />
+  </ItemGroup>
+
+  <!--
+    A description is written in the project file across lines, to be read there; nuget.org shows it as it is packed,
+    so it is packed as one line.
+  -->
+  <Target Name="SnailOneLineDescription" BeforeTargets="GenerateNuspec">
+    <PropertyGroup>
+      <PackageDescription>$([System.Text.RegularExpressions.Regex]::Replace($(PackageDescription.Trim()), '\s+', ' '))</PackageDescription>
+    </PropertyGroup>
+  </Target>
+
+  <!--
+    The API reference of the libraries a server builds on, the page a library on Snail.Sdk.Library writes of itself:
+    a project with its public API written down (PublicAPI.Shipped.txt) built with -p:SnailReference=true writes
+    docs/reference/<assembly>.md from the assembly just built, with src/Docs. These libraries build from source on
+    Microsoft.NET.Sdk, so the target lives here; tools/site.sh runs it before it builds the site. The generator is built,
+    restored first, with the global properties of the build that asks, so a solution build makes it once.
+  -->
+  <Target Name="SnailSdkReference"
+          AfterTargets="Build"
+          Condition="'$(SnailReference)' == 'true' and Exists('$(MSBuildProjectDirectory)/PublicAPI.Shipped.txt')">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)src/Docs/Docs.csproj" Targets="Restore" Properties="MSBuildRestoreSessionId=$([System.Guid]::NewGuid())" />
+    <MSBuild Projects="$(MSBuildThisFileDirectory)src/Docs/Docs.csproj" Targets="Build">
+      <Output TaskParameter="TargetOutputs" ItemName="_SnailSdkDocsTool" />
+    </MSBuild>
+
+    <PropertyGroup>
+      <_SnailSdkDotnet>$(DOTNET_HOST_PATH)</_SnailSdkDotnet>
+      <_SnailSdkDotnet Condition="'$(_SnailSdkDotnet)' == ''">dotnet</_SnailSdkDotnet>
+      <_SnailSdkReferences>$(IntermediateOutputPath)Snail.Sdk.References.txt</_SnailSdkReferences>
+    </PropertyGroup>
+
+    <WriteLinesToFile File="$(_SnailSdkReferences)" Lines="@(ReferencePath->'%(FullPath)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <Exec Command="&quot;$(_SnailSdkDotnet)&quot; &quot;@(_SnailSdkDocsTool)&quot; api &quot;@(IntermediateAssembly->'%(FullPath)')&quot; &quot;@(DocFileItem->'%(FullPath)')&quot; &quot;$(_SnailSdkReferences)&quot; &quot;$(MSBuildThisFileDirectory)docs/reference&quot;" />
+
+    <ItemGroup>
+      <FileWrites Include="$(_SnailSdkReferences)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

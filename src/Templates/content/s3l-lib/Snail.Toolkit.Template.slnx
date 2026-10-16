@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Snail.Toolkit.Template.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Snail.Toolkit.Template.NativeProbe/Snail.Toolkit.Template.NativeProbe.csproj" />
+    <Project Path="tests/Snail.Toolkit.Template.Tests/Snail.Toolkit.Template.Tests.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/Snail.Toolkit.Template.Benchmarks/Snail.Toolkit.Template.Benchmarks.csproj" />
+  </Folder>
+</Solution>

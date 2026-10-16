@@ -1,0 +1,38 @@
+name: build and tests
+
+# The SDK, its analyzers and generators, tested by building projects on the packed packages; and the shared workflows
+# every Snail repository calls, with the action its release pushes through and the workflows the templates carry,
+# checked with actionlint and shellcheck before a tag can carry them. Branches and pull requests only: a tag is a
+# release (publish.yml), or the moving major tag, which points at a commit already checked here.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - run: dotnet test Snail.Sdk.slnx -c Release
+
+  workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: actionlint
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+          ./actionlint -color .github/workflows/*.yml src/Templates/content/*/.github/workflows/*.yml
+      - name: shellcheck on the actions' scripts
+        run: shellcheck .github/actions/*/*.sh

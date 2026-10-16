@@ -1,0 +1,12 @@
+#nullable enable
+Snail.Sdk.Mcp.Testing.ServerProgram
+Snail.Sdk.Mcp.Testing.ToolAnswers
+Snail.Sdk.Mcp.Testing.ToolAnswers.extension(ModelContextProtocol.Protocol.CallToolResult!)
+Snail.Sdk.Mcp.Testing.ToolAnswers.extension(ModelContextProtocol.Protocol.CallToolResult!).Text() -> string!
+Snail.Sdk.Mcp.Testing.ToolGuards
+static Snail.Sdk.Mcp.Testing.ServerProgram.Command(string! assemblyName, string! overrideVariable) -> (string! Command, string![]! Arguments)
+static Snail.Sdk.Mcp.Testing.ServerProgram.Home.get -> string!
+static Snail.Sdk.Mcp.Testing.ServerProgram.StartAsync(string! assemblyName, string! overrideVariable, System.Collections.Generic.IDictionary<string!, string?>? environment = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ModelContextProtocol.Client.McpClient!>!
+static Snail.Sdk.Mcp.Testing.ServerProgram.Text(ModelContextProtocol.Protocol.CallToolResult! answer) -> string!
+static Snail.Sdk.Mcp.Testing.ToolAnswers.Text(this ModelContextProtocol.Protocol.CallToolResult! answer) -> string!
+static Snail.Sdk.Mcp.Testing.ToolGuards.Problems(System.Collections.Generic.IEnumerable<ModelContextProtocol.Protocol.Tool!>! tools) -> System.Collections.Generic.IReadOnlyList<string!>!

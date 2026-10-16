@@ -1,0 +1,16 @@
+<Project>
+
+  <!--
+    Microsoft.NET.Sdk first, then what every Snail project shares; the project body comes after and may override.
+    A project on another Microsoft SDK — Razor, Web — names it in its Sdk attribute and adds Snail's level as an
+    element, <Sdk Name="Snail.Sdk.Mcp" />: that SDK has imported Microsoft.NET.Sdk already, so it is not imported again
+    here, and its targets are left to it as well.
+  -->
+  <PropertyGroup Condition="'$(UsingMicrosoftNETSdk)' != 'true'">
+    <_SnailImportsMicrosoftSdk>true</_SnailImportsMicrosoftSdk>
+  </PropertyGroup>
+
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" Condition="'$(_SnailImportsMicrosoftSdk)' == 'true'" />
+  <Import Project="$(MSBuildThisFileDirectory)Snail.Sdk.props" />
+
+</Project>

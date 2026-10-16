@@ -1,0 +1,141 @@
+name: library release
+
+# The release of a Snail library, called from its own publish.yml on a version tag or by hand, with a second job of the
+# caller's own that pushes:
+#
+#   on:
+#     push: { tags: ['v[0-9]+.[0-9]+.[0-9]+*'] }
+#     workflow_dispatch:
+#       inputs:
+#         version: { required: true }
+#         push: { type: boolean, default: false }
+#   jobs:
+#     release:
+#       uses: orldev/Snail.Sdk/.github/workflows/lib-publish.yml@v1
+#       with: { version: '${{ inputs.version }}', push: '${{ github.event_name == ''push'' || inputs.push }}' }
+#       secrets: inherit    # only for tests that pull a signed-in Docker Hub image
+#     push:
+#       needs: release
+#       if: needs.release.outputs.push == 'true'
+#       runs-on: ubuntu-latest
+#       permissions: { id-token: write, contents: read }
+#       steps:
+#         - uses: orldev/Snail.Sdk/.github/actions/nuget-push@v1
+#           with: { user: '${{ secrets.NUGET_USER }}' }
+#
+# The version comes from the tag, or from the input when run by hand. Every package is tested, packed, validated
+# against the last release and uploaded as the artifact packages. This workflow pushes nothing and holds no id-token:
+# nuget.org gives a trusted publishing key only to a job whose job_workflow_ref is a workflow file of the publishing
+# repository itself, never to a job of orldev/Snail.Sdk's, so the push is the caller's job (the nuget-push action,
+# secret NUGET_USER), run when the output push is true.
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: The version to pack; the tag without its v when empty.
+        type: string
+        default: ''
+      push:
+        description: Whether the caller pushes the packages to NuGet; passed through to the output push.
+        type: boolean
+        default: false
+      os:
+        description: The runner the tests run on and the packages are packed on.
+        type: string
+        default: ubuntu-latest
+      test-filter:
+        description: A dotnet test filter, such as one that leaves out tests needing a container.
+        type: string
+        default: ''
+      test-environment:
+        description: Variables the tests run with, one NAME=value a line, such as one that turns a skipped container test into a failure.
+        type: string
+        default: ''
+    outputs:
+      version:
+        description: The version the packages carry.
+        value: ${{ jobs.release.outputs.version }}
+      push:
+        description: "'true' when the packages are to be pushed: the condition of the caller's push job."
+        value: ${{ jobs.release.outputs.push }}
+    secrets:
+      DOCKERHUB_USERNAME:
+        required: false
+      DOCKERHUB_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 60
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+      push: ${{ inputs.push }}
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+    steps:
+      - uses: actions/checkout@v7
+      # A test container whose image Docker Hub gives only to a signed-in pull (minio/minio): the caller passes
+      # secrets: inherit and keeps DOCKERHUB_USERNAME and DOCKERHUB_TOKEN; without them the step is skipped.
+      - name: Docker Hub
+        if: env.DOCKERHUB_USERNAME != ''
+        uses: docker/login-action@v4
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Version
+        id: version
+        env:
+          GIVEN: ${{ inputs.version }}
+        run: |
+          version="${GIVEN:-${GITHUB_REF_NAME#v}}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$version' is not a version"
+            exit 1
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+      # A release takes nothing from a local feed: the conformance check with the release checks on fails on a
+      # LocalPackages source or mapping, and on a -local version of the SDK or of a package.
+      - name: Conformance for a release
+        run: |
+          project="$(find src -name '*.csproj' -not -path '*/obj/*' | sort | head -n 1)"
+          dotnet msbuild "$project" -t:SnailConformance -p:SnailConformanceRelease=true -nologo
+
+      - name: Tests
+        env:
+          FILTER: ${{ inputs.test-filter }}
+          ENVIRONMENT: ${{ inputs.test-environment }}
+        run: |
+          arguments=(test -c Release)
+          if [ -n "$FILTER" ]; then
+            arguments+=(--filter "$FILTER")
+          fi
+          while IFS= read -r variable; do
+            if [ -n "$variable" ]; then
+              export "${variable?}"
+            fi
+          done <<< "$ENVIRONMENT"
+          dotnet "${arguments[@]}"
+
+      - name: Pack
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: dotnet pack -c Release -p:Version="$VERSION" -o artifacts/packages
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: |
+            artifacts/packages/*.nupkg
+            artifacts/packages/*.snupkg
+          retention-days: 7

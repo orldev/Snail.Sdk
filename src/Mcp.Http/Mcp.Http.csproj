@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>
+      One Snail MCP server for every session of the machine: the empty web host on a loopback address, the MCP SDK's
+      Streamable HTTP transport with a session per client, and no browser let through.
+    </Description>
+    <PackageTags>mcp;mcp-server;modelcontextprotocol;streamable-http;hosting</PackageTags>
+  </PropertyGroup>
+
+  <!--
+    A library of the servers: its public API written down in PublicAPI.*.txt, the package checked against the last
+    release (PackageValidationBaselineVersion, set from the first release on), and its symbols in a .snupkg beside it.
+  -->
+  <PropertyGroup>
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <IncludeSymbols>true</IncludeSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mcp.Hosting\Mcp.Hosting.csproj" />
+  </ItemGroup>
+
+</Project>

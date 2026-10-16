@@ -1,0 +1,35 @@
+# Dependabot keeps current the actions the shared workflows, the nuget-push action and the templates' workflows call,
+# and the packages Directory.Packages.props pins: every two months, at 06:00 UTC on the first day of an odd month (there
+# is no two-month interval, so a cron names the months), the actions in one pull request, the packages' minor and patch
+# updates in another, each major update of a package in its own. Security updates do not wait for the schedule. An action bumped here reaches every caller with
+# the next move of the major tag; one bumped in a template reaches the projects made from it after the next release.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/nuget-push
+      - /src/Templates/content/s3l-lib
+      - /src/Templates/content/s3l-mcp
+    schedule:
+      interval: cron
+      cronjob: '0 6 1 1,3,5,7,9,11 *'
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: cron
+      cronjob: '0 6 1 1,3,5,7,9,11 *'
+    groups:
+      packages:
+        patterns: ['*']
+        update-types: [minor, patch]
+    # The analyzers bind to the Roslyn of the compiler the pinned SDK band carries: a newer one would not load in it.
+    # Raised by hand, with the band in global.json.
+    ignore:
+      - dependency-name: Microsoft.CodeAnalysis.CSharp
+      - dependency-name: Microsoft.CodeAnalysis.CSharp.Workspaces

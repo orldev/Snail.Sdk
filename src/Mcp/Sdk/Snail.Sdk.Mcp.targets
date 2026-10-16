@@ -1,0 +1,106 @@
+<Project>
+
+  <PropertyGroup>
+    <_SnailRepository>$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), global.json))</_SnailRepository>
+    <_SnailRepository Condition="'$(_SnailRepository)' == ''">$(MSBuildProjectDirectory)</_SnailRepository>
+  </PropertyGroup>
+
+  <!--
+    The server: a program packed as a dotnet tool of the McpServer kind. Its name is the package id; the short name —
+    the name without a leading Snail.MCP. in any case, without dots, in lower case: Snail.MCP.Code.Context is
+    codecontext — gives the tool command s3l-mcp-<short> and the launchd job s3l.mcp.<short>.
+  -->
+  <PropertyGroup Condition="'$(SnailProjectKind)' == ''">
+    <SnailMcpName Condition="'$(SnailMcpName)' == ''">$(PackageId)</SnailMcpName>
+    <SnailMcpName Condition="'$(SnailMcpName)' == ''">$(AssemblyName)</SnailMcpName>
+    <SnailMcpName Condition="'$(SnailMcpName)' == ''">$(MSBuildProjectName)</SnailMcpName>
+    <SnailMcpShortName Condition="'$(SnailMcpShortName)' == ''">$([System.Text.RegularExpressions.Regex]::Replace('$(SnailMcpName)', '(?i)^snail\.mcp\.', '').Replace('.', '').ToLowerInvariant())</SnailMcpShortName>
+    <PackAsTool>true</PackAsTool>
+    <PackageType>McpServer</PackageType>
+    <ToolCommandName Condition="'$(ToolCommandName)' == ''">s3l-mcp-$(SnailMcpShortName)</ToolCommandName>
+    <IsAotCompatible Condition="'$(IsAotCompatible)' == ''">$(SnailMcpNative)</IsAotCompatible>
+    <!-- A publication carries the program, not its debug symbols or its API docs: both stay in obj/. -->
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <PublishDocumentationFile>false</PublishDocumentationFile>
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
+  </PropertyGroup>
+
+  <!--
+    A native server: settings bound by generated code in every build alike, Native AOT wherever it is published for a
+    runtime, optimised for size (measured on CleanUp: the same speed, 1.4 MB smaller), and a tool package per platform
+    with a framework-dependent one for the rest.
+  -->
+  <PropertyGroup Condition="'$(SnailProjectKind)' == '' and '$(SnailMcpNative)' == 'true'">
+    <EnableConfigurationBindingGenerator Condition="'$(EnableConfigurationBindingGenerator)' == ''">true</EnableConfigurationBindingGenerator>
+    <!-- Minimal API endpoints bound by generated code too: PublishAot turns it on only when publishing for a runtime. -->
+    <EnableRequestDelegateGenerator Condition="'$(EnableRequestDelegateGenerator)' == '' and '$(SnailMcpTransport)' != 'Stdio'">true</EnableRequestDelegateGenerator>
+    <PublishAot Condition="'$(PublishAot)' == '' and !('$(SnailMcpContainer)' == 'true' and '$(RuntimeIdentifier)' == '')">true</PublishAot>
+    <OptimizationPreference Condition="'$(OptimizationPreference)' == ''">Size</OptimizationPreference>
+    <ToolPackageRuntimeIdentifiers Condition="'$(ToolPackageRuntimeIdentifiers)' == ''">osx-arm64;linux-x64;linux-arm64;win-x64;any</ToolPackageRuntimeIdentifiers>
+  </PropertyGroup>
+
+  <!--
+    A framework-dependent server runs its code through the JIT without profile-guided tiering: measured on Roslyn 281 → 259
+    MB at rest and a quarter less CPU, on CodeContext 793 → 759 MB and a faster index, the light servers unchanged and
+    none slower. A native server has no JIT to tier. A server that wants it back sets TieredPGO in its project.
+  -->
+  <PropertyGroup Condition="'$(SnailProjectKind)' == '' and '$(SnailMcpNative)' == 'false'">
+    <TieredPGO Condition="'$(TieredPGO)' == ''">false</TieredPGO>
+  </PropertyGroup>
+
+  <!-- A server with HTTP is kept running by launchd from the job template the repository keeps in deploy/. -->
+  <PropertyGroup Condition="'$(SnailProjectKind)' == '' and '$(SnailMcpTransport)' != 'Stdio'">
+    <SnailMcpLaunchAgent Condition="'$(SnailMcpLaunchAgent)' == '' and Exists('$(_SnailRepository)/deploy/s3l.mcp.$(SnailMcpShortName).plist')">$(_SnailRepository)/deploy/s3l.mcp.$(SnailMcpShortName).plist</SnailMcpLaunchAgent>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(SnailProjectKind)' == '' and '$(PackageReadmeFile)' == '' and Exists('$(_SnailRepository)/README.md')">
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <!--
+    The name a client knows the server by in initialize is its command: written into the assembly, where
+    ServerIdentity (Snail.Sdk.Mcp.Hosting) reads it, so the name is set once for every server.
+  -->
+  <ItemGroup Condition="'$(SnailProjectKind)' == '' and '$(ToolCommandName)' != ''">
+    <AssemblyMetadata Include="Snail.Sdk.Mcp.ServerName" Value="$(ToolCommandName)" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(SnailProjectKind)' == ''">
+    <None Include="$(_SnailRepository)/README.md" Pack="true" PackagePath="/" Visible="false" Condition="Exists('$(_SnailRepository)/README.md')" />
+    <None Include="$(_SnailRepository)/.mcp/server.json" Pack="true" PackagePath="/.mcp/" Visible="false" Condition="Exists('$(_SnailRepository)/.mcp/server.json')" />
+  </ItemGroup>
+
+  <!-- The libraries of the same release: the host for the server, HTTP when it serves it, the stdio contract for its tests. -->
+  <ItemGroup Condition="'$(SnailSdkVersion)' != ''">
+    <PackageReference Include="Snail.Sdk.Mcp.Hosting" Version="$(SnailSdkVersion)" IsImplicitlyDefined="true"
+                      Condition="'$(SnailProjectKind)' == ''" />
+    <PackageReference Include="Snail.Sdk.Mcp.Http" Version="$(SnailSdkVersion)" IsImplicitlyDefined="true"
+                      Condition="'$(SnailProjectKind)' == '' and '$(SnailMcpTransport)' != 'Stdio'" />
+    <PackageReference Include="Snail.Sdk.Mcp.Testing" Version="$(SnailSdkVersion)" IsImplicitlyDefined="true"
+                      Condition="'$(SnailProjectKind)' == 'Tests'" />
+  </ItemGroup>
+
+  <!--
+    The tool reference, on request: build with -p:SnailReference=true and docs/reference/ beside the repository's
+    global.json gets tools/index.md, a page per family and schemas/tools.json. The server's own copy of the MCP SDK
+    describes each tool from the assembly just built, so the pages are what a client receives in tools/list; no tool runs.
+    docs/tools.json names the families and the words of the index; a site with its own layout sets SnailReferenceFolder.
+  -->
+  <PropertyGroup>
+    <SnailReferenceFolder Condition="'$(SnailReferenceFolder)' == ''">$(_SnailRepository)/docs/reference</SnailReferenceFolder>
+    <SnailReferenceSettings Condition="'$(SnailReferenceSettings)' == ''">$(_SnailRepository)/docs/tools.json</SnailReferenceSettings>
+    <_SnailDocsTool>$(MSBuildThisFileDirectory)../tools/docs/Snail.Sdk.Docs.dll</_SnailDocsTool>
+    <_SnailDotnet>$(DOTNET_HOST_PATH)</_SnailDotnet>
+    <_SnailDotnet Condition="'$(_SnailDotnet)' == ''">dotnet</_SnailDotnet>
+  </PropertyGroup>
+
+  <Target Name="SnailReference"
+          AfterTargets="Build"
+          Condition="'$(SnailReference)' == 'true' and '$(SnailProjectKind)' == '' and '$(TargetFramework)' != ''">
+    <Exec Command="&quot;$(_SnailDotnet)&quot; &quot;$(_SnailDocsTool)&quot; tools &quot;$(TargetPath)&quot; &quot;$(SnailReferenceSettings)&quot; &quot;$(SnailReferenceFolder.TrimEnd('/\'))&quot;" />
+  </Target>
+
+  <Import Project="$(MSBuildThisFileDirectory)Snail.Sdk.Mcp.Install.targets" />
+  <Import Project="$(MSBuildThisFileDirectory)Snail.Sdk.Site.targets" />
+
+</Project>

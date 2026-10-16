@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The owner's rules no .NET analyzer has, and the two the build does not run (IDE0003, IDE0049), as Roslyn analyzers
+    with code fixes where a fix is mechanical. netstandard2.0 and Roslyn 4.14: any compiler from 4.14 loads it, the SDK's
+    5.x among them; built against a newer Roslyn, an older compiler would refuse it (CS8032). Snail.Sdk references the
+    package implicitly; the severities are in Snail.Sdk.globalconfig.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <Description>
+      The owner's code rules as Roslyn analyzers: unpack long LINQ chains, create before returning, a blank line before the
+      answer, no comments inside members, English only, no pattern names, no types in names, booleans that ask, no `this.`,
+      keyword types. Referenced by Snail.Sdk.
+    </Description>
+    <PackageTags>roslyn;analyzers;code-style</PackageTags>
+    <IsAotCompatible>false</IsAotCompatible>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <NoWarn>$(NoWarn);NU5128;RS1038</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Release tracking (RS2000–RS2008): every rule's ID, category and severity, per release of the package. -->
+  <ItemGroup>
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(OutputPath)$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+  </ItemGroup>
+
+</Project>

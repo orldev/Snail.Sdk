@@ -1,0 +1,55 @@
+{#
+  One row: the wordmark, navigation as commas, the search field. A single
+  hairline closes the header and the field darkens its own stretch of it.
+
+  On 390 the system says: "Menu" is a link in the header. So the commas and the
+  field are folded away behind two text links — no drawer, no icons.
+#}
+{% set section = namespace(active=None) %}
+{% for item in nav %}
+  {%- if item.active and item.children -%}{% set section.active = item %}{%- endif -%}
+{% endfor %}
+
+<header class="head" id="head">
+  <div class="wrap head-wrap">
+    <div class="head-row">
+      {#- On the home page the h1 is the site name, and "Home" sits first in the
+          commas — a wordmark here would say the same word for the third time.
+          Everywhere else the title is "Nodes" or "Installation", so the name
+          has to be somewhere, and the margin column is where it belongs. -#}
+      {% if not page.is_homepage %}
+      <a class="wordmark" href="{{ nav.homepage.url|url }}">{{ config.site_name }}</a>
+      {% endif %}
+
+      <nav class="nav" aria-label="Sections">
+        {%- for item in nav -%}
+          {%- if not loop.first %}<span class="sep">,</span> {% endif -%}
+          {%- set target = item.children[0].url if item.children else item.url -%}
+          <a class="nav-link{% if item.active %} is-active{% endif %}" href="{{ target|url }}">{{ item.title }}</a>
+        {%- endfor -%}
+      </nav>
+
+      <div class="search">
+        <input class="search-input" id="q" type="search" placeholder="Search" autocomplete="off" spellcheck="false" aria-label="Search the documentation">
+        <span class="search-key" aria-hidden="true">/</span>
+      </div>
+
+      <div class="acts">
+        <button class="act" id="act-search" type="button">Search</button>
+        <span class="sep">·</span>
+        <button class="act" id="act-menu" type="button" aria-expanded="false" aria-controls="head">Menu</button>
+      </div>
+    </div>
+
+    {% if section.active %}
+    <nav class="nav nav-sub" aria-label="{{ section.active.title }}">
+      {%- for child in section.active.children -%}
+        {%- if not loop.first %}<span class="sep">,</span> {% endif -%}
+        <a class="nav-link{% if child.active %} is-active{% endif %}" href="{{ child.url|url }}">{{ child.title }}</a>
+      {%- endfor -%}
+    </nav>
+    {% endif %}
+
+    <div class="results" id="results" hidden></div>
+  </div>
+</header>

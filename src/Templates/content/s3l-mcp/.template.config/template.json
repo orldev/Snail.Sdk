@@ -1,0 +1,210 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "orldev",
+  "classifications": [
+    "MCP",
+    "Server",
+    "Snail"
+  ],
+  "identity": "Snail.Sdk.Templates.Mcp",
+  "name": "Snail MCP server",
+  "description": "A Snail MCP server on Snail.Sdk.Mcp: native or framework-dependent, stdio or HTTP, its tools checked by the guard rules and the contract, the shared workflows.",
+  "shortName": "s3l-mcp",
+  "sourceName": "Snail.MCP.Template",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "forms": {
+    "withoutPrefix": {
+      "identifier": "replace",
+      "pattern": "^Snail\\.MCP\\.",
+      "replacement": ""
+    },
+    "withoutDots": {
+      "identifier": "replace",
+      "pattern": "\\.",
+      "replacement": ""
+    },
+    "lower": {
+      "identifier": "lowerCase"
+    },
+    "upper": {
+      "identifier": "upperCase"
+    },
+    "shortLower": {
+      "identifier": "chain",
+      "steps": [
+        "withoutPrefix",
+        "withoutDots",
+        "lower"
+      ]
+    },
+    "shortUpper": {
+      "identifier": "chain",
+      "steps": [
+        "withoutPrefix",
+        "withoutDots",
+        "upper"
+      ]
+    }
+  },
+  "symbols": {
+    "native": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "true",
+      "description": "Published with Native AOT (SnailMcpNative); false for code loaded at run time."
+    },
+    "transport": {
+      "type": "parameter",
+      "datatype": "choice",
+      "defaultValue": "Stdio",
+      "replaces": "TEMPLATE_TRANSPORT",
+      "description": "How clients reach the server (SnailMcpTransport).",
+      "choices": [
+        {
+          "choice": "Stdio",
+          "description": "a process per session"
+        },
+        {
+          "choice": "Http",
+          "description": "one server for every session, over loopback HTTP"
+        },
+        {
+          "choice": "Both",
+          "description": "stdio, or HTTP when SNAIL_MCP_<NAME>_TRANSPORT says so"
+        }
+      ]
+    },
+    "container": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "false",
+      "description": "An image is built from the repository (SnailMcpContainer): a Dockerfile, native or framework-dependent as the server is, and the workflow that builds it."
+    },
+    "port": {
+      "type": "parameter",
+      "datatype": "integer",
+      "defaultValue": "9300",
+      "replaces": "9300",
+      "description": "The loopback port of the HTTP endpoint."
+    },
+    "description": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "What the server lets an agent do, in one sentence.",
+      "replaces": "TEMPLATE_DESCRIPTION",
+      "description": "The package description."
+    },
+    "UsesHttp": {
+      "type": "computed",
+      "value": "(transport != \"Stdio\")"
+    },
+    "UsesStdio": {
+      "type": "computed",
+      "value": "(transport != \"Http\")"
+    },
+    "IsBoth": {
+      "type": "computed",
+      "value": "(transport == \"Both\")"
+    },
+    "shortLower": {
+      "type": "derived",
+      "valueSource": "name",
+      "valueTransform": "shortLower",
+      "replaces": "tmplshort",
+      "fileRename": "tmplshort"
+    },
+    "shortUpper": {
+      "type": "derived",
+      "valueSource": "name",
+      "valueTransform": "shortUpper",
+      "replaces": "TMPLSHORT"
+    }
+  },
+  "sources": [
+    {
+      "modifiers": [
+        {
+          "exclude": [
+            "**/bin/**",
+            "**/obj/**"
+          ]
+        },
+        {
+          "condition": "(!UsesHttp)",
+          "exclude": [
+            "src/Extensions/HttpServerHost.cs",
+            "src/Extensions/ServerSettings.cs",
+            "deploy/**",
+            "tests/HttpContractTests.cs"
+          ]
+        },
+        {
+          "condition": "(!UsesStdio)",
+          "exclude": [
+            "tests/StdioContractTests.cs"
+          ]
+        },
+        {
+          "condition": "(!container)",
+          "exclude": [
+            "Dockerfile",
+            ".dockerignore",
+            ".github/workflows/image.yml"
+          ]
+        }
+      ]
+    }
+  ],
+  "SpecialCustomOperations": {
+    "**/Dockerfile": {
+      "operations": [
+        {
+          "type": "conditional",
+          "configuration": {
+            "actionableIf": [
+              "#if"
+            ],
+            "actionableElse": [
+              "#else"
+            ],
+            "actionableElseif": [
+              "#elseif"
+            ],
+            "endif": [
+              "#endif"
+            ],
+            "trim": "true",
+            "wholeLine": "true"
+          }
+        }
+      ]
+    },
+    "**/*.plist": {
+      "operations": [
+        {
+          "type": "conditional",
+          "configuration": {
+            "actionableIf": [
+              "<!--#if"
+            ],
+            "actionableElse": [
+              "<!--#else"
+            ],
+            "actionableElseif": [
+              "<!--#elseif"
+            ],
+            "endif": [
+              "<!--#endif"
+            ],
+            "trim": "true",
+            "wholeLine": "true"
+          }
+        }
+      ]
+    }
+  }
+}

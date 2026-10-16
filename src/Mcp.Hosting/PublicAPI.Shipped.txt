@@ -1,0 +1,21 @@
+#nullable enable
+Snail.Sdk.Mcp.Hosting.EnvironmentSettings
+Snail.Sdk.Mcp.Hosting.Invocation
+Snail.Sdk.Mcp.Hosting.McpHost
+Snail.Sdk.Mcp.Hosting.McpHost.extension(Microsoft.Extensions.Logging.ILoggingBuilder!)
+Snail.Sdk.Mcp.Hosting.McpHost.extension(Microsoft.Extensions.Logging.ILoggingBuilder!).UseStderr() -> Microsoft.Extensions.Logging.ILoggingBuilder!
+Snail.Sdk.Mcp.Hosting.ServerFolders
+Snail.Sdk.Mcp.Hosting.ServerIdentity
+Snail.Sdk.Mcp.Hosting.ToolJson
+static Snail.Sdk.Mcp.Hosting.EnvironmentSettings.Read(string! prefix, System.Collections.IDictionary! variables) -> System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string?>>!
+static Snail.Sdk.Mcp.Hosting.EnvironmentSettings.ToConfigurationKey(string! variable) -> string!
+static Snail.Sdk.Mcp.Hosting.Invocation.Stable(string! path) -> string!
+static Snail.Sdk.Mcp.Hosting.McpHost.CreateBuilder(string![]! args) -> Microsoft.Extensions.Hosting.HostApplicationBuilder!
+static Snail.Sdk.Mcp.Hosting.McpHost.UseStderr(this Microsoft.Extensions.Logging.ILoggingBuilder! logging) -> Microsoft.Extensions.Logging.ILoggingBuilder!
+static Snail.Sdk.Mcp.Hosting.ServerFolders.ConfigDirectory(string! name) -> string!
+static Snail.Sdk.Mcp.Hosting.ServerFolders.DataDirectory(string! name) -> string!
+static Snail.Sdk.Mcp.Hosting.ServerFolders.MoveFromSnailNames(string! name) -> void
+static Snail.Sdk.Mcp.Hosting.ServerIdentity.NameOf(System.Reflection.Assembly! server) -> string!
+static Snail.Sdk.Mcp.Hosting.ServerIdentity.Of(System.Reflection.Assembly! server) -> ModelContextProtocol.Protocol.Implementation!
+static Snail.Sdk.Mcp.Hosting.ServerIdentity.VersionOf(System.Reflection.Assembly! server) -> string!
+static Snail.Sdk.Mcp.Hosting.ToolJson.Options(System.Text.Json.Serialization.Metadata.IJsonTypeInfoResolver! context) -> System.Text.Json.JsonSerializerOptions!

@@ -1,0 +1,16 @@
+# The public API rules of a Snail library (Microsoft.CodeAnalysis.PublicApiAnalyzers). A library on NuGet has users the
+# author cannot see: every public symbol is written down in PublicAPI.*.txt, so adding, removing or changing one shows in
+# the diff and is a decision, not an accident. See docs/standard.md, "Public API and versions".
+
+is_global = true
+global_level = 100
+
+dotnet_diagnostic.RS0016.severity = warning
+dotnet_diagnostic.RS0017.severity = warning
+dotnet_diagnostic.RS0022.severity = warning
+dotnet_diagnostic.RS0024.severity = warning
+dotnet_diagnostic.RS0025.severity = warning
+dotnet_diagnostic.RS0026.severity = warning
+dotnet_diagnostic.RS0027.severity = warning
+dotnet_diagnostic.RS0036.severity = warning
+dotnet_diagnostic.RS0037.severity = warning

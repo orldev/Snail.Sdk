@@ -1,0 +1,3 @@
+#nullable enable
+Snail.Toolkit.Template.Greeting
+static Snail.Toolkit.Template.Greeting.For(string! name) -> string!

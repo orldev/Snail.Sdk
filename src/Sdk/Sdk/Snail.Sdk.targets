@@ -1,0 +1,104 @@
+<Project>
+
+  <!-- The kind (Snail.Sdk.props) reaches the analyzers: a test's text is data, not prose to hold to English. -->
+  <ItemGroup>
+    <CompilerVisibleProperty Include="SnailProjectKind" />
+  </ItemGroup>
+
+  <!--
+    None of the kinds is packed. A test, a benchmark and a probe document none of their public members; a tool is held
+    to every rule of the code it sits beside.
+  -->
+  <PropertyGroup Condition="'$(SnailProjectKind)' != ''">
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(SnailProjectKind)' != '' and '$(SnailProjectKind)' != 'Tool'">
+    <NoWarn>$(NoWarn);CS1591;CA1707</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    Beside another SDK (Razor, Web) these targets come after Microsoft.Managed.Core.targets, which has already copied the
+    global configs into EditorConfigFiles, the list the compiler is given: the file is added to that list as well.
+  -->
+  <ItemGroup Condition="'$(SnailProjectKind)' == 'Tests' or '$(SnailProjectKind)' == 'Benchmarks'">
+    <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)Snail.Sdk.Tests.globalconfig" />
+    <EditorConfigFiles Include="$(MSBuildThisFileDirectory)Snail.Sdk.Tests.globalconfig" Condition="'$(_SnailImportsMicrosoftSdk)' != 'true'" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(SnailProjectKind)' == 'Benchmarks' or '$(SnailProjectKind)' == 'Tool'">
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(SnailProjectKind)' == 'NativeProbe'">
+    <OutputType>Exe</OutputType>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!--
+    What Microsoft.NET.Sdk.Web turns off for a native app, a probe on Microsoft.NET.Sdk turns off too: SignalR's custom
+    awaitables are found by reflection, and a probe of a SignalR library would otherwise warn (IL2026, IL3053) at publish.
+  -->
+  <ItemGroup Condition="'$(SnailProjectKind)' == 'NativeProbe' and '$(UsingMicrosoftNETSdkWeb)' != 'true'">
+    <RuntimeHostConfigurationOption Include="Microsoft.AspNetCore.SignalR.Hub.IsCustomAwaitableSupported" Value="false" Trim="true" />
+  </ItemGroup>
+
+  <!--
+    Every rule the SDK knows, as advice. A category setting only lowers rules a package enables by default, so the rules
+    an SDK ships disabled — and every rule a newer SDK adds — would never be seen. The SDK keeps, beside the config of the
+    analysis mode in use, one listing every rule of its analysis level (the All mode); it is read here, each warning and
+    error made a suggestion, and given a level between the SDK's own config (-100) and Snail.Sdk.globalconfig (100), so
+    the agreed rules still decide. Moving global.json to a newer SDK brings that SDK's listing: its new rules appear as
+    advice with no file edited. The directory and version are the SDK's internal names; when they change, nothing is
+    added and the build is as it was.
+  -->
+  <Target Name="SnailAddEveryRuleAsAdvice"
+          AfterTargets="AddGlobalAnalyzerConfigForPackage_MicrosoftCodeAnalysisNetAnalyzers"
+          BeforeTargets="CoreCompile"
+          Condition="'$(SnailEveryRuleAsAdvice)' != 'false' and '$(MicrosoftCodeAnalysisNetAnalyzersRulesVersion)' != ''">
+    <PropertyGroup>
+      <_SnailAllRulesConfig>$(_GlobalAnalyzerConfigDir_MicrosoftCodeAnalysisNetAnalyzers)/analysislevel_$(MicrosoftCodeAnalysisNetAnalyzersRulesVersion.Replace('.', '_'))_all.globalconfig</_SnailAllRulesConfig>
+      <_SnailAdviceConfig>$(IntermediateOutputPath)Snail.Sdk.Advice.globalconfig</_SnailAdviceConfig>
+    </PropertyGroup>
+
+    <ReadLinesFromFile File="$(_SnailAllRulesConfig)" Condition="Exists('$(_SnailAllRulesConfig)')">
+      <Output TaskParameter="Lines" ItemName="_SnailAllRulesLine" />
+    </ReadLinesFromFile>
+
+    <ItemGroup>
+      <_SnailAdviceLine Include="@(_SnailAllRulesLine->Replace('= warning', '= suggestion')->Replace('= error', '= suggestion')->Replace('global_level = -100', 'global_level = -50'))" />
+    </ItemGroup>
+
+    <WriteLinesToFile File="$(_SnailAdviceConfig)" Lines="@(_SnailAdviceLine)" Overwrite="true" WriteOnlyWhenDifferent="true"
+                      Condition="'@(_SnailAdviceLine)' != ''" />
+
+    <ItemGroup Condition="'@(_SnailAdviceLine)' != ''">
+      <EditorConfigFiles Include="$(_SnailAdviceConfig)" />
+      <FileWrites Include="$(_SnailAdviceConfig)" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    The conformance check of the repository the project is in (docs/conformance.md): the shared
+    CI runs it once per repository with -t:SnailConformance on one of its projects, and fails when a required check
+    does not hold. It reads the repository's files only. With -p:SnailConformanceRelease=true — the release workflows —
+    it also checks what a release must not rest on, such as a local package feed.
+  -->
+  <PropertyGroup>
+    <_SnailConformanceTool>$(MSBuildThisFileDirectory)../tools/conformance/Snail.Sdk.Conformance.dll</_SnailConformanceTool>
+    <_SnailDotnetHost>$(DOTNET_HOST_PATH)</_SnailDotnetHost>
+    <_SnailDotnetHost Condition="'$(_SnailDotnetHost)' == ''">dotnet</_SnailDotnetHost>
+  </PropertyGroup>
+
+  <Target Name="SnailConformance">
+    <PropertyGroup>
+      <_SnailConformanceRoot>$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), global.json))</_SnailConformanceRoot>
+      <_SnailConformanceRelease Condition="'$(SnailConformanceRelease)' == 'true'"> --release</_SnailConformanceRelease>
+    </PropertyGroup>
+    <Error Condition="'$(_SnailConformanceRoot)' == ''"
+           Text="SnailConformance checks the repository a project is in, the folder of its global.json, and there is no global.json in $(MSBuildProjectDirectory) or above it." />
+    <Exec Command="&quot;$(_SnailDotnetHost)&quot; &quot;$(_SnailConformanceTool)&quot; &quot;$(_SnailConformanceRoot)&quot;$(_SnailConformanceRelease)" />
+  </Target>
+
+</Project>

@@ -1,0 +1,9 @@
+{# Mono 11 under a hairline. No dark band, no icons. #}
+<footer class="foot">
+  <div class="wrap">
+  <div class="foot-row">
+    <span class="foot-meta">{{ config.site_name }}{% if config.copyright %} · {{ config.copyright }}{% endif %}</span>
+    {% if config.repo_url %}<a class="foot-link" href="{{ config.repo_url }}">{{ config.repo_name }}&nbsp;&nbsp;&rarr;</a>{% endif %}
+  </div>
+  </div>
+</footer>

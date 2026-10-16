@@ -1,0 +1,125 @@
+name: server image
+
+# The container image of a Snail MCP server whose project sets SnailMcpContainer, called from its own image.yml:
+#
+#   on: { push: {}, pull_request: {}, workflow_dispatch: {} }
+#   jobs:
+#     image:
+#       permissions: { contents: read, packages: write }
+#       uses: orldev/Snail.Sdk/.github/workflows/mcp-image.yml@v1
+#
+# Neither the solution nor the tests build the Dockerfile, so it is built on every push and pull request, and a broken
+# one shows before a merge. It reaches the registry only from a v* tag, as ghcr.io/<owner>/s3l-<name>-mcp with the
+# version, latest and the commit: the platform's deployments pull latest, and a released image under a number alone
+# would sit unasked for. A prerelease (v1.2.0-preview.1) gets its version and the commit but leaves latest where it is.
+# A branch or pull request build carries its name and the commit, and is not pushed. A server whose release does more
+# — several platforms, a smoke test before latest moves — keeps that release its own and calls this on branches only.
+#
+# Every build passes VERSION as a build argument — the release's version from the tag (v1.2.0 gives 1.2.0), or
+# 0.0.0-<branch>.<commit> from a branch or pull request — so the server built in reports in initialize what it is. The
+# template's Dockerfile takes it (ARG VERSION=0.0.0-local, what a local docker build gets) and labels the image with it;
+# a Dockerfile without the ARG only sees a warning that the argument was not consumed.
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        description: The image name when not empty; s3l-<short>-mcp otherwise, the short name being the repository's name without its Snail.MCP. prefix (any case) and its dots, in lower case.
+        type: string
+        default: ''
+      dockerfile:
+        description: The Dockerfile, from the repository root.
+        type: string
+        default: Dockerfile
+      context:
+        description: The build context.
+        type: string
+        default: .
+      platforms:
+        description: The platforms to build, as buildx takes them.
+        type: string
+        default: linux/amd64
+      build-args:
+        description: Build arguments, one NAME=value a line, as the Dockerfile's ARG lines take them.
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Name
+        id: name
+        env:
+          GIVEN: ${{ inputs.image }}
+          REPOSITORY: ${{ github.event.repository.name }}
+        run: |
+          short="$REPOSITORY"
+          prefix="snail.mcp."
+          if [ "$(echo "${short:0:${#prefix}}" | tr '[:upper:]' '[:lower:]')" = "$prefix" ]; then
+            short="${short:${#prefix}}"
+          fi
+          short="$(echo "${short//./}" | tr '[:upper:]' '[:lower:]')"
+          name="${GIVEN:-s3l-$short-mcp}"
+          echo "value=$name" >> "$GITHUB_OUTPUT"
+
+      - name: Version
+        id: version
+        env:
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          SHA: ${{ github.sha }}
+        run: |
+          case "$REF" in
+            refs/tags/v*)
+              version="${REF_NAME#v}" ;;
+            *)
+              branch="${HEAD_REF:-$REF_NAME}"
+              branch="$(echo "$branch" | tr '[:upper:]' '[:lower:]' | sed 's/[^0-9a-z-]/-/g; s/--*/-/g; s/^-//; s/-$//')"
+              version="0.0.0-${branch:-build}.${SHA:0:7}" ;;
+          esac
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ steps.name.outputs.value }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-') }}
+            type=sha,format=short
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          platforms: ${{ inputs.platforms }}
+          build-args: |
+            VERSION=${{ steps.version.outputs.value }}
+            ${{ inputs.build-args }}
+          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ steps.name.outputs.value }}
+          cache-to: type=gha,mode=max,scope=${{ steps.name.outputs.value }}

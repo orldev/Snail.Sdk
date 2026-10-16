@@ -1,0 +1,6 @@
+<Project>
+
+  <Import Project="$(MSBuildThisFileDirectory)Snail.Sdk.Library.targets" />
+  <Import Project="Sdk.targets" Sdk="Snail.Sdk" Version="$(SnailSdkVersion)" />
+
+</Project>

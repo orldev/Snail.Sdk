@@ -1,0 +1,94 @@
+<Project>
+
+    <!--
+        Publishing a Snail MCP server into ~/.s3l-mcp/<SnailMcpName>/<date>-<time>.<commit>/ and pointing `current`
+        at it: docs/installing.md of Snail.Sdk. SnailMcpName is the package id unless the server says otherwise.
+
+            dotnet publish src/Server -c Release -r osx-arm64 -p:SnailMcpInstall=true
+
+        -p:Install=true is the same request under the shorter name.
+    -->
+
+    <PropertyGroup>
+        <SnailMcpRoot Condition="'$(SnailMcpRoot)' == ''">$(HOME)/.s3l-mcp</SnailMcpRoot>
+        <SnailMcpKept Condition="'$(SnailMcpKept)' == ''">3</SnailMcpKept>
+        <_IsSnailMcpInstall Condition="('$(SnailMcpInstall)' == 'true' or '$(Install)' == 'true') and '$(SnailMcpName)' != '' and '$(SnailProjectKind)' == ''">true</_IsSnailMcpInstall>
+        <!-- A native build copies its program into the folder after Publish too; the install has to come after that copy. -->
+        <_SnailMcpAfterPublish Condition="'$(PublishAot)' == 'true'">CopyNativeBinary;_CopyAotSymbols</_SnailMcpAfterPublish>
+    </PropertyGroup>
+
+    <!-- Names the publication and publishes into its own folder; nothing is ever written over a publication. -->
+    <Target Name="SnailMcpNamePublication" BeforeTargets="PrepareForPublish" Condition="'$(_IsSnailMcpInstall)' == 'true'">
+        <Exec Command="git rev-parse --short HEAD" WorkingDirectory="$(MSBuildProjectDirectory)" ConsoleToMSBuild="true" StandardOutputImportance="low">
+            <Output TaskParameter="ConsoleOutput" PropertyName="_SnailMcpCommit"/>
+        </Exec>
+        <Exec Command="git status --porcelain" WorkingDirectory="$(MSBuildProjectDirectory)" ConsoleToMSBuild="true" StandardOutputImportance="low">
+            <Output TaskParameter="ConsoleOutput" PropertyName="_SnailMcpChanges"/>
+        </Exec>
+        <PropertyGroup>
+            <_SnailMcpHome>$(SnailMcpRoot)/$(SnailMcpName)</_SnailMcpHome>
+            <_SnailMcpPublication>$([System.DateTime]::Now.ToString('yyyy-MM-dd-HHmm')).$(_SnailMcpCommit)</_SnailMcpPublication>
+            <_SnailMcpPublication Condition="'$(_SnailMcpChanges)' != ''">$(_SnailMcpPublication)-dirty</_SnailMcpPublication>
+            <PublishDir>$(_SnailMcpHome)/$(_SnailMcpPublication)/</PublishDir>
+        </PropertyGroup>
+        <Error Condition="Exists('$(PublishDir)')" Text="$(PublishDir) already exists; a publication is never written over. Publish again in a minute."/>
+        <Message Importance="high" Text="$(SnailMcpName) -> $(PublishDir)"/>
+    </Target>
+
+    <!-- Companions, warm-up, `current`, and the old publications; the launchd job after them. -->
+    <Target Name="SnailMcpInstall" AfterTargets="Publish" DependsOnTargets="$(_SnailMcpAfterPublish)" Condition="'$(_IsSnailMcpInstall)' == 'true'">
+        <MSBuild Projects="@(SnailMcpCompanion)"
+                 Targets="Publish"
+                 Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier);PublishDir=$(PublishDir)"
+                 RemoveProperties="SnailMcpInstall;Install"/>
+
+        <!-- macOS looks into a new binary the first time it runs: let it happen now, not when a session starts it. -->
+        <Exec Condition="'$(PublishAot)' == 'true'"
+              Command="&quot;$(PublishDir)$(AssemblyName)&quot; $(SnailMcpWarmUp) &lt; /dev/null &gt; /dev/null 2&gt;&amp;1"
+              Timeout="60000"
+              ContinueOnError="true"/>
+        <Exec Condition="'$(PublishAot)' == 'true'"
+              WorkingDirectory="$(PublishDir)"
+              Command="find . -maxdepth 1 -type f -perm -u+x ! -name '*.dylib' ! -name '$(AssemblyName)' | while read companion%3B do &quot;%24companion&quot; &lt; /dev/null &gt; /dev/null 2&gt;&amp;1%3B done%3B true"
+              Timeout="60000"
+              ContinueOnError="true"/>
+
+        <Exec Command="ln -sfn &quot;$(_SnailMcpPublication)&quot; &quot;$(_SnailMcpHome)/current&quot;"/>
+
+        <!--
+            Keeps the newest $(SnailMcpKept), the one `current` names, and any a running process still uses. In use means
+            a file of the folder is open — the program is mapped while it runs — which lsof sees however the program was
+            started; a command line names `current`, not the folder, for every session started through the link. Its
+            output decides, not its exit code: lsof ends with 1 whenever some file was not its to read, found or not.
+        -->
+        <Exec WorkingDirectory="$(_SnailMcpHome)"
+              Command="PATH=&quot;%24PATH:/usr/sbin:/sbin&quot;%3B ls -1d 20*/ | sed 's#/##' | sort -r | tail -n +%24(( $(SnailMcpKept) + 1 )) | while read old%3B do [ &quot;%24old&quot; = &quot;%24(readlink current)&quot; ] &amp;&amp; continue%3B [ -n &quot;%24(lsof -t +D &quot;$(_SnailMcpHome)/%24old&quot; 2&gt; /dev/null)&quot; ] &amp;&amp; continue%3B pgrep -f &quot;$(_SnailMcpHome)/%24old/&quot; &gt; /dev/null &amp;&amp; continue%3B rm -rf &quot;%24old&quot; &amp;&amp; echo &quot;removed %24old&quot;%3B done"/>
+
+        <Message Importance="high" Text="$(SnailMcpName): current -> $(_SnailMcpPublication)"/>
+    </Target>
+
+    <!--
+        A server the system keeps running names its launchd job template in <SnailMcpLaunchAgent>, a plist whose file
+        name is the job's label, with {{HOME}}, {{CURRENT}} and {{DOTNET}} for this machine's paths. The job is written
+        beside the publications, never into ~/Library/LaunchAgents: loading it is the owner's to do. A job already loaded
+        from that same plist is restarted, and starts on the publication `current` now names. Otherwise the commands
+        that load it are printed — after those that retire the same server's job under its snail name,
+        com.snail.mcp.<short>, which would hold the same port — since a restart would keep a job loaded from another plist.
+    -->
+    <PropertyGroup>
+        <_SnailLaunchctl Condition="'$(_SnailLaunchctl)' == ''">launchctl</_SnailLaunchctl>
+    </PropertyGroup>
+
+    <Target Name="_SnailMcpLaunchJob" AfterTargets="SnailMcpInstall" Condition="'$(_IsSnailMcpInstall)' == 'true' and '$(SnailMcpLaunchAgent)' != ''">
+        <PropertyGroup>
+            <_SnailMcpLaunchAgentLabel>$([System.IO.Path]::GetFileNameWithoutExtension('$(SnailMcpLaunchAgent)'))</_SnailMcpLaunchAgentLabel>
+            <_SnailMcpLaunchAgentJob>$(_SnailMcpHome)/$(_SnailMcpLaunchAgentLabel).plist</_SnailMcpLaunchAgentJob>
+            <_SnailMcpLaunchAgentText>$([System.IO.File]::ReadAllText('$(SnailMcpLaunchAgent)').Replace('{{HOME}}', '$(HOME)').Replace('{{CURRENT}}', '$(_SnailMcpHome)/current').Replace('{{DOTNET}}', '$(DOTNET_HOST_PATH)'))</_SnailMcpLaunchAgentText>
+        </PropertyGroup>
+        <MakeDir Directories="$(_SnailMcpHome)"/>
+        <WriteLinesToFile File="$(_SnailMcpLaunchAgentJob)" Lines="$(_SnailMcpLaunchAgentText)" Overwrite="true" WriteOnlyWhenDifferent="true"/>
+        <Exec Command="/bin/sh &quot;$(MSBuildThisFileDirectory)Snail.Sdk.Mcp.LaunchAgent.sh&quot; &quot;$(_SnailLaunchctl)&quot; &quot;$(_SnailMcpLaunchAgentLabel)&quot; &quot;$(_SnailMcpLaunchAgentJob)&quot; &quot;com.snail.mcp.$(SnailMcpShortName)&quot;"
+              StandardOutputImportance="high"/>
+    </Target>
+
+</Project>

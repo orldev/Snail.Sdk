@@ -31,6 +31,6 @@
   <ItemGroup Label="Transitive">
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
     <!-- The threading analyzers, as Snail.Sdk.props gives them to every fleet project (SnailThreadingAnalyzersVersion). -->
-    <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.14.15" />
+    <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers" Version="18.12.1" />
   </ItemGroup>
 </Project>

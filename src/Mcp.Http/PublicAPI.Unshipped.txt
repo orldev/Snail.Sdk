@@ -1,2 +1,1 @@
 #nullable enable
-static Snail.Sdk.Mcp.Http.McpHttpHost.CreateContainerBuilder(string![]! args, int port) -> Microsoft.AspNetCore.Builder.WebApplicationBuilder!

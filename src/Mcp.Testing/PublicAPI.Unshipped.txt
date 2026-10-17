@@ -1,4 +1,1 @@
 #nullable enable
-static Snail.Sdk.Mcp.Testing.ServerProgram.NoSettingsFile.get -> string!
-Snail.Sdk.Mcp.Testing.TestFolder
-static Snail.Sdk.Mcp.Testing.TestFolder.Create() -> string!

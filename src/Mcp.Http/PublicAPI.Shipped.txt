@@ -8,3 +8,4 @@ Snail.Sdk.Mcp.Http.McpHttpHost.extension(Microsoft.Extensions.DependencyInjectio
 static Snail.Sdk.Mcp.Http.McpHttpHost.CreateBuilder(string![]! args, System.Uri! url) -> Microsoft.AspNetCore.Builder.WebApplicationBuilder!
 static Snail.Sdk.Mcp.Http.McpHttpHost.MapLocalMcp(this Microsoft.AspNetCore.Builder.WebApplication! app, string! path = "/mcp") -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
 static Snail.Sdk.Mcp.Http.McpHttpHost.WithLocalHttpTransport(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+static Snail.Sdk.Mcp.Http.McpHttpHost.CreateContainerBuilder(string![]! args, int port) -> Microsoft.AspNetCore.Builder.WebApplicationBuilder!

@@ -10,3 +10,6 @@ static Snail.Sdk.Mcp.Testing.ServerProgram.StartAsync(string! assemblyName, stri
 static Snail.Sdk.Mcp.Testing.ServerProgram.Text(ModelContextProtocol.Protocol.CallToolResult! answer) -> string!
 static Snail.Sdk.Mcp.Testing.ToolAnswers.Text(this ModelContextProtocol.Protocol.CallToolResult! answer) -> string!
 static Snail.Sdk.Mcp.Testing.ToolGuards.Problems(System.Collections.Generic.IEnumerable<ModelContextProtocol.Protocol.Tool!>! tools) -> System.Collections.Generic.IReadOnlyList<string!>!
+static Snail.Sdk.Mcp.Testing.ServerProgram.NoSettingsFile.get -> string!
+Snail.Sdk.Mcp.Testing.TestFolder
+static Snail.Sdk.Mcp.Testing.TestFolder.Create() -> string!

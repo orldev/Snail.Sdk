@@ -1,16 +1,1 @@
 #nullable enable
-Snail.Sdk.Mcp.Hosting.McpHost.extension(Microsoft.Extensions.DependencyInjection.IServiceCollection!)
-Snail.Sdk.Mcp.Hosting.McpHost.extension(Microsoft.Extensions.DependencyInjection.IServiceCollection!).AddIdleTrim() -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
-static Snail.Sdk.Mcp.Hosting.McpHost.AddIdleTrim(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
-Snail.Sdk.Mcp.Hosting.ServerSettings
-Snail.Sdk.Mcp.Hosting.ServerSettings.extension(Microsoft.Extensions.Configuration.IConfigurationBuilder!)
-Snail.Sdk.Mcp.Hosting.ServerSettings.extension(Microsoft.Extensions.Configuration.IConfigurationBuilder!).AddServerSettings(string! name) -> Microsoft.Extensions.Configuration.IConfigurationBuilder!
-Snail.Sdk.Mcp.Hosting.ServerSettings.extension(Microsoft.Extensions.Configuration.IConfigurationBuilder!).AddServerSettings(string! name, string? file, System.Collections.IDictionary! variables) -> Microsoft.Extensions.Configuration.IConfigurationBuilder!
-static Snail.Sdk.Mcp.Hosting.ServerSettings.AddServerSettings(this Microsoft.Extensions.Configuration.IConfigurationBuilder! configuration, string! name) -> Microsoft.Extensions.Configuration.IConfigurationBuilder!
-static Snail.Sdk.Mcp.Hosting.ServerSettings.AddServerSettings(this Microsoft.Extensions.Configuration.IConfigurationBuilder! configuration, string! name, string? file, System.Collections.IDictionary! variables) -> Microsoft.Extensions.Configuration.IConfigurationBuilder!
-static Snail.Sdk.Mcp.Hosting.ServerSettings.Candidates(string! name) -> System.Collections.Generic.IReadOnlyList<string!>!
-static Snail.Sdk.Mcp.Hosting.ServerSettings.FileOf(string! name) -> string?
-static Snail.Sdk.Mcp.Hosting.ServerSettings.FileVariableOf(string! name) -> string!
-static Snail.Sdk.Mcp.Hosting.ServerSettings.NameOf(System.Reflection.Assembly? server) -> string?
-static Snail.Sdk.Mcp.Hosting.ServerSettings.PrefixOf(string! name) -> string!
-static Snail.Sdk.Mcp.Hosting.ServerSettings.Read(string! name) -> Microsoft.Extensions.Configuration.IConfigurationRoot!

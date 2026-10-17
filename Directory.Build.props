@@ -57,7 +57,7 @@
     gives 0.1.0-local, the form the local feed holds.
   -->
   <PropertyGroup>
-    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionPrefix>0.1.1</VersionPrefix>
     <Authors>orldev</Authors>
     <Copyright>Copyright (c) orldev</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

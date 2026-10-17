@@ -135,13 +135,17 @@ internal static class Rules
         "the job template in `deploy/` names no variable that holds a secret (a `TOKEN`, `KEY`, `SECRET`, `PASSWORD` or "
         + "`CREDENTIALS` in its name): a secret goes into the server's settings file");
 
+    public static readonly Rule ImageVersion = new("S3LC0030", "image version", Severity.Required, "server with an image",
+        "every `Dockerfile` the shared `mcp-image.yml` builds takes the version it passes: each stage that runs `dotnet publish` "
+        + "declares `ARG VERSION`, with a default for a local build, and publishes with `-p:Version=$VERSION`");
+
     /// <summary>Every rule, in the order of its id.</summary>
     public static IReadOnlyList<Rule> All { get; } =
     [
         Solution, GlobalJson, CentralVersions, EditorConfig, License, NuGetConfig, OnSnailSdk, Tests, Benchmarks, BenchmarkBaseline,
         SharedWorkflows, Dependabot, Readme, Reference, SiteTheme, NativeWarnings, MigrationDebt, PublicApi, PackageBaseline,
         NativeProbe, ServerManifest, ToolFamilies, Contract, DataDirectory, ContainerImage, ReleaseFeed, WorkflowInputs, ReleaseTag,
-        JobSecrets
+        JobSecrets, ImageVersion
     ];
 
     /// <summary>The rules as a Markdown table: id, check, whom it asks, what holds.</summary>

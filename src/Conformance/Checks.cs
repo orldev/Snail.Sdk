@@ -70,6 +70,7 @@ internal static partial class Checks
         yield return DataDirectory(repository);
         yield return ContainerImage(repository);
         yield return JobSecrets(repository);
+        yield return ImageVersion(repository);
     }
 
     private static Finding Solution(Repository repository)
@@ -276,8 +277,8 @@ internal static partial class Checks
                 }
 
                 var inputs = called.Inputs(isAction: !call.Target.EndsWith(".yml", StringComparison.Ordinal));
-                var unknown = call.With.Where(key => !inputs.Any(input => input.Key == key)).ToList();
-                var unpassed = inputs.Where(input => input.IsRequired && !call.With.Contains(input.Key, StringComparer.Ordinal)).Select(input => input.Key).ToList();
+                var unknown = call.With.Keys.Where(key => !inputs.Any(input => input.Key == key)).ToList();
+                var unpassed = inputs.Where(input => input.IsRequired && !call.With.ContainsKey(input.Key)).Select(input => input.Key).ToList();
 
                 if (unknown.Count > 0)
                     problems.Add($"{name}:{call.Line} passes {string.Join(", ", unknown)}, which {call.Target} no longer takes");
@@ -357,6 +358,103 @@ internal static partial class Checks
             _ => Rules.ContainerImage.Unmet("no workflow calls the shared mcp-image.yml")
         };
     }
+
+    /// <summary>
+    /// An image the shared mcp-image.yml builds reports the version it is built with. The workflow passes VERSION; a
+    /// Dockerfile that never declares it builds the server with the version of no release, and buildx only warns.
+    /// </summary>
+    private static Finding ImageVersion(Repository repository)
+    {
+        var dockerfiles = ImageDockerfiles(repository);
+
+        if (dockerfiles.Count == 0)
+            return Rules.ImageVersion.Met("no image");
+
+        var problems = dockerfiles.SelectMany(dockerfile => VersionProblems(repository, dockerfile)).ToList();
+
+        return problems.Count == 0
+            ? Rules.ImageVersion.Met()
+            : Rules.ImageVersion.Unmet(string.Join("; ", problems));
+    }
+
+    /// <summary>The Dockerfiles the repository's workflows build through mcp-image.yml, as paths from the root.</summary>
+    private static List<string> ImageDockerfiles(Repository repository)
+    {
+        var calls = repository.WorkflowFiles().SelectMany(file => Workflow.Parse(File.ReadAllText(file)).Calls());
+        var images = calls.Where(call => call.Target == ".github/workflows/mcp-image.yml");
+
+        return [.. images.Select(call => call.With.GetValueOrDefault("dockerfile", "Dockerfile")).Distinct(StringComparer.Ordinal)];
+    }
+
+    /// <summary>
+    /// What keeps one Dockerfile from building the version in: a stage that publishes without declaring VERSION or
+    /// without passing it, or no default for a build that passes none. An image that publishes no .NET program holds.
+    /// </summary>
+    private static IEnumerable<string> VersionProblems(Repository repository, string dockerfile)
+    {
+        if (repository.Text(dockerfile) is not { } text)
+        {
+            yield return $"{dockerfile} is not there";
+            yield break;
+        }
+
+        var stages = DockerStages(text);
+        var publishing = stages.Where(stage => stage.Any(IsPublish)).ToList();
+        var hasDefault = stages.Any(HasVersionDefault);
+
+        foreach (var stage in publishing)
+        {
+            if (!stage.Any(IsVersionArgument))
+                yield return $"{dockerfile}: the stage that runs dotnet publish declares no ARG VERSION";
+
+            if (!stage.Where(IsPublish).All(PublishedVersion().IsMatch))
+                yield return $"{dockerfile}: dotnet publish passes no -p:Version=$VERSION";
+        }
+
+        if (publishing.Count > 0 && !hasDefault)
+            yield return $"{dockerfile}: VERSION has no default, so a build that passes none publishes an empty version";
+    }
+
+    /// <summary>
+    /// A Dockerfile as its instructions, continued lines joined and comments left out, cut where each FROM starts a
+    /// stage. The first part holds what comes before the first FROM, the global ARGs.
+    /// </summary>
+    private static List<List<string>> DockerStages(string text)
+    {
+        List<List<string>> stages = [[]];
+        var pending = string.Empty;
+
+        foreach (var line in Lines(text))
+        {
+            var trimmed = line.Trim();
+
+            if (trimmed.Length == 0 || trimmed.StartsWith('#'))
+                continue;
+
+            if (trimmed.EndsWith('\\'))
+            {
+                pending += $"{trimmed[..^1].TrimEnd()} ";
+                continue;
+            }
+
+            var instruction = pending + trimmed;
+            pending = string.Empty;
+
+            if (instruction.StartsWith("FROM ", StringComparison.OrdinalIgnoreCase))
+                stages.Add([]);
+
+            stages[^1].Add(instruction);
+        }
+
+        return stages;
+    }
+
+    private static bool IsPublish(string instruction) => instruction.Contains("dotnet publish", StringComparison.Ordinal);
+
+    private static bool IsVersionArgument(string instruction) => VersionArgument().IsMatch(instruction);
+
+    private static bool HasVersionDefault(List<string> stage) =>
+        stage.Any(instruction => VersionArgument().Match(instruction).Groups["default"].Success);
 
     /// <summary>The reference committed: docs/reference, or — a server whose docs are a site — wherever SnailReferenceFolder writes the tool pages.</summary>
     private static Finding Reference(Repository repository)
@@ -667,4 +765,10 @@ internal static partial class Checks
 
     [GeneratedRegex(@"^theme:", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
     private static partial Regex ThemeOfItsOwn();
+
+    [GeneratedRegex(@"^ARG\s+VERSION(?:\s*=\s*(?<default>\S+))?\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex VersionArgument();
+
+    [GeneratedRegex(@"[-/]p:Version=[""']?\$(?:VERSION\b|\{VERSION\})", RegexOptions.CultureInvariant)]
+    private static partial Regex PublishedVersion();
 }

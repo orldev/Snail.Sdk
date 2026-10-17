@@ -52,7 +52,9 @@ to `ghcr.io/<owner>/s3l-<short>-mcp` with the version, the commit and `latest`; 
 are never pushed. Every image says what it is from the inside: the workflow passes the version — the tag's, or
 `0.0.0-<branch>.<commit>` — as the `VERSION` build argument, the server reports it in `initialize` and the image carries
 it as `org.opencontainers.image.version`; a local `docker build`, which gets `0.0.0-local`, is tagged
-`s3l-<short>-mcp:local` and never left to default to `latest` ([workflows](workflows.md#mcp-imageyml)).
+`s3l-<short>-mcp:local` and never left to default to `latest` ([workflows](workflows.md#mcp-imageyml)). A
+`Dockerfile` that never declares `VERSION` would build the server with the version of no release while buildx only
+warns, so the conformance check fails it (S3LC0030).
 
 ### After a release
 

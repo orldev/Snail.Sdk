@@ -70,6 +70,7 @@ The table is the output of `--rules` of this release. "Fails the build" no means
 | S3LC0027 | workflow inputs | all | yes | every call of a shared workflow or action (`orldev/Snail.Sdk/...`) names one Snail.Sdk keeps, passes only inputs it declares and every input it requires |
 | S3LC0028 | release tag | all | no | `publish.yml` starts on `tags: ['v[0-9]+.[0-9]+.[0-9]+*']`, which the moving `v1` tag does not match — advice |
 | S3LC0029 | job secrets | server with a launchd job | yes | the job template in `deploy/` names no variable that holds a secret (a `TOKEN`, `KEY`, `SECRET`, `PASSWORD` or `CREDENTIALS` in its name): a secret goes into the server's settings file |
+| S3LC0030 | image version | server with an image | yes | every `Dockerfile` the shared `mcp-image.yml` builds takes the version it passes: each stage that runs `dotnet publish` declares `ARG VERSION`, with a default for a local build, and publishes with `-p:Version=$VERSION` |
 
 ## Making each check hold
 
@@ -108,6 +109,7 @@ copying them from a fresh repository of the template is the quickest fix for mos
 | S3LC0027 | GitHub refuses a call with an unknown or missing input when it runs, in a repository that built green | pass only the inputs listed in [Workflows](workflows.md); the detail names the file, the line and the inputs |
 | S3LC0028 | the moving `v1` tag must start no release | `tags: ['v[0-9]+.[0-9]+.[0-9]+*']` in `publish.yml` |
 | S3LC0029 | a secret in the template travels with the repository, and a job edited by hand is no longer restarted by an install | move it into `~/.config/s3l-mcp-<short>/config.json`, which the server reads through `ServerSettings`, readable by its owner alone ([installing](installing.md#shared-servers-under-launchd)) |
+| S3LC0030 | an image tagged `1.2.0` whose server says another version in `initialize` cannot be told from any other build | as the template writes it: `ARG VERSION=0.0.0-local` before the first `FROM`, `ARG VERSION` again in each stage that uses it, `-p:Version=$VERSION` on `dotnet publish`, and `LABEL org.opencontainers.image.version=$VERSION` in the final stage; the detail names the file and what is missing |
 
 ## The reference generator
 

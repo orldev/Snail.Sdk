@@ -3,8 +3,8 @@ namespace Snail.Sdk.Conformance;
 /// <summary>A line of YAML that holds something: its indentation (a list item's dash counted as indentation), and the key and value it writes.</summary>
 internal sealed record YamlLine(int Number, int Indent, bool IsItem, string Key, string Value);
 
-/// <summary>One call of a workflow or action of Snail.Sdk: the line it is written on, the job it is in, what it names and the inputs it passes.</summary>
-internal sealed record SharedCall(int Line, string Job, string Target, IReadOnlyList<string> With);
+/// <summary>One call of a workflow or action of Snail.Sdk: the line it is written on, the job it is in, what it names and the inputs it passes, with their values.</summary>
+internal sealed record SharedCall(int Line, string Job, string Target, IReadOnlyDictionary<string, string> With);
 
 /// <summary>An input a workflow or action declares, and whether a caller must pass it.</summary>
 internal sealed record WorkflowInput(string Key, bool IsRequired);
@@ -69,7 +69,9 @@ internal sealed class Workflow
                 continue;
 
             var target = Unquoted(line.Value)[Shared.Length..].Split('@')[0];
-            var with = Sibling(index, "with") is { } at ? Children(at).Select(child => child.Key).ToList() : [];
+            var with = Sibling(index, "with") is { } at
+                ? Children(at).DistinctBy(child => child.Key).ToDictionary(child => child.Key, child => Unquoted(child.Value), StringComparer.Ordinal)
+                : new Dictionary<string, string>(StringComparer.Ordinal);
 
             calls.Add(new SharedCall(line.Number, JobOf(index), target, with));
         }

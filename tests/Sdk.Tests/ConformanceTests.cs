@@ -274,6 +274,89 @@ public sealed class ConformanceTests : IDisposable
         Assert.Single(Checks.Of(none, Standard.Embedded()), found => found is { Check: "job secrets", IsMet: true });
     }
 
+    private static (string Path, string Text) ImageWorkflow(string dockerfile) => (".github/workflows/image.yml", $"""
+        name: container image
+        on:
+          push:
+        jobs:
+          image:
+            permissions:
+              contents: read
+              packages: write
+            uses: orldev/Snail.Sdk/.github/workflows/mcp-image.yml@v1
+            with:
+              dockerfile: {dockerfile}
+        """);
+
+    /// <summary>The workflow passes VERSION, and a Dockerfile that never declares it builds the server with the version of no release.</summary>
+    [Fact]
+    public void ImageVersion_ADockerfileThatNeverTakesTheVersion_FailsTheBuild()
+    {
+        var repository = Write("Snail.MCP.Foo", ImageWorkflow("deploy/Dockerfile"), ("deploy/Dockerfile", """
+            FROM mcr.microsoft.com/dotnet/sdk:10.0.302 AS build
+            RUN dotnet publish src/Snail.MCP.Foo.csproj -c Release -o /app
+            FROM mcr.microsoft.com/dotnet/aspnet:10.0
+            COPY --from=build /app .
+            """));
+
+        var finding = Assert.Single(Checks.Of(repository, Standard.Embedded()), found => found.Check == "image version");
+
+        Assert.Equal(Severity.Required, finding.Severity);
+        Assert.False(finding.IsMet);
+        Assert.Contains("deploy/Dockerfile: the stage that runs dotnet publish declares no ARG VERSION", finding.Detail, StringComparison.Ordinal);
+        Assert.Contains("deploy/Dockerfile: dotnet publish passes no -p:Version=$VERSION", finding.Detail, StringComparison.Ordinal);
+        Assert.Contains("VERSION has no default", finding.Detail, StringComparison.Ordinal);
+    }
+
+    /// <summary>An ARG before the first FROM is not seen inside a stage until the stage declares it again.</summary>
+    [Fact]
+    public void ImageVersion_AnArgumentOnlyBeforeTheFirstStage_DoesNotReachThePublish()
+    {
+        var repository = Write("Snail.MCP.Foo", ImageWorkflow("Dockerfile"), ("Dockerfile", """
+            ARG VERSION=0.0.0-local
+            FROM mcr.microsoft.com/dotnet/sdk:10.0.302 AS build
+            RUN dotnet publish src/Snail.MCP.Foo.csproj -c Release -o /app -p:Version=$VERSION
+            """));
+
+        var finding = Assert.Single(Checks.Of(repository, Standard.Embedded()), found => found.Check == "image version");
+
+        Assert.False(finding.IsMet);
+        Assert.Equal("Dockerfile: the stage that runs dotnet publish declares no ARG VERSION", finding.Detail);
+    }
+
+    /// <summary>
+    /// The template's form holds, a publish continued over lines included; so does an image that publishes no .NET
+    /// program, and a server that builds no image at all.
+    /// </summary>
+    [Fact]
+    public void ImageVersion_AsTheTemplateWritesIt_OrNoDotnetInTheImage_OrNoImage_Holds()
+    {
+        var template = Write("Snail.MCP.Foo", ImageWorkflow("Dockerfile"), ("Dockerfile", """
+            # The server as a container image.
+            ARG VERSION=0.0.0-local
+
+            FROM mcr.microsoft.com/dotnet/sdk:10.0.302 AS build
+            ARG VERSION
+            RUN dotnet publish src/Snail.MCP.Foo.csproj -c Release \
+                -o /app -p:Version="$VERSION"
+
+            FROM mcr.microsoft.com/dotnet/aspnet:10.0
+            ARG VERSION
+            LABEL org.opencontainers.image.version=$VERSION
+            """));
+        var python = Write("Snail.MCP.Bar", ImageWorkflow("deploy/executor/Dockerfile"), ("deploy/executor/Dockerfile", """
+            FROM python:3.13-slim
+            RUN pip install --no-cache-dir pytest
+            """));
+        var none = Write("Snail.MCP.Baz", ("src/Tools.cs", "static class Tools { }"));
+
+        var held = Assert.Single(Checks.Of(template, Standard.Embedded()), found => found.Check == "image version");
+
+        Assert.True(held.IsMet, held.Detail);
+        Assert.Single(Checks.Of(python, Standard.Embedded()), found => found is { Check: "image version", IsMet: true });
+        Assert.Single(Checks.Of(none, Standard.Embedded()), found => found is { Check: "image version", IsMet: true, Detail: "no image" });
+    }
+
     /// <summary>A server named through ServerFolders holds, and so does one that keeps no folder in the home at all.</summary>
     [Fact]
     public void DataDirectory_ThroughServerFolders_OrNone_Holds()

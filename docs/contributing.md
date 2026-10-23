@@ -37,7 +37,7 @@ dotnet test Snail.Sdk.slnx -c Release
 | --- | --- | --- |
 | `Analyzers.Tests` | every rule and code fix on source snippets, the help links | nothing more |
 | `Mcp.Tests` | the server libraries, including the HTTP host serving and refusing requests | nothing more |
-| `Sdk.Tests` | the SDK as a build does it: every package packed once per run into a temporary feed (the next release with the run's moment, `0.1.1-test.<time>`, above the last release so package validation holds; what it restored is taken out of the package cache when the run ends), and real projects built on it — the levels, the kinds, the install and launchd targets (with a temporary home and a stand-in `launchctl`), the conformance tool, the docs tool, the site, the templates made, built, tested, packed and a server published natively and asked its contract | network access to nuget.org; `python3` with `venv` and access to PyPI (`SiteTests` make MkDocs an environment); the Native AOT toolchain of the machine |
+| `Sdk.Tests` | the SDK as a build does it: every package packed once per run into a temporary feed (the next release with the run's moment, `<VersionPrefix>-test.<time>`, above the last release so package validation holds; what it restored is taken out of the package cache when the run ends), and real projects built on it — the levels, the kinds, the install and launchd targets (with a temporary home and a stand-in `launchctl`), the conformance tool, the docs tool, the site, the templates made, built, tested, packed and a server published natively and asked its contract | network access to nuget.org; `python3` with `venv` and access to PyPI (`SiteTests` make MkDocs an environment); the Native AOT toolchain of the machine |
 
 The tests never write to the real home, never touch launchd and never pack into a shared feed. `dotnet pack
 Snail.Sdk.slnx -m` is safe in parallel: the conformance and docs tools are published once, into their own `bin/`.
@@ -59,11 +59,11 @@ Until a change is released, a repository that needs it takes Snail.Sdk from a lo
 since NuGet never reads a version again once it is in the global packages folder:
 
 ```bash
-dotnet pack Snail.Sdk.slnx -c Release -p:VersionSuffix=local.8 -o ~/nuget    # 0.1.1-local.8
+dotnet pack Snail.Sdk.slnx -c Release -p:VersionSuffix=local.8 -o ~/nuget    # 0.2.1-local.8
 dotnet nuget add source ~/nuget -n LocalPackages                             # once per machine
 ```
 
-then, in the repository, `global.json`'s `msbuild-sdks` names `0.1.1-local.8`, and `nuget.config` maps the SDK to the
+then, in the repository, `global.json`'s `msbuild-sdks` names `0.2.1-local.8`, and `nuget.config` maps the SDK to the
 feed beside its other mappings — the longer pattern wins, so `Snail.Sdk.*` comes from the feed and everything else from
 nuget.org:
 
@@ -74,7 +74,7 @@ nuget.org:
 </packageSource>
 ```
 
-The templates are installed again from `~/nuget/Snail.Sdk.Templates.0.1.1-local.8.nupkg`; their `global.json` is stamped
+The templates are installed again from `~/nuget/Snail.Sdk.Templates.0.2.1-local.8.nupkg`; their `global.json` is stamped
 with the version being packed (`SNAIL_SDK_VERSION`), so they always name the SDK of their own pack. A repository on the
 local feed builds, tests and passes the conformance check, but cannot be released: the release checks refuse a
 `LocalPackages` mapping and a `-local` version (S3LC0026). Once the change is released, it moves back as

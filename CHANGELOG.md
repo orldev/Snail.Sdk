@@ -6,6 +6,8 @@ A change that a repository must act on says what to do.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-24
+
 ### Added
 
 - ASP.NET applications as a kind of the standard. A repository whose own project builds on `Microsoft.NET.Sdk.Web` with
@@ -46,5 +48,6 @@ The first release.
 - The shared workflows, called at `@v1`: `lib-ci`, `mcp-ci`, `lib-publish`, `mcp-publish`, `mcp-image`, `perf` and
   `docs`, and the `nuget-push` action for trusted publishing.
 
-[Unreleased]: https://github.com/orldev/Snail.Sdk/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/orldev/Snail.Sdk/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/orldev/Snail.Sdk/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/orldev/Snail.Sdk/tree/v0.1.0

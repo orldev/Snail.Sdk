@@ -37,7 +37,7 @@ dotnet test Snail.Sdk.slnx -c Release
 | --- | --- | --- |
 | `Analyzers.Tests` | every rule and code fix on source snippets, the help links | nothing more |
 | `Mcp.Tests` | the server libraries, including the HTTP host serving and refusing requests | nothing more |
-| `Sdk.Tests` | the SDK as a build does it: every package packed once per run into a temporary feed (`0.0.0-test.<time>`), and real projects built on it — the levels, the kinds, the install and launchd targets (with a temporary home and a stand-in `launchctl`), the conformance tool, the docs tool, the site, the templates made, built, tested, packed and a server published natively and asked its contract | network access to nuget.org; `python3` with `venv` and access to PyPI (`SiteTests` make MkDocs an environment); the Native AOT toolchain of the machine |
+| `Sdk.Tests` | the SDK as a build does it: every package packed once per run into a temporary feed (the next release with the run's moment, `0.1.1-test.<time>`, above the last release so package validation holds; what it restored is taken out of the package cache when the run ends), and real projects built on it — the levels, the kinds, the install and launchd targets (with a temporary home and a stand-in `launchctl`), the conformance tool, the docs tool, the site, the templates made, built, tested, packed and a server published natively and asked its contract | network access to nuget.org; `python3` with `venv` and access to PyPI (`SiteTests` make MkDocs an environment); the Native AOT toolchain of the machine |
 
 The tests never write to the real home, never touch launchd and never pack into a shared feed. `dotnet pack
 Snail.Sdk.slnx -m` is safe in parallel: the conformance and docs tools are published once, into their own `bin/`.
@@ -55,17 +55,30 @@ The site of Snail.Sdk is built strictly by `tools/site.sh` (served with `tools/s
 
 ## A local version for the other repositories
 
-Until a change is released, the repositories that build on Snail.Sdk take it from a local feed
-([getting started](getting-started.md#before-snailsdk-is-on-nuget)). Each pack takes a new number, since NuGet never
-reads a version again once it is in the global packages folder:
+Until a change is released, a repository that needs it takes Snail.Sdk from a local feed. Each pack takes a new number,
+since NuGet never reads a version again once it is in the global packages folder:
 
 ```bash
-dotnet pack Snail.Sdk.slnx -c Release -p:VersionSuffix=local.8 -o ~/nuget    # 0.1.0-local.8
+dotnet pack Snail.Sdk.slnx -c Release -p:VersionSuffix=local.8 -o ~/nuget    # 0.1.1-local.8
+dotnet nuget add source ~/nuget -n LocalPackages                             # once per machine
 ```
 
-then, in each repository, `global.json`'s `msbuild-sdks` names `0.1.0-local.8`, and the templates are installed again from
-`~/nuget/Snail.Sdk.Templates.0.1.0-local.8.nupkg`. The templates' `global.json` is stamped with the version being
-packed (`SNAIL_SDK_VERSION`), so they always name the SDK of their own pack.
+then, in the repository, `global.json`'s `msbuild-sdks` names `0.1.1-local.8`, and `nuget.config` maps the SDK to the
+feed beside its other mappings — the longer pattern wins, so `Snail.Sdk.*` comes from the feed and everything else from
+nuget.org:
+
+```xml
+<packageSource key="LocalPackages">
+  <package pattern="Snail.Sdk" />
+  <package pattern="Snail.Sdk.*" />
+</packageSource>
+```
+
+The templates are installed again from `~/nuget/Snail.Sdk.Templates.0.1.1-local.8.nupkg`; their `global.json` is stamped
+with the version being packed (`SNAIL_SDK_VERSION`), so they always name the SDK of their own pack. A repository on the
+local feed builds, tests and passes the conformance check, but cannot be released: the release checks refuse a
+`LocalPackages` mapping and a `-local` version (S3LC0026). Once the change is released, it moves back as
+[releasing](releasing.md#from-the-local-feed-to-nuget) describes.
 
 ## The public API of the server libraries
 
@@ -101,7 +114,7 @@ a newer Roslyn.
 
 ## A conformance check
 
-1. A `Rule` in `src/Conformance/Rules.cs` with the next free id (`S3LC0029`, …), its name, `Required` or `Advice`, whom
+1. A `Rule` in `src/Conformance/Rules.cs` with the next free id (`S3LC0032`, …), its name, `Required` or `Advice`, whom
    it asks (`all`, `library`, `server`, `native`), and what holds — the sentence `--rules` prints.
 2. The check in `src/Conformance/Checks.cs`: it reads files only, never throws on a malformed file (a malformed file is a
    failed check with a detail that says what is wrong), and an unmet finding's detail says what to change.

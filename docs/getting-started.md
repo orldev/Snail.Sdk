@@ -1,9 +1,9 @@
 # Getting started
 
-How to start a new Snail library or MCP server from the templates, with Snail.Sdk from NuGet or from a local feed, what
-to do on its first day, and how to run locally everything the shared CI runs. A project made from a template builds
-without a warning, passes its tests and the conformance check, and — a server — answers its contract as a native
-program, before a line of it is changed.
+How to start a new Snail library, MCP server or ASP.NET application from the templates, how to bring an existing
+repository onto Snail.Sdk, what to do on a project's first day, and how to run locally everything the shared CI runs. A
+project made from a template builds without a warning, passes its tests and the conformance check, and — a server —
+answers its contract as a native program, before a line of it is changed.
 
 ## Prerequisites
 
@@ -45,57 +45,43 @@ dotnet new s3l-mcp -n Snail.MCP.Foo --native false --transport Both --port 9310 
 
 What each template writes: [the repository layout](standard.md#repository-layout).
 
-## Before Snail.Sdk is on NuGet
-
-Until a release of Snail.Sdk is on nuget.org, its packages come from a local folder feed. Each repository then names a
-local version of the SDK, `0.1.0-local.N`.
-
-1. **Pack Snail.Sdk into the feed**, with a version not packed before — NuGet never reads a version again once it is in
-   the global packages folder, so a repacked `0.1.0-local.7` would be ignored:
-
-   ```bash
-   cd Snail.Sdk
-   dotnet pack Snail.Sdk.slnx -c Release -p:VersionSuffix=local.8 -o ~/nuget     # 0.1.0-local.8
-   ```
-
-2. **Name the feed once per machine**, in the user-level NuGet configuration, under the key the repositories map to:
-
-   ```bash
-   dotnet nuget add source ~/nuget -n LocalPackages
-   ```
-
-3. **Install the templates from the feed**:
-
-   ```bash
-   dotnet new install ~/nuget/Snail.Sdk.Templates.0.1.0-local.8.nupkg
-   ```
-
-   The new project's `global.json` names `0.1.0-local.8` for every level.
-
-4. **Map the Snail packages to the feed** in the new repository's `nuget.config`, beside the template's mapping:
-
-   ```xml
-   <packageSourceMapping>
-     <packageSource key="nuget.org">
-       <package pattern="*" />
-     </packageSource>
-     <packageSource key="LocalPackages">
-       <package pattern="Snail.Sdk" />
-       <package pattern="Snail.Sdk.*" />
-     </packageSource>
-   </packageSourceMapping>
-   ```
-
-   The longer pattern wins, so `Snail.Sdk.*` comes from the feed and everything else from nuget.org.
-
-A repository on the local feed builds, tests and passes the conformance check as any other, but it cannot be released:
-the release checks refuse a `LocalPackages` mapping and a `-local` version. When Snail.Sdk is released, the repository
-switches as [releasing](releasing.md#from-the-local-feed-to-nuget) describes.
-
-## After Snail.Sdk is on NuGet
+## Templates of a given release
 
 `dotnet new install Snail.Sdk.Templates` takes the latest release; `dotnet new install Snail.Sdk.Templates::0.2.0` a
-given one. The template's `nuget.config` maps every package to nuget.org, and nothing else is needed.
+given one. The template's `nuget.config` maps every package to nuget.org, and nothing else is needed. A version of
+Snail.Sdk not yet released comes from a local feed: [contributing](contributing.md#a-local-version-for-the-other-repositories).
+
+## An existing repository
+
+A repository written before Snail.Sdk moves onto it in one change: the files a template writes, the SDK in each project,
+and then whatever the analyzers and the conformance check find in the code. Make a project of the same kind from the
+template beside it first, `dotnet new s3l-web -n Vertical.Foo -o ~/scratch/Vertical.Foo` — its files are the ones to
+copy, and the steps below name them.
+
+1. **The root files.** Copy `global.json` (its `msbuild-sdks` names the Snail.Sdk release), `.editorconfig` as it is —
+   the rules ship in the SDK, and a rule kept here would outrank it — and `LICENSE`. In `nuget.config`, keep the
+   repository's own sources and add a `packageSourceMapping` for them. Copy `.github/dependabot.yml` and the workflows
+   that call the shared ones: `ci.yml`, `perf.yml`, and `publish.yml` for a package or `image.yml` for an image.
+2. **`Directory.Build.props`.** Take out what the SDK sets — `LangVersion`, `Nullable`, `ImplicitUsings`,
+   `TreatWarningsAsErrors`, `EnforceCodeStyleInBuild`, `GenerateDocumentationFile`, `AnalysisLevel`, any `NoWarn`. What
+   stays is the repository's own: `Product`, the target framework, central package management, a version prefix. The
+   conformance check names a line left behind (S3LC0017).
+3. **The projects.** A library builds on `Sdk="Snail.Sdk.Library"`, a server on `Sdk="Snail.Sdk.Mcp"`, an application
+   keeps `Sdk="Microsoft.NET.Sdk.Web"` and adds `<Sdk Name="Snail.Sdk" />` inside the project. A test project builds on
+   `Sdk="Snail.Sdk"`, and loses its `<GenerateDocumentationFile>false</GenerateDocumentationFile>`: the SDK already asks
+   no documentation of tests, and with the file switched off the build refuses to run IDE0005 and fails.
+4. **The build.** `dotnet build -c Release --no-incremental` — an incremental build may skip the compiler, and with it
+   the new rules. What it reports is the code's own debt; [the rules](rules/index.md) say how each is fixed. Two are
+   common in code written before: `using` directives no longer needed (IDE0005, found only once documentation files are
+   on), and text in another language than English (S3L0005) — a prompt moves into a type named for it, and what a person
+   reads into resources ([the standard](standard.md#repository-layout)).
+5. **What a kind asks.** A library: its public API in `PublicAPI.Shipped.txt` as last released and
+   `SnailPackageBaseline` naming that release, or both empty before the first one. A server: `.mcp/server.json` and
+   `docs/tools.json`. An image: `ARG VERSION` with `-p:Version=$VERSION` on `dotnet publish` (S3LC0030), and tini as
+   process 1, as the template's `Dockerfile` writes them.
+6. **Benchmarks.** A benchmark project in `benchmarks/` with its first reports in `baseline/` (S3LC0009, S3LC0010).
+7. **The check.** `dotnet test -c Release`, then `dotnet msbuild src/<Project>.csproj -t:SnailConformance` until every
+   line holds, then one commit.
 
 ## The first day
 

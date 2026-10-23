@@ -37,8 +37,8 @@ dotnet new s3l-web -n Vertical.Foo       # an ASP.NET application
 
 ## Documentation
 
-- [Getting started](docs/getting-started.md) — a new library or server, before and after Snail.Sdk is on NuGet, and
-  running everything locally.
+- [Getting started](docs/getting-started.md) — a new library, server or application, an existing repository brought
+  onto Snail.Sdk, and running everything locally.
 - [The standard](docs/standard.md) — what every repository looks like, how it is built, tested, documented and
   released, and why.
 - [Guidelines](docs/guidelines.md) — how the C# is written.
@@ -47,6 +47,7 @@ dotnet new s3l-web -n Vertical.Foo       # an ASP.NET application
 - Reference — [MSBuild properties](docs/properties.md), [workflows](docs/workflows.md),
   [conformance](docs/conformance.md), [analyzer rules](docs/rules/index.md).
 - [Contributing](docs/contributing.md) — working on Snail.Sdk itself.
+- [Changelog](CHANGELOG.md) — what changed in each release.
 
 ## Building
 

@@ -100,7 +100,9 @@ Every package of the repository — `Snail.Sdk`, `.Analyzers`, `.Library`, `.Mcp
 
 1. **Master is green**: `ci.yml` ran the tests, actionlint and shellcheck.
 2. **The release commit**: the entries of `src/Analyzers/AnalyzerReleases.Unshipped.md` move to
-   `AnalyzerReleases.Shipped.md` under `## Release X.Y.Z`.
+   `AnalyzerReleases.Shipped.md` under `## Release X.Y.Z`, and `## [Unreleased]` of `CHANGELOG.md` becomes
+   `## [X.Y.Z] - <date>` under a new, empty `## [Unreleased]`, with the compare links at the bottom moved on. Every
+   `feat:` and `fix:` commit adds its line to `## [Unreleased]` as it is made, so the release commit only renames.
 3. **Tag**: `git tag vX.Y.Z && git push origin vX.Y.Z`. `publish.yml` tests, packs every package at `X.Y.Z` and pushes
    them with the `nuget-push` action of the commit being released.
 4. **Wait for nuget.org to index them**: the version must be listed at
@@ -156,7 +158,7 @@ the minor, and fixes that keep every name and default raise the patch.
 ## From the local feed to NuGet
 
 A repository built on an unreleased Snail.Sdk takes it from a local feed (`LocalPackages`, see
-[getting started](getting-started.md)). Once the release is on nuget.org:
+[contributing](contributing.md#a-local-version-for-the-other-repositories)). Once the release is on nuget.org:
 
 1. Wait until nuget.org indexes the version (step 4 above).
 2. In `global.json`, set every `msbuild-sdks` entry to the released version.

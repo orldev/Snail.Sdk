@@ -14,7 +14,7 @@ project with a version bump instead of a copy.
 | `Snail.Sdk.Analyzers` | the rules no .NET analyzer has |
 | `Snail.Sdk.Templates` | `dotnet new s3l-lib`, `dotnet new s3l-mcp`, `dotnet new s3l-web` |
 
-- [Getting started](getting-started.md): a new library or server, and running everything locally.
+- [Getting started](getting-started.md): a new library, server or application, an existing repository brought onto Snail.Sdk, and running everything locally.
 - [The standard](standard.md): what every repository looks like and why.
 - [Guidelines](guidelines.md): how the C# is written.
 - [Releasing](releasing.md) and [installing servers locally](installing.md).

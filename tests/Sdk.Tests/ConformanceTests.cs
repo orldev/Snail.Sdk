@@ -393,16 +393,66 @@ public sealed class ConformanceTests : IDisposable
         var worktree = Directory.CreateDirectory(Path.Combine(common, "worktrees", "Snail.Toolkit.Tagged")).FullName;
 
         Directory.CreateDirectory(Path.Combine(common, "refs", "tags"));
-        File.WriteAllText(Path.Combine(common, "packed-refs"), "# pack-refs with: peeled\n0123 refs/tags/v1.0.0\n");
+        File.WriteAllText(Path.Combine(common, "packed-refs"), "# pack-refs with: peeled\n0123 refs/tags/v9.8.7\n");
         File.WriteAllText(Path.Combine(worktree, "commondir"), "../..\n");
 
         var repository = Write("Snail.Toolkit.Tagged", (".git", $"gitdir: {worktree}\n"), ("src/Snail.Toolkit.Tagged.csproj", "<Project Sdk=\"Snail.Sdk.Library\" />"));
 
         var finding = Assert.Single(Checks.Of(repository, Standard.Embedded()), found => found.Check == "package baseline");
 
-        Assert.Equal("v1.0.0", Assert.Single(repository.Tags()));
+        Assert.Equal("v9.8.7", Assert.Single(repository.Tags()));
         Assert.False(finding.IsMet);
-        Assert.StartsWith("released (tagged v1.0.0)", finding.Detail, StringComparison.Ordinal);
+        Assert.StartsWith("released (tagged v9.8.7)", finding.Detail, StringComparison.Ordinal);
+    }
+
+    private const string Released = "1111111111111111111111111111111111111111";
+
+    private const string Releasing = "2222222222222222222222222222222222222222";
+
+    /// <summary>A library checked out at a commit, with a git folder of files: HEAD on master, and tags as loose refs or in packed-refs.</summary>
+    private Repository Library(string name, string? packedRefs, params (string Tag, string Commit)[] looseTags)
+    {
+        (string, string)[] git =
+        [
+            (".git/HEAD", "ref: refs/heads/master\n"),
+            (".git/refs/heads/master", $"{Releasing}\n"),
+            ($"src/{name}.csproj", "<Project Sdk=\"Snail.Sdk.Library\" />"),
+            ("src/PublicAPI.Shipped.txt", "#nullable enable\n"),
+            .. looseTags.Select(tag => ($".git/refs/tags/{tag.Tag}", $"{tag.Commit}\n")),
+            .. packedRefs is null ? [] : new[] { (".git/packed-refs", packedRefs) }
+        ];
+
+        return Write(name, git);
+    }
+
+    /// <summary>
+    /// A first release checked out by its own tag holds that tag and nothing on nuget.org to validate against: the tag
+    /// names the commit checked out, as a lightweight tag does in its loose ref and an annotated one in its peeled line.
+    /// </summary>
+    [Fact]
+    public void PackageBaseline_OfAFirstReleaseCheckedOutByItsTag_IsNotAskedYet()
+    {
+        var lightweight = Library("Snail.Toolkit.Light", null, ("v9.8.7", Releasing));
+        var annotated = Library("Snail.Toolkit.Annotated", $"# pack-refs with: peeled\n3333333333333333333333333333333333333333 refs/tags/v9.8.7\n^{Releasing}\n");
+
+        var first = Assert.Single(Checks.Of(lightweight, Standard.Embedded()), found => found.Check == "package baseline");
+        var peeled = Assert.Single(Checks.Of(annotated, Standard.Embedded()), found => found.Check == "package baseline");
+
+        Assert.True(first.IsMet, first.Detail);
+        Assert.Equal("the first release, v9.8.7, is being made", first.Detail);
+        Assert.True(peeled.IsMet, peeled.Detail);
+    }
+
+    /// <summary>A release after an earlier one validates against it: the earlier tag still counts, the new one does not.</summary>
+    [Fact]
+    public void PackageBaseline_OfASecondRelease_NamesTheEarlierTag()
+    {
+        var repository = Library("Snail.Toolkit.Second", null, ("v9.8.6", Released), ("v9.8.7", Releasing));
+
+        var finding = Assert.Single(Checks.Of(repository, Standard.Embedded()), found => found.Check == "package baseline");
+
+        Assert.False(finding.IsMet);
+        Assert.StartsWith("released (tagged v9.8.6)", finding.Detail, StringComparison.Ordinal);
     }
 
     [Fact]

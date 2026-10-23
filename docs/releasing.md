@@ -56,6 +56,13 @@ it as `org.opencontainers.image.version`; a local `docker build`, which gets `0.
 `Dockerfile` that never declares `VERSION` would build the server with the version of no release while buildx only
 warns, so the conformance check fails it (S3LC0030).
 
+### A library's first release
+
+Nothing is set for it: a library that has never been released names no `SnailPackageBaseline`, since package validation
+would look for that version on nuget.org and find nothing. The tag of the first release does not make the repository
+count as released (S3LC0019): a tag on the commit checked out, or the tag the workflow runs for, is the release being
+made. The baseline comes with the steps after it.
+
 ### After a release
 
 - **A library**: move every line of `PublicAPI.Unshipped.txt` but `#nullable enable` into `PublicAPI.Shipped.txt`, and

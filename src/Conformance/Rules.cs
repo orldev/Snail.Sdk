@@ -98,7 +98,7 @@ internal static class Rules
 
     public static readonly Rule PackageBaseline = new("S3LC0019", "package baseline", Severity.Required, "library",
         "`SnailPackageBaseline` in `Directory.Build.props` once released: a `PublicAPI.Shipped.txt` lists an API, or a "
-        + "`v*` tag exists");
+        + "`v*` tag of an earlier release exists — the tag of the release being made does not count");
 
     public static readonly Rule NativeProbe = new("S3LC0020", "native probe", Severity.Required, "library",
         "a `*.NativeProbe` project, or `SnailNotNativeBecause` saying why not");

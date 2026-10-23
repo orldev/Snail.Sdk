@@ -1,3 +1,5 @@
+using System.IO.Compression;
+using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
 
@@ -91,8 +93,108 @@ internal sealed class Repository
         return tags;
     }
 
+    /// <summary>
+    /// Whether a tag is the release being made rather than one made before: it names the commit checked out, or it is
+    /// the tag the GitHub workflow runs for. A release checked out by its own tag holds that tag, and is no earlier release.
+    /// </summary>
+    public bool IsBeingReleased(string tag)
+    {
+        var isWorkflowTag = Environment.GetEnvironmentVariable("GITHUB_REF_TYPE") == "tag"
+            && Environment.GetEnvironmentVariable("GITHUB_REF_NAME") == tag;
+
+        if (isWorkflowTag)
+            return true;
+
+        var head = Head();
+
+        return head is not null && head == Commit($"{TagPrefix}{tag}");
+    }
+
+    /// <summary>The commit checked out: HEAD of the worktree, followed through the branch it names. Null when unknown.</summary>
+    private string? Head()
+    {
+        if (WorktreeGitFolder() is not { } worktree || !File.Exists(Path.Combine(worktree, "HEAD")))
+            return null;
+
+        var head = File.ReadAllText(Path.Combine(worktree, "HEAD")).Trim();
+
+        return head.StartsWith("ref: ", StringComparison.Ordinal) ? Commit(head["ref: ".Length..].Trim()) : head;
+    }
+
+    /// <summary>
+    /// The commit a reference names: its loose file, or its line in packed-refs — the peeled commit when an annotated
+    /// tag's line is followed by one. Null when the reference is not there.
+    /// </summary>
+    private string? Commit(string reference)
+    {
+        if (GitFolder() is not { } git)
+            return null;
+
+        var loose = Path.Combine(git, reference.Replace('/', Path.DirectorySeparatorChar));
+
+        if (File.Exists(loose))
+        {
+            var named = File.ReadAllText(loose).Trim();
+
+            return TaggedCommit(git, named) ?? named;
+        }
+
+        var packed = Path.Combine(git, "packed-refs");
+
+        if (!File.Exists(packed))
+            return null;
+
+        var lines = File.ReadAllLines(packed);
+        var at = Array.FindIndex(lines, line => line.EndsWith($" {reference}", StringComparison.Ordinal));
+
+        if (at < 0)
+            return null;
+
+        var isPeeled = at + 1 < lines.Length && lines[at + 1].StartsWith('^');
+
+        return isPeeled ? lines[at + 1][1..].Trim() : lines[at].Split(' ')[0];
+    }
+
+    /// <summary>
+    /// The commit an annotated tag object names, when the object is loose — as `git tag -a` writes it — or null for any
+    /// other object, or one already packed.
+    /// </summary>
+    private static string? TaggedCommit(string git, string objectId)
+    {
+        if (objectId.Length != 40)
+            return null;
+
+        var file = Path.Combine(git, "objects", objectId[..2], objectId[2..]);
+
+        if (!File.Exists(file))
+            return null;
+
+        using var compressed = File.OpenRead(file);
+        using var inflated = new ZLibStream(compressed, CompressionMode.Decompress);
+        using var reader = new StreamReader(inflated, Encoding.ASCII);
+        var header = reader.ReadLine() ?? string.Empty;
+
+        if (!header.StartsWith("tag ", StringComparison.Ordinal))
+            return null;
+
+        var target = header[(header.IndexOf('\0', StringComparison.Ordinal) + 1)..];
+
+        return target.StartsWith("object ", StringComparison.Ordinal) ? target["object ".Length..].Trim() : null;
+    }
+
     /// <summary>The folder holding the repository's refs: .git itself, or what a .git file points to and its common folder.</summary>
     private string? GitFolder()
+    {
+        if (WorktreeGitFolder() is not { } folder)
+            return null;
+
+        var common = Path.Combine(folder, "commondir");
+
+        return File.Exists(common) ? Path.GetFullPath(File.ReadAllText(common).Trim(), folder) : folder;
+    }
+
+    /// <summary>The git folder of this checkout: .git itself, or the folder a .git file points to — where its HEAD is.</summary>
+    private string? WorktreeGitFolder()
     {
         var dotGit = Path.Combine(Root, ".git");
 
@@ -102,10 +204,7 @@ internal sealed class Repository
         if (!File.Exists(dotGit) || File.ReadLines(dotGit).FirstOrDefault(line => line.StartsWith("gitdir:", StringComparison.Ordinal)) is not { } pointer)
             return null;
 
-        var folder = Path.GetFullPath(pointer["gitdir:".Length..].Trim(), Root);
-        var common = Path.Combine(folder, "commondir");
-
-        return File.Exists(common) ? Path.GetFullPath(File.ReadAllText(common).Trim(), folder) : folder;
+        return Path.GetFullPath(pointer["gitdir:".Length..].Trim(), Root);
     }
 
     /// <summary>A file of the repository by its path from the root, or null when there is none.</summary>

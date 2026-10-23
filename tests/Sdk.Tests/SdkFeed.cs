@@ -1,15 +1,18 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using System.Xml.Linq;
 
 namespace Snail.Sdk.Sdk.Tests;
 
 /// <summary>Snail.Sdk packed once per test run into a feed of its own, and projects built against it.</summary>
 /// <remarks>
 /// The SDK is only what a build does with it, so it is tested by building: each sample is a real project in a folder of
-/// its own, with a global.json naming the packed version and a nuget.config naming the feed. The version carries the
-/// run's moment, so no package cache answers with an earlier build of the SDK. One feed serves every test class: packing
-/// writes into the repository's own bin and obj, so two packs at once would fight over the same files.
+/// its own, with a global.json naming the packed version and a nuget.config naming the feed. The version is the next
+/// release's (VersionPrefix) with the run's moment as its prerelease part: it sorts above every release, so package
+/// validation against the last one holds, and no package cache answers with an earlier build of the SDK. What the
+/// builds restored of it is taken out of the package cache again when the run ends. One feed serves every test class:
+/// packing writes into the repository's own bin and obj, so two packs at once would fight over the same files.
 /// </remarks>
 public sealed class SdkFeed : IDisposable
 {
@@ -30,7 +33,7 @@ public sealed class SdkFeed : IDisposable
     /// <summary>Packs the SDK of this repository, the analyzers it brings, its library and server levels and the server libraries.</summary>
     public SdkFeed()
     {
-        Version = $"0.0.0-test.{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
+        Version = $"{NextRelease()}-test.{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
         Feed = Directory.CreateDirectory(Path.Combine(_root, "feed")).FullName;
 
         foreach (var project in Packed)
@@ -169,7 +172,46 @@ public sealed class SdkFeed : IDisposable
         ];
     }
 
-    public void Dispose() => Directory.Delete(_root, recursive: true);
+    /// <summary>The feed, and what the builds restored of this run's packages into the package cache.</summary>
+    public void Dispose()
+    {
+        foreach (var project in Packed)
+        {
+            var restored = Path.Combine(PackageCache(), PackageIdOf(project).ToLowerInvariant(), Version.ToLowerInvariant());
+
+            if (Directory.Exists(restored))
+                Directory.Delete(restored, recursive: true);
+        }
+
+        Directory.Delete(_root, recursive: true);
+    }
+
+    /// <summary>The version the repository releases next: VersionPrefix of its Directory.Build.props.</summary>
+    private static string NextRelease()
+    {
+        var props = XDocument.Load(Path.Combine(RepositoryRoot(), "Directory.Build.props"));
+        var prefix = props.Descendants("VersionPrefix").Select(element => element.Value.Trim()).FirstOrDefault();
+
+        return prefix ?? throw new InvalidOperationException("Directory.Build.props sets no VersionPrefix.");
+    }
+
+    /// <summary>The package id a packed project gets: Snail.Sdk for src/Sdk, Snail.Sdk.&lt;folder&gt; for the others.</summary>
+    private static string PackageIdOf(string project)
+    {
+        var folder = Path.GetFileName(Path.GetDirectoryName(project))!;
+
+        return folder == "Sdk" ? "Snail.Sdk" : $"Snail.Sdk.{folder}";
+    }
+
+    /// <summary>The global packages folder the builds of these tests restore into.</summary>
+    private static string PackageCache()
+    {
+        var configured = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+
+        return string.IsNullOrEmpty(configured)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages")
+            : configured;
+    }
 
     private static string RepositoryRoot()
     {

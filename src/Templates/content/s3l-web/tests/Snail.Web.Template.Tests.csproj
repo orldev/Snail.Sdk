@@ -1,0 +1,19 @@
+<Project Sdk="Snail.Sdk">
+
+  <!-- The application hosted in memory, as a client reaches it: Microsoft.AspNetCore.Mvc.Testing's WebApplicationFactory. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../src/Snail.Web.Template.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

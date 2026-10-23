@@ -7,6 +7,7 @@ release:
 dotnet new install Snail.Sdk.Templates
 dotnet new s3l-lib -n Snail.Toolkit.Demo     # a library on Snail.Sdk.Library
 dotnet new s3l-mcp -n Snail.MCP.Demo         # an MCP server on Snail.Sdk.Mcp
+dotnet new s3l-web -n Vertical.Demo          # an ASP.NET application on Snail.Sdk
 ```
 
 Each comes with its tests, the shared `.editorconfig` and `global.json`, and the workflows that call the shared ones.

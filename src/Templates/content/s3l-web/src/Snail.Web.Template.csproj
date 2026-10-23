@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- The Web SDK builds the application; Snail.Sdk beside it brings the standard's rules (global.json). -->
+  <Sdk Name="Snail.Sdk" />
+
+  <PropertyGroup>
+    <Description>TEMPLATE_DESCRIPTION</Description>
+    <IsPackable>false</IsPackable>
+<!--#if (IsBlazor) -->
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+<!--#endif -->
+  </PropertyGroup>
+
+<!--#if (IsBlazor || UsesJwt || mongo || rabbit || vault) -->
+  <ItemGroup>
+<!--#if (IsBlazor) -->
+    <PackageReference Include="Snail.Toolkit.Blazor.Extensions.Tailwind" />
+<!--#endif -->
+<!--#if (UsesJwt) -->
+    <PackageReference Include="Snail.Toolkit.Authentication.JwtBearer" />
+<!--#endif -->
+<!--#if (mongo) -->
+    <PackageReference Include="Snail.Toolkit.Mongodb" />
+<!--#endif -->
+<!--#if (rabbit) -->
+    <PackageReference Include="Snail.Toolkit.RabbitMQ" />
+<!--#endif -->
+<!--#if (vault) -->
+    <PackageReference Include="Snail.Toolkit.HashiCorp.Vault" />
+<!--#endif -->
+  </ItemGroup>
+
+<!--#endif -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Snail.Web.Template.Tests" />
+    <InternalsVisibleTo Include="Snail.Web.Template.Benchmarks" />
+  </ItemGroup>
+
+</Project>

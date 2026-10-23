@@ -1,15 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    The templates every new Snail project starts from: `dotnet new s3l-lib` and `dotnet new s3l-mcp`. They are the
+    The templates every new Snail project starts from: `dotnet new s3l-lib`, `dotnet new s3l-mcp` and `dotnet new s3l-web`. They are the
     standard as files — a project made from one builds, tests and passes the shared CI with no line changed — so a
     change to the standard is a change here. The global.json of each names the Snail.Sdk version this package was
     released with: SNAIL_SDK_VERSION is replaced at pack time.
   -->
   <PropertyGroup>
     <PackageType>Template</PackageType>
-    <Description>The templates of a Snail library (dotnet new s3l-lib) and a Snail MCP server (dotnet new s3l-mcp), built on Snail.Sdk of the same release.</Description>
-    <PackageTags>dotnet-new;templates;mcp;mcp-server;library;snail</PackageTags>
+    <Description>The templates of a Snail library (dotnet new s3l-lib), a Snail MCP server (dotnet new s3l-mcp) and an ASP.NET application (dotnet new s3l-web), built on Snail.Sdk of the same release.</Description>
+    <PackageTags>dotnet-new;templates;mcp;mcp-server;library;aspnetcore;blazor;snail</PackageTags>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <IncludeContentInPack>false</IncludeContentInPack>
     <NoDefaultExcludes>true</NoDefaultExcludes>

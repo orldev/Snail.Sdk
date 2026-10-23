@@ -288,6 +288,57 @@ public sealed class ConformanceTests : IDisposable
               dockerfile: {dockerfile}
         """);
 
+    private const string WebProject = """<Project Sdk="Microsoft.NET.Sdk.Web"><Sdk Name="Snail.Sdk" /></Project>""";
+
+    private const string AppCi = "jobs:\n  ci:\n    uses: orldev/Snail.Sdk/.github/workflows/app-ci.yml@v1\n";
+
+    private const string Perf = "jobs:\n  perf:\n    uses: orldev/Snail.Sdk/.github/workflows/perf.yml@v1\n    with:\n      benchmarks: benchmarks\n";
+
+    private const string VersionedDockerfile = """
+        ARG VERSION=0.0.0-local
+        FROM mcr.microsoft.com/dotnet/sdk:10.0.302 AS build
+        ARG VERSION
+        RUN dotnet publish src/Vertical.Sample.csproj -c Release -o /app -p:Version=$VERSION
+        FROM mcr.microsoft.com/dotnet/aspnet:10.0
+        """;
+
+    /// <summary>
+    /// A repository whose own project builds on the Web SDK is an application: no package, so no public API, baseline,
+    /// probe or reference is asked of it, and its workflows are ci, image and perf. A library whose tests alone host
+    /// a web app stays a library.
+    /// </summary>
+    [Fact]
+    public void Application_OnTheWebSdk_IsAskedForItsImageAndNoPackage()
+    {
+        var application = Write("Vertical.Sample", ("src/Vertical.Sample.csproj", WebProject), ("Dockerfile", VersionedDockerfile),
+            (".github/workflows/ci.yml", AppCi), ImageWorkflow("Dockerfile"), (".github/workflows/perf.yml", Perf));
+        var library = Write("Snail.Toolkit.Hosted", ("src/Snail.Toolkit.Hosted.csproj", "<Project Sdk=\"Snail.Sdk.Library\" />"),
+            ("tests/Snail.Toolkit.Hosted.Tests.csproj", WebProject));
+
+        var findings = Checks.Of(application, Standard.Embedded());
+
+        Assert.Equal(RepositoryKind.Application, application.Kind);
+        Assert.Equal(RepositoryKind.Library, library.Kind);
+        Assert.DoesNotContain(findings, finding => finding.Id is "S3LC0018" or "S3LC0019" or "S3LC0020" or "S3LC0021");
+        Assert.Contains(findings, finding => finding is { Check: "shared workflows", IsMet: true });
+        Assert.Contains(findings, finding => finding is { Check: "reference generated", IsMet: true, Detail: "an application has no API to reference" });
+        Assert.Contains(findings, finding => finding is { Check: "container image", IsMet: true });
+        Assert.Contains(findings, finding => finding is { Check: "image version", IsMet: true });
+    }
+
+    /// <summary>An application is released as its image: without a Dockerfile, or without image.yml, it has no release.</summary>
+    [Fact]
+    public void Application_WithoutItsImage_FailsTheBuild()
+    {
+        var repository = Write("Vertical.Bare", ("src/Vertical.Bare.csproj", WebProject), (".github/workflows/ci.yml", AppCi),
+            (".github/workflows/perf.yml", Perf));
+
+        var findings = Checks.Of(repository, Standard.Embedded());
+
+        Assert.Contains(findings, finding => finding is { Check: "container image", IsMet: false, Detail: "an application is released as its image, but there is no Dockerfile" });
+        Assert.Contains(findings, finding => finding is { Check: "shared workflows", IsMet: false, Detail: "no image.yml" });
+    }
+
     /// <summary>The workflow passes VERSION, and a Dockerfile that never declares it builds the server with the version of no release.</summary>
     [Fact]
     public void ImageVersion_ADockerfileThatNeverTakesTheVersion_FailsTheBuild()
@@ -607,13 +658,14 @@ public sealed class ConformanceTests : IDisposable
     [Theory]
     [InlineData("s3l-lib", "Snail.Toolkit.Kept")]
     [InlineData("s3l-mcp", "Snail.MCP.Kept")]
+    [InlineData("s3l-web", "Vertical.Kept")]
     public void Workflows_OfTheTemplates_KeepTheShape(string template, string name)
     {
         var folder = Path.Combine(TemplatesRoot(), template, ".github");
-        var files = Directory.EnumerateFiles(folder, "*.yml", SearchOption.AllDirectories)
-            .Select(file => ($".github/{Path.GetRelativePath(folder, file).Replace('\\', '/')}", File.ReadAllText(file)))
-            .ToArray();
-        var repository = Write(name, files);
+        var workflows = Directory.EnumerateFiles(folder, "*.yml", SearchOption.AllDirectories)
+            .Select(file => ($".github/{Path.GetRelativePath(folder, file).Replace('\\', '/')}", File.ReadAllText(file)));
+        (string, string)[] application = template == "s3l-web" ? [($"src/{name}.csproj", WebProject)] : [];
+        var repository = Write(name, [.. workflows, .. application]);
 
         var findings = Checks.Of(repository, Standard.Embedded());
 

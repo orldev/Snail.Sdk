@@ -1,10 +1,10 @@
 # Workflows
 
-Every Snail library and server runs its CI, its release, its site and its benchmarks through the shared workflows of
-Snail.Sdk, so that a fix to how the fleet builds is made once, here, and every repository gets it on its next run. A
-repository keeps only short callers in `.github/workflows/`; this page lists each shared workflow and the `nuget-push`
-action with a caller, its inputs, outputs, secrets and permissions. The input tables are taken from the workflow files
-as they are in this release.
+Every Snail library, server and application runs its CI, its release, its site and its benchmarks through the shared
+workflows of Snail.Sdk, so that a fix to how the fleet builds is made once, here, and every repository gets it on its
+next run. A repository keeps only short callers in `.github/workflows/`; this page lists each shared workflow and the
+`nuget-push` action with a caller, its inputs, outputs, secrets and permissions. The input tables are taken from the
+workflow files as they are in this release.
 
 ## Calling them: `@v1`
 
@@ -28,15 +28,17 @@ proposes `@v2` when one exists.
 | [`lib-publish.yml`](#lib-publishyml) | a library's `publish.yml` | the release: tests, pack, artifact `packages` |
 | [`mcp-ci.yml`](#mcp-ciyml) | a server's `ci.yml` | tests, conformance, the reference, the native build per platform, the stdio contract |
 | [`mcp-publish.yml`](#mcp-publishyml) | a server's `publish.yml` | the release: a tool package per platform, the fallback and the pointer |
-| [`mcp-image.yml`](#mcp-imageyml) | a container server's `image.yml` | the image, pushed to GHCR from a version tag |
+| [`app-ci.yml`](#app-ciyml) | an application's `ci.yml` | tests, conformance |
+| [`mcp-image.yml`](#mcp-imageyml) | a container server's or an application's `image.yml` | the image, pushed to GHCR from a version tag |
 | [`docs.yml`](#docsyml) | every repository's `docs.yml` | the site on GitHub Pages |
 | [`perf.yml`](#perfyml) | every repository's `perf.yml` | benchmarks against the baseline, mutation testing |
 | [`nuget-push`](#the-nuget-push-action) (action) | the push job of a `publish.yml` | pushes the packages through NuGet trusted publishing |
 
-Every shared workflow declares `permissions: contents: read` and asks for nothing more except where the tables below
-say so. The [conformance check](conformance.md) holds each caller to this page: S3LC0011 checks that the four callers
-exist and call the workflows of the repository's level, S3LC0027 that every call names a workflow or action Snail.Sdk
-keeps, passes only inputs it declares and every input it requires.
+Every shared workflow declares `permissions: contents: read` and asks for nothing more except where the tables below say
+so. The [conformance check](conformance.md) holds each caller to this page: S3LC0011 checks that the callers exist and
+call the workflows of the repository's level — `ci.yml`, `publish.yml`, `docs.yml` and `perf.yml` for a library or a
+server, `ci.yml`, `image.yml` and `perf.yml` for an application — S3LC0027 that every call names a workflow or action
+Snail.Sdk keeps, passes only inputs it declares and every input it requires.
 
 ## lib-ci.yml
 
@@ -274,13 +276,45 @@ so the pointer never follows a failure; no package found is an error. A run repe
 
 It needs a Linux runner (`runs-on: ubuntu-latest`) and `permissions: { id-token: write, contents: read }` on its job.
 
+## app-ci.yml
+
+The build and tests of an ASP.NET application, on every push and pull request. The job `test` runs `dotnet test` on the
+solution, then the [conformance check](conformance.md). An application publishes no package and no API reference, so
+neither is built here: it is released as its image, which its `image.yml` builds through
+[`mcp-image.yml`](#mcp-imageyml) on every push and pushes to GHCR from a version tag.
+
+```yaml
+name: build and tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ci:
+    uses: orldev/Snail.Sdk/.github/workflows/app-ci.yml@v1
+```
+
+| Input | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `solution` | string | `''` | The solution to build; the one .slnx at the root when empty. |
+| `os` | string | `ubuntu-latest` | The runner the tests run on. |
+| `test-filter` | string | `''` | A dotnet test filter, such as one that leaves out tests needing a container. |
+| `test-environment` | string | `''` | Variables the tests run with, one NAME=value a line, such as one that turns a skipped container test into a failure. |
+
+Secrets: `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`, both optional, as for [`lib-ci.yml`](#lib-ciyml).
+
+Artifacts: `test results` (the `.trx` files).
+
 ## mcp-image.yml
 
-The container image of a server whose project sets `SnailMcpContainer`. Neither the solution nor the tests build the
-Dockerfile, so the image is built on every push and pull request, and a broken one shows before a merge. It is pushed
-only from a `v*` tag, to `ghcr.io/<owner>/s3l-<short>-mcp`, tagged with the version, `latest` and the short commit;
-a prerelease tag (`v1.2.0-preview.1`) gets its version and the commit but leaves `latest` where it is. A branch or pull
-request build is tagged with its name and the commit and is not pushed. Images go to GHCR only.
+The container image of a server whose project sets `SnailMcpContainer`, or of an application. Neither the solution nor
+the tests build the Dockerfile, so the image is built on every push and pull request, and a broken one shows before a
+merge. It is pushed only from a `v*` tag, to `ghcr.io/<owner>/s3l-<short>-mcp` — an application names its image in the
+`image` input — tagged with the version, `latest` and the short commit; a prerelease tag (`v1.2.0-preview.1`) gets its
+version and the commit but leaves `latest` where it is. A branch or pull request build is tagged with its name and the
+commit and is not pushed. Images go to GHCR only.
 
 Every build passes `VERSION` as a build argument: the release's version from the tag (`v1.2.0` gives `1.2.0`), or
 `0.0.0-<branch>.<commit>` from a branch or pull request, so the server built into the image reports in `initialize`

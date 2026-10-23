@@ -12,6 +12,7 @@ updates:
       - /.github/actions/nuget-push
       - /src/Templates/content/s3l-lib
       - /src/Templates/content/s3l-mcp
+      - /src/Templates/content/s3l-web
     schedule:
       interval: cron
       cronjob: '0 6 1 1,3,5,7,9,11 *'

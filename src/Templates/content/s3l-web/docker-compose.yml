@@ -1,0 +1,87 @@
+# The application and what it depends on, behind traefik on the external network proxy:
+#
+#   docker network create proxy        # once per machine: the network traefik runs in
+#   docker compose up --build
+#
+# Proxy__Networks names the network traefik connects from, so the application believes its X-Forwarded headers and
+# nobody else's. Ports are published on the loopback only: from outside, the application is reached through traefik.
+#if (UsesJwt)
+# The signing key comes from the environment or a .env file beside this one, never from the repository.
+#endif
+
+services:
+  app:
+    build: .
+    image: tmplimage:local
+    environment:
+      Proxy__Networks__0: 172.16.0.0/12
+#if (UsesJwt)
+      Jwt__SecretKey: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY to 64 characters or more}
+#endif
+#if (mongo)
+      Mongodb__Connection: mongodb://mongo:27017
+#endif
+#if (rabbit)
+      RabbitMQ__HostName: rabbitmq
+#endif
+#if (UsesCookie)
+    volumes:
+      - keys:/keys
+#endif
+    ports:
+      - 127.0.0.1:5080:8080
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: proxy
+      traefik.http.routers.tmplimage.rule: Host(`tmplimage.localhost`)
+      traefik.http.services.tmplimage.loadbalancer.server.port: "8080"
+    networks:
+      - default
+      - proxy
+#if (mongo || rabbit)
+    depends_on:
+#if (mongo)
+      mongo:
+        condition: service_healthy
+#endif
+#if (rabbit)
+      rabbitmq:
+        condition: service_healthy
+#endif
+#endif
+#if (mongo)
+
+  mongo:
+    image: mongo:8
+    volumes:
+      - mongo:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+#endif
+#if (rabbit)
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+#endif
+#if (mongo || UsesCookie)
+
+volumes:
+#if (mongo)
+  mongo:
+#endif
+#if (UsesCookie)
+  keys:
+#endif
+#endif
+
+networks:
+  proxy:
+    external: true

@@ -14,7 +14,7 @@ instead of a copy. Documentation: <https://orldev.github.io/Snail.Sdk/>.
 | `Snail.Sdk.Mcp.Http` | One server for every session of the machine: the loopback web host (or, for a container image, the published port on every interface), Streamable HTTP with a session per client, the refusal of browser requests. Apart from Hosting so a native stdio server never references ASP.NET Core. |
 | `Snail.Sdk.Mcp.Testing` | The server under test started the way a client starts it, with a home folder of its own, against the build or a published native program; `ToolGuards`. |
 | `Snail.Sdk.Analyzers` | The rules no .NET analyzer has, S3L0001–S3L0010, with code fixes where the fix is mechanical. |
-| `Snail.Sdk.Templates` | `dotnet new s3l-lib` and `dotnet new s3l-mcp`: a repository that builds, tests and conforms before a line is changed. |
+| `Snail.Sdk.Templates` | `dotnet new s3l-lib`, `dotnet new s3l-mcp` and `dotnet new s3l-web`: a repository that builds, tests and conforms before a line is changed. |
 
 A project names its level in its `Sdk` attribute and the version once, in `global.json`:
 
@@ -32,6 +32,7 @@ A new project starts from the templates:
 dotnet new install Snail.Sdk.Templates
 dotnet new s3l-lib -n Snail.Toolkit.Foo
 dotnet new s3l-mcp -n Snail.MCP.Foo
+dotnet new s3l-web -n Vertical.Foo       # an ASP.NET application
 ```
 
 ## Documentation

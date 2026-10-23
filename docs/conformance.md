@@ -32,8 +32,10 @@ The same check is a program, `Snail.Sdk.Conformance.dll` in the `tools/conforman
 `--release` adds the release checks (S3LC0026). A repository of a fleet is a folder holding `global.json` beside
 `.git` — a folder, or a file as in a worktree or a submodule; Snail.Sdk itself is left out, being the standard.
 
-A repository is a **server** when it keeps `.mcp/server.json` or its name starts with `Snail.MCP.`, and a **library**
-otherwise. Ids are stable: a check that is dropped keeps its number retired, never reused.
+A repository is a **server** when it keeps `.mcp/server.json` or its name starts with `Snail.MCP.`; otherwise an
+**application** when a project of its own, not a test, builds on `Microsoft.NET.Sdk.Web`; and a **library** otherwise.
+An application publishes no package and no API reference: it is released as its image. Ids are stable: a check that is
+dropped keeps its number retired, never reused.
 
 ## The checks
 
@@ -51,10 +53,10 @@ The table is the output of `--rules` of this release. "Fails the build" no means
 | S3LC0008 | tests | all | yes | a test project: `*.Tests`, or `SnailProjectKind` `Tests` |
 | S3LC0009 | benchmarks | all | yes | a benchmark project: `*.Benchmarks`, or `SnailProjectKind` `Benchmarks` (a `Tool` does not count) |
 | S3LC0010 | benchmark baseline | all | yes | `baseline/*-report.csv` beside a benchmark project — the reports perf.yml compares with |
-| S3LC0011 | shared workflows | all | yes | `ci.yml`, `docs.yml`, `perf.yml` call the shared workflows of the right level; `publish.yml` has a job calling the shared `lib-publish.yml`/`mcp-publish.yml` without `id-token: write` and a job using the `nuget-push` action with it; a library may release with a workflow of its own (`nuget push`) in place of `publish.yml` |
+| S3LC0011 | shared workflows | all | yes | `ci.yml`, `docs.yml`, `perf.yml` call the shared workflows of the right level; `publish.yml` has a job calling the shared `lib-publish.yml`/`mcp-publish.yml` without `id-token: write` and a job using the `nuget-push` action with it; a library may release with a workflow of its own (`nuget push`) in place of `publish.yml`. An application keeps `ci.yml` calling `app-ci.yml`, `image.yml` calling `mcp-image.yml` and `perf.yml`, and no package or site |
 | S3LC0012 | dependabot | all | yes | `.github/dependabot.yml` with `version: 2` and the `github-actions` and `nuget` ecosystems |
 | S3LC0013 | README | all | yes | `README.md` whose first non-blank line is an H1 (`# `) |
-| S3LC0014 | reference generated | all | yes | `docs/reference` committed, or a server's tool pages where `SnailReferenceFolder` writes them |
+| S3LC0014 | reference generated | all | yes | `docs/reference` committed, or a server's tool pages where `SnailReferenceFolder` writes them; an application has no API to reference |
 | S3LC0015 | site theme | all | yes | no `docs/theme`, `docs/requirements.txt` or `theme:` in `docs/mkdocs.yml` — the site wears the SDK's |
 | S3LC0016 | native warnings | native | yes | a native repository (a library with a `*.NativeProbe`, a server with `SnailMcpNative` not false) silences no trim or AOT warning: no `IL` code in a `NoWarn`, and no `IlcTreatWarningsAsErrors` false unless a workflow of the repository names the forgiven warnings in `forgiven-native-warnings` (the shared CI then fails on any other) |
 | S3LC0017 | migration debt | all | no | no `NoWarn` in any project or props file — advice |
@@ -65,18 +67,18 @@ The table is the output of `--rules` of this release. "Fails the build" no means
 | S3LC0022 | tool families | server | yes | `docs/tools.json` |
 | S3LC0023 | contract and guard rules | server | yes | a test through `Snail.Sdk.Mcp.Testing` and one with `ToolGuards` |
 | S3LC0024 | data directory | server | no | its folders in the home under the s3l name, through `ServerFolders` — advice |
-| S3LC0025 | container image | server | yes | with `SnailMcpContainer` true: a `Dockerfile`, and a workflow calling the shared `mcp-image.yml` |
+| S3LC0025 | container image | server, application | yes | an application, or a server with `SnailMcpContainer` true: a `Dockerfile`, and a workflow calling the shared `mcp-image.yml` |
 | S3LC0026 | release feed | all, on release | yes | only when asked (`--release`, `-p:SnailConformanceRelease=true`): no `LocalPackages` source or mapping in `nuget.config`, no `-local` version in `global.json` `msbuild-sdks` or `Directory.Packages.props` |
 | S3LC0027 | workflow inputs | all | yes | every call of a shared workflow or action (`orldev/Snail.Sdk/...`) names one Snail.Sdk keeps, passes only inputs it declares and every input it requires |
-| S3LC0028 | release tag | all | no | `publish.yml` starts on `tags: ['v[0-9]+.[0-9]+.[0-9]+*']`, which the moving `v1` tag does not match — advice |
+| S3LC0028 | release tag | all | no | `publish.yml` — an application's `image.yml` — starts on `tags: ['v[0-9]+.[0-9]+.[0-9]+*']`, which the moving `v1` tag does not match — advice |
 | S3LC0029 | job secrets | server with a launchd job | yes | the job template in `deploy/` names no variable that holds a secret (a `TOKEN`, `KEY`, `SECRET`, `PASSWORD` or `CREDENTIALS` in its name): a secret goes into the server's settings file |
-| S3LC0030 | image version | server with an image | yes | every `Dockerfile` the shared `mcp-image.yml` builds takes the version it passes: each stage that runs `dotnet publish` declares `ARG VERSION`, with a default for a local build, and publishes with `-p:Version=$VERSION` |
+| S3LC0030 | image version | server or application with an image | yes | every `Dockerfile` the shared `mcp-image.yml` builds takes the version it passes: each stage that runs `dotnet publish` declares `ARG VERSION`, with a default for a local build, and publishes with `-p:Version=$VERSION` |
 
 ## Making each check hold
 
 The files the checks compare with — `global.json`, `.editorconfig`, the workflow callers, `dependabot.yml`,
-`nuget.config` — are the ones `dotnet new s3l-lib` and `dotnet new s3l-mcp` write ([Getting started](getting-started.md));
-copying them from a fresh repository of the template is the quickest fix for most checks.
+`nuget.config` — are the ones `dotnet new s3l-lib`, `dotnet new s3l-mcp` and `dotnet new s3l-web` write ([Getting
+started](getting-started.md)); copying them from a fresh repository of the template is the quickest fix for most checks.
 
 | Id | Why | How to fix |
 | --- | --- | --- |

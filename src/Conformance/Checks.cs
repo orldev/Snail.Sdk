@@ -16,8 +16,6 @@ internal static partial class Checks
 
     private const string LocalFeed = "LocalPackages";
 
-    private static readonly string[] Workflows = ["ci.yml", "publish.yml", "docs.yml", "perf.yml"];
-
     /// <summary>
     /// Every check that applies to the repository's kind. The release feed is asked only on a release: until then the
     /// fleet builds on the local feed.
@@ -47,7 +45,14 @@ internal static partial class Checks
             MigrationDebt(repository)
         };
 
-        findings.AddRange(repository.Kind is RepositoryKind.Library ? LibraryChecks(repository) : ServerChecks(repository));
+        var ofKind = repository.Kind switch
+        {
+            RepositoryKind.Library => LibraryChecks(repository),
+            RepositoryKind.Server => ServerChecks(repository),
+            _ => ApplicationChecks(repository)
+        };
+
+        findings.AddRange(ofKind);
 
         if (isRelease)
             findings.Add(ReleaseFeed(repository));
@@ -60,6 +65,12 @@ internal static partial class Checks
         yield return PublicApi(repository);
         yield return PackageBaseline(repository);
         yield return NativeProbe(repository);
+    }
+
+    private static IEnumerable<Finding> ApplicationChecks(Repository repository)
+    {
+        yield return ContainerImage(repository);
+        yield return ImageVersion(repository);
     }
 
     private static IEnumerable<Finding> ServerChecks(Repository repository)
@@ -199,21 +210,14 @@ internal static partial class Checks
     /// </summary>
     private static Finding SharedWorkflows(Repository repository)
     {
-        var level = repository.Kind is RepositoryKind.Library ? "lib" : "mcp";
-        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            ["ci.yml"] = $"{level}-ci.yml",
-            ["publish.yml"] = $"{level}-publish.yml",
-            ["docs.yml"] = "docs.yml",
-            ["perf.yml"] = "perf.yml"
-        };
+        var expected = ExpectedWorkflows(repository.Kind);
         var problems = new List<string>();
         string? ownRelease = null;
 
-        foreach (var file in Workflows)
+        foreach (var (file, shared) in expected)
         {
             var problem = repository.Text($".github/workflows/{file}") is { } text
-                ? WorkflowProblem(file, expected[file], Workflow.Parse(text))
+                ? WorkflowProblem(file, shared, Workflow.Parse(text))
                 : $"no {file}";
 
             if (problem is null)
@@ -231,6 +235,20 @@ internal static partial class Checks
             return Rules.SharedWorkflows.Unmet(string.Join("; ", problems));
 
         return ownRelease is null ? Rules.SharedWorkflows.Met() : Rules.SharedWorkflows.Met($"released by its own {ownRelease}");
+    }
+
+    /// <summary>
+    /// The workflows a repository of a kind keeps, each with the shared one it calls. An application publishes no
+    /// package and no site: it is released as its image, from the same version tag.
+    /// </summary>
+    private static List<(string File, string Shared)> ExpectedWorkflows(RepositoryKind kind)
+    {
+        if (kind is RepositoryKind.Application)
+            return [("ci.yml", "app-ci.yml"), ("image.yml", "mcp-image.yml"), ("perf.yml", "perf.yml")];
+
+        var level = kind is RepositoryKind.Library ? "lib" : "mcp";
+
+        return [("ci.yml", $"{level}-ci.yml"), ("publish.yml", $"{level}-publish.yml"), ("docs.yml", "docs.yml"), ("perf.yml", "perf.yml")];
     }
 
     /// <summary>What keeps one workflow of the repository from being the shared one's caller; null when nothing does.</summary>
@@ -293,17 +311,22 @@ internal static partial class Checks
             : Rules.WorkflowInputs.Unmet(string.Join("; ", problems));
     }
 
-    /// <summary>A release starts on a version tag only: v1, the moving tag of the shared workflows' callers, starts nothing.</summary>
+    /// <summary>
+    /// A release starts on a version tag only: v1, the moving tag of the shared workflows' callers, starts nothing. An
+    /// application's release is its image, so image.yml is the workflow a tag starts.
+    /// </summary>
     private static Finding ReleaseTag(Repository repository)
     {
-        if (repository.Text(".github/workflows/publish.yml") is not { } text)
-            return Rules.ReleaseTag.Met("no publish.yml");
+        var file = repository.Kind is RepositoryKind.Application ? "image.yml" : "publish.yml";
+
+        if (repository.Text($".github/workflows/{file}") is not { } text)
+            return Rules.ReleaseTag.Met($"no {file}");
 
         var patterns = Workflow.Parse(text).TagPatterns();
 
         return patterns.Count == 0 || patterns.All(pattern => pattern == VersionTag)
             ? Rules.ReleaseTag.Met()
-            : Rules.ReleaseTag.Unmet($"publish.yml starts on tags {string.Join(", ", patterns)}: write ['{VersionTag}'], which v1 does not match");
+            : Rules.ReleaseTag.Unmet($"{file} starts on tags {string.Join(", ", patterns)}: write ['{VersionTag}'], which v1 does not match");
     }
 
     /// <summary>Dependabot keeps both the actions the workflows call and the packages Directory.Packages.props pins current.</summary>
@@ -340,21 +363,26 @@ internal static partial class Checks
             : Rules.Readme.Unmet(first.Length == 0 ? "README.md is empty" : $"README.md opens with \"{first}\", not an H1 (# Title)");
     }
 
-    /// <summary>A server built as a container (SnailMcpContainer) has a Dockerfile and builds its image through the shared workflow.</summary>
+    /// <summary>
+    /// An application, or a server built as a container (SnailMcpContainer), has a Dockerfile and builds its image
+    /// through the shared workflow: an application is released as its image.
+    /// </summary>
     private static Finding ContainerImage(Repository repository)
     {
-        var isContainer = repository.Projects.Any(project => File.ReadAllText(project).Contains("<SnailMcpContainer>true</SnailMcpContainer>", StringComparison.Ordinal));
+        var isApplication = repository.Kind is RepositoryKind.Application;
+        var isContainer = isApplication || repository.Projects.Any(project => File.ReadAllText(project).Contains("<SnailMcpContainer>true</SnailMcpContainer>", StringComparison.Ordinal));
 
         if (!isContainer)
             return Rules.ContainerImage.Met("not a container");
 
         var hasDockerfile = repository.Files("Dockerfile").Any();
         var callsShared = repository.WorkflowFiles().Any(file => File.ReadAllText(file).Contains($"{Workflow.Shared}.github/workflows/mcp-image.yml@", StringComparison.Ordinal));
+        var why = isApplication ? "an application is released as its image" : "SnailMcpContainer is true";
 
         return (hasDockerfile, callsShared) switch
         {
             (true, true) => Rules.ContainerImage.Met(),
-            (false, _) => Rules.ContainerImage.Unmet("SnailMcpContainer is true, but there is no Dockerfile"),
+            (false, _) => Rules.ContainerImage.Unmet($"{why}, but there is no Dockerfile"),
             _ => Rules.ContainerImage.Unmet("no workflow calls the shared mcp-image.yml")
         };
     }
@@ -459,6 +487,9 @@ internal static partial class Checks
     /// <summary>The reference committed: docs/reference, or — a server whose docs are a site — wherever SnailReferenceFolder writes the tool pages.</summary>
     private static Finding Reference(Repository repository)
     {
+        if (repository.Kind is RepositoryKind.Application)
+            return Rules.Reference.Met("an application has no API to reference");
+
         var folder = Path.Combine(repository.Root, "docs", "reference");
         var docs = Path.Combine(repository.Root, "docs");
         var hasPages = Directory.Exists(folder) && Directory.EnumerateFiles(folder, "*.md", SearchOption.AllDirectories).Any();
@@ -543,6 +574,9 @@ internal static partial class Checks
     /// <summary>A library proven by a native probe, or a server published with Native AOT (SnailMcpNative, true unless set false).</summary>
     private static bool IsNative(Repository repository)
     {
+        if (repository.Kind is RepositoryKind.Application)
+            return false;
+
         if (repository.Kind is RepositoryKind.Library)
             return repository.Projects.Any(project => Repository.KindOf(project) == "NativeProbe");
 

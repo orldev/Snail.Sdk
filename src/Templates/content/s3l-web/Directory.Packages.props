@@ -1,0 +1,29 @@
+<Project>
+
+  <ItemGroup>
+<!--#if (IsBlazor) -->
+    <PackageVersion Include="Snail.Toolkit.Blazor.Extensions.Tailwind" Version="1.0.0" />
+<!--#endif -->
+<!--#if (UsesJwt) -->
+    <PackageVersion Include="Snail.Toolkit.Authentication.JwtBearer" Version="2.0.0" />
+<!--#endif -->
+<!--#if (mongo) -->
+    <PackageVersion Include="Snail.Toolkit.Mongodb" Version="1.2.0" />
+<!--#endif -->
+<!--#if (rabbit) -->
+    <PackageVersion Include="Snail.Toolkit.RabbitMQ" Version="2.0.0" />
+<!--#endif -->
+<!--#if (vault) -->
+    <PackageVersion Include="Snail.Toolkit.HashiCorp.Vault" Version="0.3.0" />
+<!--#endif -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
+  </ItemGroup>
+
+</Project>

@@ -16,7 +16,7 @@ here reaches every project with a version bump instead of a copy, and a reposito
 | `Snail.Sdk.Mcp.Http` | a server shared over HTTP, at run time | the loopback web host (for a container image, the published port on every interface), Streamable HTTP with a session per client, the refusal of browser requests |
 | `Snail.Sdk.Mcp.Testing` | a server's tests | the server started as a client starts it, with a home folder of its own; `ToolGuards` |
 | `Snail.Sdk.Analyzers` | every project, through `Snail.Sdk` | the rules no .NET analyzer has ([the rules](rules/index.md)) |
-| `Snail.Sdk.Templates` | people starting a project | `dotnet new s3l-lib`, `dotnet new s3l-mcp` |
+| `Snail.Sdk.Templates` | people starting a project | `dotnet new s3l-lib`, `dotnet new s3l-mcp`, `dotnet new s3l-web` |
 
 A project names one level in its `Sdk` attribute, and the version once, in `global.json`:
 
@@ -47,7 +47,7 @@ short one.
 | Environment variables of a server | `SNAIL_MCP_<SHORT>_…` | `SNAIL_MCP_MEMORY_DATA_DIRECTORY` |
 | Contract test variable | `SNAIL_<SHORT>_SERVER` | `SNAIL_MEMORY_SERVER` |
 | MSBuild properties, targets, items | `Snail…` | `SnailMcpNative` |
-| Templates | `s3l-lib`, `s3l-mcp` | `dotnet new s3l-mcp -n Snail.MCP.Foo` |
+| Templates | `s3l-lib`, `s3l-mcp`, `s3l-web` | `dotnet new s3l-mcp -n Snail.MCP.Foo` |
 | dotnet tool command, name in `initialize` | `s3l-mcp-<short>` | `s3l-mcp-memory` |
 | Published programs | `~/.s3l-mcp/<Package>/current` | `~/.s3l-mcp/Snail.MCP.Memory/current` |
 | Data of a server | `~/.s3l-mcp-<short>` | `~/.s3l-mcp-memory` |
@@ -135,6 +135,34 @@ Snail.MCP.Foo/
   .github/
     dependabot.yml
     workflows/ci.yml  docs.yml  perf.yml  publish.yml  image.yml (with --container true)
+```
+
+An ASP.NET application, `dotnet new s3l-web -n Vertical.Foo`. It publishes no package and no API reference: it is
+released as its image, and the conformance check holds it to that as an application (a repository whose own project
+builds on the Web SDK).
+
+```
+Vertical.Foo/
+  Vertical.Foo.slnx
+  global.json  nuget.config  Directory.Build.props  Directory.Packages.props
+  .editorconfig  .gitignore  .dockerignore  LICENSE  README.md
+  src/
+    Vertical.Foo.csproj           <Project Sdk="Microsoft.NET.Sdk.Web"> with <Sdk Name="Snail.Sdk" />
+    Program.cs                    which features are on: AddApplication, UseApplication, MapApplication
+    Extensions/                   the composition root
+    Proxy/  RateLimiting/  Health/      the X-Forwarded headers of the configured proxy, the limit per client, /health
+    Greetings/  or  Components/   the minimal API, or Blazor Server pages styled with Tailwind (--kind blazor)
+    Account/  Storage/  Messaging/      with --auth, --mongo, --rabbit
+  tests/
+    Vertical.Foo.Tests.csproj     WebApplicationFactory<Program>
+  benchmarks/
+    Vertical.Foo.Benchmarks.csproj
+    baseline/*-report.csv
+  Dockerfile                      tini as process 1; Node in the build stage for Tailwind
+  docker-compose.yml  or  deploy/nomad/vertical-foo.nomad.hcl   behind traefik (--deploy)
+  .github/
+    dependabot.yml
+    workflows/ci.yml  image.yml  perf.yml
 ```
 
 What each root file holds, and why:

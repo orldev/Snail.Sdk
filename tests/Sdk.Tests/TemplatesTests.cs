@@ -110,6 +110,66 @@ public sealed class TemplatesTests(SdkFeed sdk)
         Assert.DoesNotContain("#if", dockerfile, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The default application — a minimal API, composed behind traefik — passes the shared CI as an application, and
+    /// its image starts the application under tini, so a failed start ends the container instead of spinning in it.
+    /// </summary>
+    [Fact]
+    public void Application_FromTheTemplateByDefault_PassesTheSharedCi()
+    {
+        var folder = sdk.FromTemplate("s3l-web", "Vertical.Sample");
+
+        AssertPassesTheSharedCi(folder);
+
+        var dockerfile = File.ReadAllText(Path.Combine(folder, "Dockerfile"));
+
+        Assert.Contains($"FROM mcr.microsoft.com/dotnet/sdk:{SdkBand(folder)} AS build", dockerfile, StringComparison.Ordinal);
+        Assert.Contains("dotnet publish src/Vertical.Sample.csproj -c Release -o /app -p:UseAppHost=false -p:Version=$VERSION", dockerfile, StringComparison.Ordinal);
+        Assert.Contains("ENTRYPOINT [\"/usr/bin/tini\", \"--\", \"dotnet\", \"/app/Vertical.Sample.dll\"]", dockerfile, StringComparison.Ordinal);
+        Assert.Contains("docker build -t vertical-sample:local .", dockerfile, StringComparison.Ordinal);
+        Assert.DoesNotContain("node", dockerfile, StringComparison.Ordinal);
+        Assert.DoesNotContain("#if", dockerfile, StringComparison.Ordinal);
+        Assert.Contains("traefik.http.routers.vertical-sample.rule", File.ReadAllText(Path.Combine(folder, "docker-compose.yml")), StringComparison.Ordinal);
+        Assert.Contains("image: vertical-sample", File.ReadAllText(Path.Combine(folder, ".github", "workflows", "image.yml")), StringComparison.Ordinal);
+        Assert.False(Directory.Exists(Path.Combine(folder, "deploy")));
+    }
+
+    /// <summary>Blazor pages styled with Tailwind, a sign-in cookie and MongoDB: the build stage of the image brings Node for Tailwind.</summary>
+    [Fact]
+    public void Application_FromTheTemplateAsPagesWithACookieAndMongo_PassesTheSharedCi()
+    {
+        var folder = sdk.FromTemplate("s3l-web", "Vertical.Pages", "--kind", "blazor", "--auth", "cookie", "--mongo", "true");
+
+        AssertPassesTheSharedCi(folder);
+
+        var dockerfile = File.ReadAllText(Path.Combine(folder, "Dockerfile"));
+        var compose = File.ReadAllText(Path.Combine(folder, "docker-compose.yml"));
+
+        Assert.True(File.Exists(Path.Combine(folder, "src", "wwwroot", "css", "app.css")), "Tailwind wrote no stylesheet");
+        Assert.Contains("FROM node:22-bookworm-slim AS node", dockerfile, StringComparison.Ordinal);
+        Assert.Contains("DataProtection__KeysPath=/keys", dockerfile, StringComparison.Ordinal);
+        Assert.Contains("Mongodb__Connection: mongodb://mongo:27017", compose, StringComparison.Ordinal);
+        Assert.Contains("- keys:/keys", compose, StringComparison.Ordinal);
+        Assert.DoesNotContain("#if", compose, StringComparison.Ordinal);
+    }
+
+    /// <summary>A minimal API with a bearer token, RabbitMQ and Vault, run as a Nomad job instead of composed.</summary>
+    [Fact]
+    public void Application_FromTheTemplateWithJwtRabbitAndVaultOnNomad_PassesTheSharedCi()
+    {
+        var folder = sdk.FromTemplate("s3l-web", "Vertical.Gateway", "--auth", "jwt", "--rabbit", "true", "--vault", "true", "--deploy", "nomad");
+
+        AssertPassesTheSharedCi(folder);
+
+        var job = File.ReadAllText(Path.Combine(folder, "deploy", "nomad", "vertical-gateway.nomad.hcl"));
+
+        Assert.Contains("image = \"ghcr.io/orldev/vertical-gateway:latest\"", job, StringComparison.Ordinal);
+        Assert.Contains("Jwt__SecretKey", job, StringComparison.Ordinal);
+        Assert.DoesNotContain("#if", job, StringComparison.Ordinal);
+        Assert.Contains("AddVaultWhenConfigured", File.ReadAllText(Path.Combine(folder, "src", "Program.cs")), StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(folder, "docker-compose.yml")));
+    }
+
     private static void AssertPassesTheSharedCi(string folder)
     {
         Git(folder, "init", "-q");

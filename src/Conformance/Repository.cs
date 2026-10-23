@@ -5,11 +5,12 @@ using System.Xml.Linq;
 
 namespace Snail.Sdk.Conformance;
 
-/// <summary>What a repository is to the standard: a library of Toolkit or an MCP server.</summary>
+/// <summary>What a repository is to the standard: a library of Toolkit, an MCP server, or an ASP.NET application.</summary>
 internal enum RepositoryKind
 {
     Library,
-    Server
+    Server,
+    Application
 }
 
 /// <summary>A repository as the checks read it: its folder, its kind and its files.</summary>
@@ -23,12 +24,12 @@ internal sealed class Repository
 
     private readonly IReadOnlyList<string> _templates;
 
-    private Repository(string root, RepositoryKind kind, IReadOnlyList<string> templates)
+    private Repository(string root, bool isServer, IReadOnlyList<string> templates)
     {
         Root = root;
-        Kind = kind;
         _templates = templates;
         Projects = [.. Files("*.csproj").Order(StringComparer.Ordinal)];
+        Kind = isServer ? RepositoryKind.Server : Projects.Any(IsApplication) ? RepositoryKind.Application : RepositoryKind.Library;
     }
 
     /// <summary>The folder holding global.json and the solution.</summary>
@@ -49,14 +50,25 @@ internal sealed class Repository
     /// <summary>Every project file outside bin and obj.</summary>
     public IReadOnlyList<string> Projects { get; }
 
-    /// <summary>The repository at a folder, however the shell wrote the path: a server when it keeps .mcp/server.json or its name says so.</summary>
+    /// <summary>
+    /// The repository at a folder, however the shell wrote the path: a server when it keeps .mcp/server.json or its name
+    /// says so; otherwise an application when a project of its own, not a test, builds on the Web SDK; else a library.
+    /// </summary>
     public static Repository At(string root)
     {
         var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
         var isServer = File.Exists(Path.Combine(full, ".mcp", "server.json")) || Path.GetFileName(full).StartsWith(ServerPrefix, StringComparison.OrdinalIgnoreCase);
         var templates = Directory.EnumerateDirectories(full, ".template.config", Everywhere).Select(folder => Path.GetDirectoryName(folder)!).ToList();
 
-        return new Repository(full, isServer ? RepositoryKind.Server : RepositoryKind.Library, templates);
+        return new Repository(full, isServer, templates);
+    }
+
+    /// <summary>Whether a project is an ASP.NET application: it names the Web SDK in its Sdk attribute and is none of the kinds.</summary>
+    private static bool IsApplication(string project)
+    {
+        var sdks = (Project(project)?.Root?.Attribute("Sdk")?.Value ?? string.Empty).Split(';').Select(sdk => sdk.Split('/')[0].Trim());
+
+        return sdks.Contains("Microsoft.NET.Sdk.Web", StringComparer.Ordinal) && KindOf(project).Length == 0;
     }
 
     /// <summary>The short name of a server's name: Snail.MCP. stripped in any case, dots dropped, lower case.</summary>

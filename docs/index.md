@@ -12,7 +12,7 @@ project with a version bump instead of a copy.
 | `Snail.Sdk.Mcp` | an MCP server: a dotnet tool package, native per platform, the tool reference, the local install |
 | `Snail.Sdk.Mcp.Hosting`, `.Http`, `.Testing` | what a server runs on and is tested with |
 | `Snail.Sdk.Analyzers` | the rules no .NET analyzer has |
-| `Snail.Sdk.Templates` | `dotnet new s3l-lib`, `dotnet new s3l-mcp` |
+| `Snail.Sdk.Templates` | `dotnet new s3l-lib`, `dotnet new s3l-mcp`, `dotnet new s3l-web` |
 
 - [Getting started](getting-started.md): a new library or server, and running everything locally.
 - [The standard](standard.md): what every repository looks like and why.

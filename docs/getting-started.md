@@ -19,6 +19,7 @@ program, before a line of it is changed.
 dotnet new install Snail.Sdk.Templates
 dotnet new s3l-lib -n Snail.Toolkit.Foo
 dotnet new s3l-mcp -n Snail.MCP.Foo
+dotnet new s3l-web -n Vertical.Foo
 ```
 
 The templates build on the Snail.Sdk of their own release: `global.json` names it in `msbuild-sdks`. The project's name
@@ -27,11 +28,16 @@ command `s3l-mcp-foo`, its variables `SNAIL_MCP_FOO_*`, the contract variable `S
 
 | Template | Option | Default | Meaning |
 | --- | --- | --- | --- |
-| both | `--description` | a placeholder sentence | the package description, the README's first paragraph, a server's instructions |
+| all | `--description` | a placeholder sentence | the package description, the README's first paragraph, a server's instructions |
 | `s3l-mcp` | `--native` | `true` | published with Native AOT (`SnailMcpNative`); `false` for a server that loads code at run time |
 | `s3l-mcp` | `--transport` | `Stdio` | `Stdio`: a process per session; `Http`: one server for every session of the machine, over loopback HTTP, with a launchd job in `deploy/`; `Both`: stdio, or HTTP when `SNAIL_MCP_<SHORT>_TRANSPORT=http` |
 | `s3l-mcp` | `--container` | `false` | `true` adds a `Dockerfile` (native or framework-dependent as `--native` says), `.dockerignore` and `image.yml` |
 | `s3l-mcp` | `--port` | `9300` | the loopback port of the HTTP endpoint |
+| `s3l-web` | `--kind` | `api` | `api`: a minimal API; `blazor`: Blazor Server pages styled with Tailwind |
+| `s3l-web` | `--auth` | `none` | `cookie`: a sign-in cookie, its keys on a volume; `jwt`: a bearer token through Snail.Toolkit.Authentication.JwtBearer |
+| `s3l-web` | `--mongo`, `--rabbit`, `--vault` | `false` | MongoDB, RabbitMQ, and configuration from HashiCorp Vault, through their Snail.Toolkit packages |
+| `s3l-web` | `--deploy` | `compose` | `compose`: docker compose behind traefik; `nomad`: a Nomad job behind traefik |
+| `s3l-web` | `--port` | `5080` | the local port in development |
 
 ```bash
 dotnet new s3l-mcp -n Snail.MCP.Foo --native false --transport Both --port 9310 --description "Lets an agent …"

@@ -1,0 +1,338 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "orldev",
+  "classifications": [
+    "Web",
+    "ASP.NET",
+    "Snail"
+  ],
+  "identity": "Snail.Sdk.Templates.Web",
+  "name": "Snail ASP.NET application",
+  "description": "An ASP.NET application on Snail.Sdk: a minimal API or Blazor Server, behind a proxy, limited per client, with its health, tests, a benchmark, its image and the shared workflows.",
+  "shortName": "s3l-web",
+  "sourceName": "Snail.Web.Template",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "forms": {
+    "dotsToDashes": {
+      "identifier": "replace",
+      "pattern": "\\.",
+      "replacement": "-"
+    },
+    "lower": {
+      "identifier": "lowerCase"
+    },
+    "imageName": {
+      "identifier": "chain",
+      "steps": [
+        "dotsToDashes",
+        "lower"
+      ]
+    }
+  },
+  "symbols": {
+    "kind": {
+      "type": "parameter",
+      "datatype": "choice",
+      "defaultValue": "api",
+      "description": "What the application serves.",
+      "choices": [
+        {
+          "choice": "api",
+          "description": "a minimal API"
+        },
+        {
+          "choice": "blazor",
+          "description": "Blazor Server pages, styled with Tailwind"
+        }
+      ]
+    },
+    "auth": {
+      "type": "parameter",
+      "datatype": "choice",
+      "defaultValue": "none",
+      "description": "How a user signs in.",
+      "choices": [
+        {
+          "choice": "none",
+          "description": "no sign-in"
+        },
+        {
+          "choice": "cookie",
+          "description": "a cookie, its keys kept on a volume"
+        },
+        {
+          "choice": "jwt",
+          "description": "a bearer token, through Snail.Toolkit.Authentication.JwtBearer"
+        }
+      ]
+    },
+    "mongo": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "false",
+      "description": "MongoDB, through Snail.Toolkit.Mongodb, checked by the readiness endpoint."
+    },
+    "rabbit": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "false",
+      "description": "RabbitMQ, through Snail.Toolkit.RabbitMQ: an exchange of the application's and a producer."
+    },
+    "vault": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "false",
+      "description": "Configuration from HashiCorp Vault, through Snail.Toolkit.HashiCorp.Vault, when a Vault section is set."
+    },
+    "deploy": {
+      "type": "parameter",
+      "datatype": "choice",
+      "defaultValue": "compose",
+      "description": "How the image is run.",
+      "choices": [
+        {
+          "choice": "compose",
+          "description": "docker compose, behind traefik"
+        },
+        {
+          "choice": "nomad",
+          "description": "a Nomad job, behind traefik"
+        }
+      ]
+    },
+    "port": {
+      "type": "parameter",
+      "datatype": "integer",
+      "defaultValue": "5080",
+      "replaces": "5080",
+      "description": "The local port the application listens on in development."
+    },
+    "description": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "What the application does, in one sentence.",
+      "replaces": "TEMPLATE_DESCRIPTION",
+      "description": "The application's description."
+    },
+    "IsApi": {
+      "type": "computed",
+      "value": "(kind == \"api\")"
+    },
+    "IsBlazor": {
+      "type": "computed",
+      "value": "(kind == \"blazor\")"
+    },
+    "UsesCookie": {
+      "type": "computed",
+      "value": "(auth == \"cookie\")"
+    },
+    "UsesJwt": {
+      "type": "computed",
+      "value": "(auth == \"jwt\")"
+    },
+    "UsesAuth": {
+      "type": "computed",
+      "value": "(auth != \"none\")"
+    },
+    "UsesCompose": {
+      "type": "computed",
+      "value": "(deploy == \"compose\")"
+    },
+    "UsesNomad": {
+      "type": "computed",
+      "value": "(deploy == \"nomad\")"
+    },
+    "imageName": {
+      "type": "derived",
+      "valueSource": "name",
+      "valueTransform": "imageName",
+      "replaces": "tmplimage",
+      "fileRename": "tmplimage"
+    }
+  },
+  "sources": [
+    {
+      "modifiers": [
+        {
+          "exclude": [
+            "**/bin/**",
+            "**/obj/**"
+          ]
+        },
+        {
+          "condition": "(!IsApi)",
+          "exclude": [
+            "src/Greetings/**",
+            "tests/GreetingTests.cs"
+          ]
+        },
+        {
+          "condition": "(!IsBlazor)",
+          "exclude": [
+            "src/Components/**",
+            "src/Styles/**",
+            "tests/PageTests.cs"
+          ]
+        },
+        {
+          "condition": "(!UsesAuth)",
+          "exclude": [
+            "src/Account/**",
+            "tests/AccountTests.cs"
+          ]
+        },
+        {
+          "condition": "(!mongo)",
+          "exclude": [
+            "src/Storage/**"
+          ]
+        },
+        {
+          "condition": "(!rabbit)",
+          "exclude": [
+            "src/Messaging/**"
+          ]
+        },
+        {
+          "condition": "(!vault)",
+          "exclude": [
+            "src/Extensions/VaultConfiguration.cs"
+          ]
+        },
+        {
+          "condition": "(!UsesCompose)",
+          "exclude": [
+            "docker-compose.yml"
+          ]
+        },
+        {
+          "condition": "(!UsesNomad)",
+          "exclude": [
+            "deploy/**"
+          ]
+        }
+      ]
+    }
+  ],
+  "SpecialCustomOperations": {
+    "**/Dockerfile": {
+      "operations": [
+        {
+          "type": "conditional",
+          "configuration": {
+            "actionableIf": [
+              "#if"
+            ],
+            "actionableElse": [
+              "#else"
+            ],
+            "actionableElseif": [
+              "#elseif"
+            ],
+            "endif": [
+              "#endif"
+            ],
+            "trim": "true",
+            "wholeLine": "true"
+          }
+        }
+      ]
+    },
+    "**/*.yml": {
+      "operations": [
+        {
+          "type": "conditional",
+          "configuration": {
+            "actionableIf": [
+              "#if"
+            ],
+            "actionableElse": [
+              "#else"
+            ],
+            "actionableElseif": [
+              "#elseif"
+            ],
+            "endif": [
+              "#endif"
+            ],
+            "trim": "true",
+            "wholeLine": "true"
+          }
+        }
+      ]
+    },
+    "**/*.hcl": {
+      "operations": [
+        {
+          "type": "conditional",
+          "configuration": {
+            "actionableIf": [
+              "#if"
+            ],
+            "actionableElse": [
+              "#else"
+            ],
+            "actionableElseif": [
+              "#elseif"
+            ],
+            "endif": [
+              "#endif"
+            ],
+            "trim": "true",
+            "wholeLine": "true"
+          }
+        }
+      ]
+    },
+    "**/*.props": {
+      "operations": [
+        {
+          "type": "conditional",
+          "configuration": {
+            "actionableIf": [
+              "<!--#if"
+            ],
+            "actionableElse": [
+              "<!--#else"
+            ],
+            "actionableElseif": [
+              "<!--#elseif"
+            ],
+            "endif": [
+              "<!--#endif"
+            ],
+            "trim": "true",
+            "wholeLine": "true"
+          }
+        }
+      ]
+    },
+    "**/*.md": {
+      "operations": [
+        {
+          "type": "conditional",
+          "configuration": {
+            "actionableIf": [
+              "<!--#if"
+            ],
+            "actionableElse": [
+              "<!--#else"
+            ],
+            "actionableElseif": [
+              "<!--#elseif"
+            ],
+            "endif": [
+              "<!--#endif"
+            ],
+            "trim": "true",
+            "wholeLine": "true"
+          }
+        }
+      ]
+    }
+  }
+}

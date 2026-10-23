@@ -71,7 +71,8 @@ internal static class Rules
     public static readonly Rule SharedWorkflows = new("S3LC0011", "shared workflows", Severity.Required, "all",
         "`ci.yml`, `docs.yml`, `perf.yml` call the shared workflows of the right level; `publish.yml` has a job calling the "
         + "shared `lib-publish.yml`/`mcp-publish.yml` without `id-token: write` and a job using the `nuget-push` action with "
-        + "it; a library may release with a workflow of its own (`nuget push`) in place of `publish.yml`");
+        + "it; a library may release with a workflow of its own (`nuget push`) in place of `publish.yml`. An application "
+        + "keeps `ci.yml` calling `app-ci.yml`, `image.yml` calling `mcp-image.yml` and `perf.yml`, and no package or site");
 
     public static readonly Rule Dependabot = new("S3LC0012", "dependabot", Severity.Required, "all",
         "`.github/dependabot.yml` with `version: 2` and the `github-actions` and `nuget` ecosystems");
@@ -80,7 +81,8 @@ internal static class Rules
         "`README.md` whose first non-blank line is an H1 (`# `)");
 
     public static readonly Rule Reference = new("S3LC0014", "reference generated", Severity.Required, "all",
-        "`docs/reference` committed, or a server's tool pages where `SnailReferenceFolder` writes them");
+        "`docs/reference` committed, or a server's tool pages where `SnailReferenceFolder` writes them; an application has "
+        + "no API to reference");
 
     public static readonly Rule SiteTheme = new("S3LC0015", "site theme", Severity.Required, "all",
         "no `docs/theme`, `docs/requirements.txt` or `theme:` in `docs/mkdocs.yml` — the site wears the SDK's");
@@ -117,8 +119,9 @@ internal static class Rules
     public static readonly Rule DataDirectory = new("S3LC0024", "data directory", Severity.Advice, "server",
         "its folders in the home under the s3l name, through `ServerFolders` — advice");
 
-    public static readonly Rule ContainerImage = new("S3LC0025", "container image", Severity.Required, "server",
-        "with `SnailMcpContainer` true: a `Dockerfile`, and a workflow calling the shared `mcp-image.yml`");
+    public static readonly Rule ContainerImage = new("S3LC0025", "container image", Severity.Required, "server, application",
+        "an application, or a server with `SnailMcpContainer` true: a `Dockerfile`, and a workflow calling the shared "
+        + "`mcp-image.yml`");
 
     public static readonly Rule ReleaseFeed = new("S3LC0026", "release feed", Severity.Required, "all, on release",
         "only when asked (`--release`, `-p:SnailConformanceRelease=true`): no `LocalPackages` source or mapping in "
@@ -129,13 +132,14 @@ internal static class Rules
         + "it declares and every input it requires");
 
     public static readonly Rule ReleaseTag = new("S3LC0028", "release tag", Severity.Advice, "all",
-        "`publish.yml` starts on `tags: ['v[0-9]+.[0-9]+.[0-9]+*']`, which the moving `v1` tag does not match — advice");
+        "`publish.yml` — an application's `image.yml` — starts on `tags: ['v[0-9]+.[0-9]+.[0-9]+*']`, which the moving "
+        + "`v1` tag does not match — advice");
 
     public static readonly Rule JobSecrets = new("S3LC0029", "job secrets", Severity.Required, "server with a launchd job",
         "the job template in `deploy/` names no variable that holds a secret (a `TOKEN`, `KEY`, `SECRET`, `PASSWORD` or "
         + "`CREDENTIALS` in its name): a secret goes into the server's settings file");
 
-    public static readonly Rule ImageVersion = new("S3LC0030", "image version", Severity.Required, "server with an image",
+    public static readonly Rule ImageVersion = new("S3LC0030", "image version", Severity.Required, "server or application with an image",
         "every `Dockerfile` the shared `mcp-image.yml` builds takes the version it passes: each stage that runs `dotnet publish` "
         + "declares `ARG VERSION`, with a default for a local build, and publishes with `-p:Version=$VERSION`");
 

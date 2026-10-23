@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/Snail.Web.Template.csproj" />
+  <Project Path="tests/Snail.Web.Template.Tests.csproj" />
+  <Project Path="benchmarks/Snail.Web.Template.Benchmarks.csproj" />
+</Solution>

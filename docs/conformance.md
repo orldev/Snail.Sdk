@@ -73,6 +73,7 @@ The table is the output of `--rules` of this release. "Fails the build" no means
 | S3LC0028 | release tag | all | no | `publish.yml` — an application's `image.yml` — starts on `tags: ['v[0-9]+.[0-9]+.[0-9]+*']`, which the moving `v1` tag does not match — advice |
 | S3LC0029 | job secrets | server with a launchd job | yes | the job template in `deploy/` names no variable that holds a secret (a `TOKEN`, `KEY`, `SECRET`, `PASSWORD` or `CREDENTIALS` in its name): a secret goes into the server's settings file |
 | S3LC0030 | image version | server or application with an image | yes | every `Dockerfile` the shared `mcp-image.yml` builds takes the version it passes: each stage that runs `dotnet publish` declares `ARG VERSION`, with a default for a local build, and publishes with `-p:Version=$VERSION` |
+| S3LC0031 | translations | all | yes | every translation `Name.<culture>.resx` holds exactly the keys of the English `Name.resx` beside it, none empty, with the same format items (`{0}`) |
 
 ## Making each check hold
 
@@ -112,6 +113,7 @@ started](getting-started.md)); copying them from a fresh repository of the templ
 | S3LC0028 | the moving `v1` tag must start no release | `tags: ['v[0-9]+.[0-9]+.[0-9]+*']` in `publish.yml` |
 | S3LC0029 | a secret in the template travels with the repository, and a job edited by hand is no longer restarted by an install | move it into `~/.config/s3l-mcp-<short>/config.json`, which the server reads through `ServerSettings`, readable by its owner alone ([installing](installing.md#shared-servers-under-launchd)) |
 | S3LC0030 | an image tagged `1.2.0` whose server says another version in `initialize` cannot be told from any other build | as the template writes it: `ARG VERSION=0.0.0-local` before the first `FROM`, `ARG VERSION` again in each stage that uses it, `-p:Version=$VERSION` on `dotnet publish`, and `LABEL org.opencontainers.image.version=$VERSION` in the final stage; the detail names the file and what is missing |
+| S3LC0031 | a key missing from a translation falls back to English and shows only to a reader of that language; a placeholder lost in translation throws on the page that formats it | the detail names each file and key: add the key to the translation, or take it out of the English file too; keep `{0}` and its kin in every language. A language is the repository's choice: add its `Name.<language>.resx`, or delete it whole |
 
 ## The reference generator
 

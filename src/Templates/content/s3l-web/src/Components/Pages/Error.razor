@@ -1,6 +1,13 @@
 @page "/error"
 
+@*#if (localization)
+<PageTitle>@Messages.Error.Title</PageTitle>
+
+<h1 class="text-3xl font-semibold">@Messages.Error.Heading</h1>
+<p class="mt-4 text-slate-600">@Messages.Error.Lead</p>
+@*#else
 <PageTitle>Error</PageTitle>
 
 <h1 class="text-3xl font-semibold">Something went wrong</h1>
 <p class="mt-4 text-slate-600">The request could not be completed. Its details are in the application's log.</p>
+@*#endif

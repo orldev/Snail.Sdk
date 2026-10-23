@@ -13,8 +13,13 @@ A change that a repository must act on says what to do.
   is asked of it, and it is released as its image (S3LC0025, S3LC0030).
 - `dotnet new s3l-web`: a minimal API or Blazor Server pages styled with Tailwind, behind a proxy, limited per client,
   with `/health`, tests, a benchmark, an image with tini as process 1, and docker compose or a Nomad job behind traefik.
-  Options: `--kind`, `--auth`, `--mongo`, `--rabbit`, `--vault`, `--deploy`.
+  Options: `--kind`, `--auth`, `--mongo`, `--rabbit`, `--vault`, `--deploy`, `--localization`.
+- `--localization` of `s3l-web`: every sentence a person reads in `Resources/Messages.resx`, with Russian and Spanish
+  beside it. The application speaks every language whose `Messages.<language>.resx` it was built with, and answers in
+  the language chosen (a cookie), then the browser's, then English.
 - The shared workflow `app-ci.yml`: an application's tests and conformance check.
+- S3LC0031 *translations*: every `Name.<culture>.resx` holds exactly the keys of the English `Name.resx` beside it, none
+  empty, with the same placeholders. A repository whose translations have drifted fails the check until they agree.
 - [Getting started](docs/getting-started.md#an-existing-repository): how to bring an existing repository onto Snail.Sdk.
 
 ### Fixed

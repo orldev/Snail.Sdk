@@ -42,7 +42,8 @@ internal static partial class Checks
             Reference(repository),
             SiteTheme(repository),
             NativeWarnings(repository),
-            MigrationDebt(repository)
+            MigrationDebt(repository),
+            Translations.Of(repository)
         };
 
         var ofKind = repository.Kind switch

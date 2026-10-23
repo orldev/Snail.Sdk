@@ -6,6 +6,14 @@
   <PropertyGroup>
     <Description>TEMPLATE_DESCRIPTION</Description>
     <IsPackable>false</IsPackable>
+<!--#if (localization) -->
+    <!--
+      Resources/Messages.resx is English and answers for every language without a file of its own; every other language
+      ships as a satellite assembly. Naming the neutral language spares the resource manager a probe for an English
+      satellite that does not exist.
+    -->
+    <NeutralLanguage>en</NeutralLanguage>
+<!--#endif -->
 <!--#if (IsBlazor) -->
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
 <!--#endif -->

@@ -15,6 +15,22 @@ The pages are Blazor Server components under `src/Components`, styled with Tailw
 build. `GET /health` answers while the application runs, `GET /health/ready` asks what it depends on.
 <!--#endif -->
 
+<!--#if (localization) -->
+## Languages
+
+Every sentence a person reads is in `src/Resources/Messages.resx`, in English, and is read through
+`src/Localization/Messages.cs`. Each other language is a file beside it: `Messages.ru.resx`, `Messages.es.resx`. A
+language is added by adding its file, `Messages.de.resx`, with the same keys; the application speaks every language
+whose file it was built with. A request is answered in the language the person chose, kept in a cookie, then in the
+first of its `Accept-Language` the application speaks, then in English.
+<!--#if (IsBlazor) -->
+The switch at the top of every page leads to `GET /culture/{language}`, which keeps the choice for a year.
+<!--#endif -->
+
+The conformance check holds every translation to the English file: the same keys, none empty, the same placeholders
+(S3LC0031).
+
+<!--#endif -->
 ## Configuration
 
 `appsettings.json`, then variables named `Section__Key`, which win.

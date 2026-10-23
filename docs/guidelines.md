@@ -85,7 +85,9 @@ a decision for a major version, so the naming rules ask nothing of it.
   measurement that produced it.
 - **English only**: names, documentation, comments, log messages and the domain's terms are professional technical
   English. A string an LLM must read verbatim may be in another language, and lives in a type or namespace named for
-  prompts. ([S3L0005](rules/S3L0005.md))
+  prompts. ([S3L0005](rules/S3L0005.md)) Text a person reads in their own language lives in resources — `Messages.resx`
+  in English and a `Messages.<language>.resx` per other language — and is read through one `Messages` class, never
+  written in code. ([S3LC0031](conformance.md))
 
 ## Architecture and registration
 

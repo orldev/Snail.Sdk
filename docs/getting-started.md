@@ -36,6 +36,7 @@ command `s3l-mcp-foo`, its variables `SNAIL_MCP_FOO_*`, the contract variable `S
 | `s3l-web` | `--kind` | `api` | `api`: a minimal API; `blazor`: Blazor Server pages styled with Tailwind |
 | `s3l-web` | `--auth` | `none` | `cookie`: a sign-in cookie, its keys on a volume; `jwt`: a bearer token through Snail.Toolkit.Authentication.JwtBearer |
 | `s3l-web` | `--mongo`, `--rabbit`, `--vault` | `false` | MongoDB, RabbitMQ, and configuration from HashiCorp Vault, through their Snail.Toolkit packages |
+| `s3l-web` | `--localization` | `false` | every sentence a person reads in `Resources/Messages.resx`, English, with `Messages.ru.resx` and `Messages.es.resx` beside it; a language is added by adding its file, and a request is answered in the language chosen (a cookie), then the browser's, then English ([the standard](standard.md#repository-layout)) |
 | `s3l-web` | `--deploy` | `compose` | `compose`: docker compose behind traefik; `nomad`: a Nomad job behind traefik |
 | `s3l-web` | `--port` | `5080` | the local port in development |
 

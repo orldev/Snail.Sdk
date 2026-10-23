@@ -153,6 +153,7 @@ Vertical.Foo/
     Proxy/  RateLimiting/  Health/      the X-Forwarded headers of the configured proxy, the limit per client, /health
     Greetings/  or  Components/   the minimal API, or Blazor Server pages styled with Tailwind (--kind blazor)
     Account/  Storage/  Messaging/      with --auth, --mongo, --rabbit
+    Localization/  Resources/     with --localization: Messages.resx in English, a Messages.<language>.resx beside it per language
   tests/
     Vertical.Foo.Tests.csproj     WebApplicationFactory<Program>
   benchmarks/
@@ -164,6 +165,12 @@ Vertical.Foo/
     dependabot.yml
     workflows/ci.yml  image.yml  perf.yml
 ```
+
+Text a person reads in another language than English never stands in code, where S3L0005 refuses it: it lives in
+resources, `Resources/Messages.resx` in English and a `Messages.<language>.resx` beside it for each other language —
+`ru` and `es` from the template, any other by adding its file. The application speaks every language whose file it was
+built with, and the conformance check holds every translation to the English file: the same keys, none empty, the same
+placeholders (S3LC0031). Whether an application speaks more than English is its own choice.
 
 What each root file holds, and why:
 

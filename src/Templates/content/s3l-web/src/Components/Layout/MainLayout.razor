@@ -1,5 +1,11 @@
 @inherits LayoutComponentBase
 
+@*#if (localization)
+<header class="mx-auto flex max-w-3xl justify-end px-6 pt-6">
+    <LanguageSwitch />
+</header>
+
+@*#endif
 <main class="mx-auto max-w-3xl px-6 py-12">
     @Body
 </main>

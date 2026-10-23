@@ -88,6 +88,12 @@
       "defaultValue": "false",
       "description": "Configuration from HashiCorp Vault, through Snail.Toolkit.HashiCorp.Vault, when a Vault section is set."
     },
+    "localization": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "false",
+      "description": "Every sentence a person reads in Resources/Messages.resx, English, with Russian and Spanish beside it; a language is added by adding its file."
+    },
     "deploy": {
       "type": "parameter",
       "datatype": "choice",
@@ -176,6 +182,21 @@
             "src/Components/**",
             "src/Styles/**",
             "tests/PageTests.cs"
+          ]
+        },
+        {
+          "condition": "(!localization)",
+          "exclude": [
+            "src/Localization/**",
+            "src/Resources/**",
+            "src/Components/Layout/LanguageSwitch.razor",
+            "tests/LanguageTests.cs"
+          ]
+        },
+        {
+          "condition": "(!IsBlazor || !localization)",
+          "exclude": [
+            "src/Localization/LanguageChoiceEndpoints.cs"
           ]
         },
         {
@@ -327,6 +348,52 @@
             ],
             "endif": [
               "<!--#endif"
+            ],
+            "trim": "true",
+            "wholeLine": "true"
+          }
+        }
+      ]
+    },
+    "**/*.resx": {
+      "operations": [
+        {
+          "type": "conditional",
+          "configuration": {
+            "actionableIf": [
+              "<!--#if"
+            ],
+            "actionableElse": [
+              "<!--#else"
+            ],
+            "actionableElseif": [
+              "<!--#elseif"
+            ],
+            "endif": [
+              "<!--#endif"
+            ],
+            "trim": "true",
+            "wholeLine": "true"
+          }
+        }
+      ]
+    },
+    "**/*.razor": {
+      "operations": [
+        {
+          "type": "conditional",
+          "configuration": {
+            "actionableIf": [
+              "@*#if"
+            ],
+            "actionableElse": [
+              "@*#else"
+            ],
+            "actionableElseif": [
+              "@*#elseif"
+            ],
+            "endif": [
+              "@*#endif"
             ],
             "trim": "true",
             "wholeLine": "true"

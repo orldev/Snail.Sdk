@@ -1,0 +1,25 @@
+@inject NavigationManager Navigation
+
+@* Plain links that leave the circuit: the endpoint sets the cookie, and the page comes back whole in the new language. *@
+<nav aria-label="@Messages.Layout.Languages" class="flex gap-3 text-sm">
+    @foreach (var language in LanguageRegistration.Languages)
+    {
+        <a href="@Choice(language)" hreflang="@language" lang="@language" data-enhance-nav="false"
+           aria-current="@(IsCurrent(language) ? "true" : null)"
+           class="@(IsCurrent(language) ? "font-semibold text-slate-900" : "text-slate-500 hover:text-slate-900")">@Name(language)</a>
+    }
+</nav>
+
+@code {
+    private string Choice(string language) => $"culture/{language}?returnUrl={Uri.EscapeDataString($"/{Navigation.ToBaseRelativePath(Navigation.Uri)}")}";
+
+    private static bool IsCurrent(string language) =>
+        string.Equals(CultureInfo.CurrentUICulture.TwoLetterISOLanguageName, language, StringComparison.Ordinal);
+
+    private static string Name(string language)
+    {
+        var culture = CultureInfo.GetCultureInfo(language);
+
+        return culture.TextInfo.ToTitleCase(culture.NativeName);
+    }
+}

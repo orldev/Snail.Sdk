@@ -51,6 +51,7 @@ public sealed class TemplatesTests(SdkFeed sdk)
         Assert.False(File.Exists(Path.Combine(folder, "Dockerfile")));
         Assert.False(File.Exists(Path.Combine(folder, ".github", "workflows", "image.yml")));
         Assert.False(Directory.Exists(Path.Combine(folder, "deploy")));
+        Assert.False(Directory.Exists(Path.Combine(folder, "src", "Resources")), "localization is asked for, not given");
     }
 
     [Fact]
@@ -134,11 +135,14 @@ public sealed class TemplatesTests(SdkFeed sdk)
         Assert.False(Directory.Exists(Path.Combine(folder, "deploy")));
     }
 
-    /// <summary>Blazor pages styled with Tailwind, a sign-in cookie and MongoDB: the build stage of the image brings Node for Tailwind.</summary>
+    /// <summary>
+    /// Blazor pages styled with Tailwind, in English, Russian and Spanish, with a sign-in cookie and MongoDB: the build
+    /// stage of the image brings Node for Tailwind.
+    /// </summary>
     [Fact]
-    public void Application_FromTheTemplateAsPagesWithACookieAndMongo_PassesTheSharedCi()
+    public void Application_FromTheTemplateAsLocalizedPagesWithACookieAndMongo_PassesTheSharedCi()
     {
-        var folder = sdk.FromTemplate("s3l-web", "Vertical.Pages", "--kind", "blazor", "--auth", "cookie", "--mongo", "true");
+        var folder = sdk.FromTemplate("s3l-web", "Vertical.Pages", "--kind", "blazor", "--auth", "cookie", "--mongo", "true", "--localization", "true");
 
         AssertPassesTheSharedCi(folder);
 
@@ -151,13 +155,17 @@ public sealed class TemplatesTests(SdkFeed sdk)
         Assert.Contains("Mongodb__Connection: mongodb://mongo:27017", compose, StringComparison.Ordinal);
         Assert.Contains("- keys:/keys", compose, StringComparison.Ordinal);
         Assert.DoesNotContain("#if", compose, StringComparison.Ordinal);
+        Assert.Equal(["Messages.es.resx", "Messages.resx", "Messages.ru.resx"],
+            Directory.EnumerateFiles(Path.Combine(folder, "src", "Resources")).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+        Assert.DoesNotContain("#if", File.ReadAllText(Path.Combine(folder, "src", "Resources", "Messages.ru.resx")), StringComparison.Ordinal);
+        Assert.DoesNotContain("#if", File.ReadAllText(Path.Combine(folder, "src", "Components", "App.razor")), StringComparison.Ordinal);
     }
 
-    /// <summary>A minimal API with a bearer token, RabbitMQ and Vault, run as a Nomad job instead of composed.</summary>
+    /// <summary>A minimal API answering in the client's language, with a bearer token, RabbitMQ and Vault, run as a Nomad job instead of composed.</summary>
     [Fact]
     public void Application_FromTheTemplateWithJwtRabbitAndVaultOnNomad_PassesTheSharedCi()
     {
-        var folder = sdk.FromTemplate("s3l-web", "Vertical.Gateway", "--auth", "jwt", "--rabbit", "true", "--vault", "true", "--deploy", "nomad");
+        var folder = sdk.FromTemplate("s3l-web", "Vertical.Gateway", "--auth", "jwt", "--rabbit", "true", "--vault", "true", "--deploy", "nomad", "--localization", "true");
 
         AssertPassesTheSharedCi(folder);
 

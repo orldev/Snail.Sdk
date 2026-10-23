@@ -8,6 +8,9 @@ using Snail.Web.Template.Components;
 using Snail.Web.Template.Greetings;
 #endif
 using Snail.Web.Template.Health;
+#if (localization)
+using Snail.Web.Template.Localization;
+#endif
 #if (rabbit)
 using Snail.Web.Template.Messaging;
 #endif
@@ -29,6 +32,9 @@ internal static class ApplicationRegistration
             services
                 .AddProxyHeaders(configuration)
                 .AddClientRateLimit(configuration)
+#if (localization)
+                .AddLanguages()
+#endif
 #if (UsesAuth)
                 .AddAccount(configuration)
 #endif
@@ -46,10 +52,20 @@ internal static class ApplicationRegistration
 
     extension(WebApplication app)
     {
+#if (localization)
+        /// <summary>
+        /// The middleware in its order: the proxy's headers first, so every later step sees the client's address, then the
+        /// language, so every later step answers in it.
+        /// </summary>
+#else
         /// <summary>The middleware in its order: the proxy's headers first, so every later step sees the client's address.</summary>
+#endif
         public WebApplication UseApplication()
         {
             app.UseForwardedHeaders();
+#if (localization)
+            app.UseLanguages();
+#endif
 #if (IsBlazor)
             app.UsePageErrors();
 #endif
@@ -74,6 +90,9 @@ internal static class ApplicationRegistration
 #endif
 #if (IsBlazor)
             app.MapPages();
+#if (localization)
+            app.MapLanguageChoice();
+#endif
 #endif
 #if (UsesAuth)
             app.MapAccount();

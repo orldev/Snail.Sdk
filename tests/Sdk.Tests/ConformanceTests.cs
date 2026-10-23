@@ -408,6 +408,76 @@ public sealed class ConformanceTests : IDisposable
         Assert.Single(Checks.Of(none, Standard.Embedded()), found => found is { Check: "image version", IsMet: true, Detail: "no image" });
     }
 
+    private static string Resx(params (string Key, string Text)[] texts)
+    {
+        var entries = texts.Select(text => $"""  <data name="{text.Key}" xml:space="preserve"><value>{text.Text}</value></data>""");
+
+        return $"""
+            <?xml version="1.0" encoding="utf-8"?>
+            <root>
+            {string.Join('\n', entries)}
+              <data name="Logo" type="System.Resources.ResXFileRef, System.Windows.Forms"><value>logo.png;System.Byte[]</value></data>
+            </root>
+            """;
+    }
+
+    /// <summary>
+    /// A translation that says what the English file says holds, a file whose name only looks like a language's is
+    /// English, and a repository without resources has nothing to translate. A library is asked for no language.
+    /// </summary>
+    [Fact]
+    public void Translations_ThatSayWhatTheEnglishSays_Hold()
+    {
+        var library = Write("Snail.Toolkit.Foo",
+            ("src/Resources/Messages.resx", Resx(("Common.Hello", "Hello, {0}!"), ("Common.Bye", "Bye"))),
+            ("src/Resources/Messages.ru.resx", Resx(("Common.Bye", "Пока"), ("Common.Hello", "Привет, {0}!"))),
+            ("src/Snail.Toolkit.Foo.Strings.resx", Resx(("Title", "Foo"))));
+        var none = Write("Snail.Toolkit.Bar", ("src/Tools.cs", "static class Tools { }"));
+
+        var held = Assert.Single(Checks.Of(library, Standard.Embedded()), found => found.Check == "translations");
+
+        Assert.Equal(Severity.Required, held.Severity);
+        Assert.True(held.IsMet, held.Detail);
+        Assert.Single(Checks.Of(none, Standard.Embedded()), found => found is { Check: "translations", IsMet: true, Detail: "no resources" });
+    }
+
+    /// <summary>
+    /// A missing key falls back to English and shows only to a reader of the language; a placeholder lost in
+    /// translation throws on the page that formats it. Both fail the build.
+    /// </summary>
+    [Fact]
+    public void Translations_ThatMissAddLeaveEmptyOrDropAPlaceholder_FailTheBuild()
+    {
+        var repository = Write("Snail.Toolkit.Foo",
+            ("src/Messages.resx", Resx(("Hello", "Hello, {0}!"), ("Bye", "Bye"), ("Thanks", "Thanks"))),
+            ("src/Messages.es.resx", Resx(("Hello", "¡Hola!"), ("Thanks", " "), ("Later", "Hasta luego"))));
+
+        var finding = Assert.Single(Checks.Of(repository, Standard.Embedded()), found => found.Check == "translations");
+
+        Assert.False(finding.IsMet);
+        Assert.Equal(
+            "src/Messages.es.resx: misses Bye; src/Messages.es.resx: holds Later, which src/Messages.resx does not; "
+            + "src/Messages.es.resx: Thanks empty; src/Messages.es.resx: Hello with other placeholders than in src/Messages.resx",
+            finding.Detail);
+    }
+
+    /// <summary>Which languages there are is the application's choice: each one present is held to the English file alone.</summary>
+    [Fact]
+    public void Translations_OfAnApplication_AreAsManyAsItKeeps()
+    {
+        var english = Write("Vertical.Sample", ("src/Vertical.Sample.csproj", WebProject), ("src/Resources/Messages.resx", Resx(("Title", "Lifts"))));
+        var four = Write("Vertical.Other", ("src/Vertical.Other.csproj", WebProject),
+            ("src/Resources/Messages.resx", Resx(("Title", "Lifts"))),
+            ("src/Resources/Messages.ru-RU.resx", Resx(("Title", "Лифты"))),
+            ("src/Resources/Messages.es.resx", Resx(("Title", "Ascensores"))),
+            ("src/Resources/Messages.de.resx", Resx(("Titel", "Aufzüge"))));
+
+        var lacking = Assert.Single(Checks.Of(four, Standard.Embedded()), found => found.Check == "translations");
+
+        Assert.Single(Checks.Of(english, Standard.Embedded()), found => found is { Check: "translations", IsMet: true });
+        Assert.Equal("src/Resources/Messages.de.resx: misses Title; src/Resources/Messages.de.resx: holds Titel, which src/Resources/Messages.resx does not", lacking.Detail);
+    }
+
     /// <summary>A server named through ServerFolders holds, and so does one that keeps no folder in the home at all.</summary>
     [Fact]
     public void DataDirectory_ThroughServerFolders_OrNone_Holds()

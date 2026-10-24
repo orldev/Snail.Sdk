@@ -19,6 +19,29 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
 
+  <!--
+    The server is a dotnet tool of the McpServer kind, and this is said before the project body rather than in the
+    targets. The .NET SDK imports its tool packaging from Microsoft.NET.Sdk.targets under Condition PackAsTool == true:
+    a project that takes another SDK — Razor, Web — and brings this one in with an Sdk element sets it after that file
+    has been read, and the import never happens. The package then comes out with no tools folder, no
+    DotnetToolSettings.xml and no DotnetTool package type, and nuget.org refuses it outright ("A package cannot contain
+    the 'McpServer' package type without the 'DotnetTool' package type"), or, with the type added by hand, ships a
+    package that dotnet tool install cannot read. Snail.MCP.AfterEffects published one such package on 23.10.2026.
+
+    The name is the package id where a repository sets one for all its projects, else the assembly name; the short name
+    is it without a leading Snail.MCP. in any case, without dots, in lower case — Snail.MCP.Code.Context is codecontext
+    — and gives the tool command s3l-mcp-<short> and the launchd job s3l.mcp.<short>. A project that sets PackageId in
+    its own body, which no server of the fleet does, names its tool itself with ToolCommandName.
+  -->
+  <PropertyGroup Condition="'$(SnailProjectKind)' == ''">
+    <SnailMcpName Condition="'$(SnailMcpName)' == ''">$(PackageId)</SnailMcpName>
+    <SnailMcpName Condition="'$(SnailMcpName)' == ''">$(AssemblyName)</SnailMcpName>
+    <SnailMcpName Condition="'$(SnailMcpName)' == ''">$(MSBuildProjectName)</SnailMcpName>
+    <SnailMcpShortName Condition="'$(SnailMcpShortName)' == ''">$([System.Text.RegularExpressions.Regex]::Replace('$(SnailMcpName)', '(?i)^snail\.mcp\.', '').Replace('.', '').ToLowerInvariant())</SnailMcpShortName>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName Condition="'$(ToolCommandName)' == ''">s3l-mcp-$(SnailMcpShortName)</ToolCommandName>
+  </PropertyGroup>
+
   <!-- Defaults, so a repository's Directory.Build.props may set any of them for all its projects. -->
   <PropertyGroup>
     <SnailMcpNative Condition="'$(SnailMcpNative)' == ''">true</SnailMcpNative>

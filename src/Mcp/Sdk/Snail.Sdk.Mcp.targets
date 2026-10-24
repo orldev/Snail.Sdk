@@ -6,18 +6,11 @@
   </PropertyGroup>
 
   <!--
-    The server: a program packed as a dotnet tool of the McpServer kind. Its name is the package id; the short name —
-    the name without a leading Snail.MCP. in any case, without dots, in lower case: Snail.MCP.Code.Context is
-    codecontext — gives the tool command s3l-mcp-<short> and the launchd job s3l.mcp.<short>.
+    The server is packed as a dotnet tool of the McpServer kind; its name, its short name, PackAsTool and the tool
+    command are settled in Snail.Sdk.Mcp.props, which the remark there explains.
   -->
   <PropertyGroup Condition="'$(SnailProjectKind)' == ''">
-    <SnailMcpName Condition="'$(SnailMcpName)' == ''">$(PackageId)</SnailMcpName>
-    <SnailMcpName Condition="'$(SnailMcpName)' == ''">$(AssemblyName)</SnailMcpName>
-    <SnailMcpName Condition="'$(SnailMcpName)' == ''">$(MSBuildProjectName)</SnailMcpName>
-    <SnailMcpShortName Condition="'$(SnailMcpShortName)' == ''">$([System.Text.RegularExpressions.Regex]::Replace('$(SnailMcpName)', '(?i)^snail\.mcp\.', '').Replace('.', '').ToLowerInvariant())</SnailMcpShortName>
-    <PackAsTool>true</PackAsTool>
     <PackageType>McpServer</PackageType>
-    <ToolCommandName Condition="'$(ToolCommandName)' == ''">s3l-mcp-$(SnailMcpShortName)</ToolCommandName>
     <IsAotCompatible Condition="'$(IsAotCompatible)' == ''">$(SnailMcpNative)</IsAotCompatible>
     <!-- A publication carries the program, not its debug symbols or its API docs: both stay in obj/. -->
     <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>

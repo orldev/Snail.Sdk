@@ -6,6 +6,17 @@ A change that a repository must act on says what to do.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-24
+
+### Fixed
+
+- A server on another SDK is packed as a tool again. `PackAsTool`, the server's name and its tool command moved from
+  `Snail.Sdk.Mcp.targets` to `Snail.Sdk.Mcp.props`: the .NET SDK imports its tool packaging from
+  `Microsoft.NET.Sdk.targets` under a condition on `PackAsTool`, so a project that takes the Razor or Web SDK and adds
+  this one with an `<Sdk>` element set it too late and the import never happened. Such a package carried no `tools`
+  folder, no `DotnetToolSettings.xml` and no `DotnetTool` package type, and nuget.org refused it. A repository that
+  worked around this in its own project file — `PackAsTool` or `ToolCommandName` of its own — may drop those lines.
+
 ## [0.2.0] - 2026-10-24
 
 ### Added

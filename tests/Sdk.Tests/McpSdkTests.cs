@@ -230,6 +230,40 @@ public sealed class McpSdkTests(SdkFeed sdk)
         Assert.Contains("\"TreatWarningsAsErrors\": \"true\"", properties, StringComparison.Ordinal);
     }
 
+    /// <summary>A server on another SDK is still packed as a tool: the package carries the tool, names it, and says it is both a dotnet tool
+    /// and an MCP server.</summary>
+    /// <remarks>The .NET SDK imports its tool packaging from Microsoft.NET.Sdk.targets under a condition on PackAsTool, so a project that
+    /// takes the Razor SDK and adds this one as an element must have that property before the body is read. Set in the targets instead, it
+    /// came too late and nothing noticed: the build was green, the properties read right, and the package had no tools folder at all.
+    /// nuget.org refused it, and the type added by hand only bought a package dotnet tool install could not read — Snail.MCP.AfterEffects
+    /// published one on 23.10.2026.</remarks>
+    [Fact]
+    public void Server_OnTheRazorSdk_IsPackedAsATool()
+    {
+        var folder = sdk.Project("Microsoft.NET.Sdk.Razor", "Snail.MCP.Sample", $"""
+            <Sdk Name="Snail.Sdk.Mcp" />
+            {FrameworkDependent}
+            """, ("Program.cs", Program), ("EchoTools.cs", Tools));
+
+        var (exitCode, output) = SdkFeed.Dotnet(folder, "pack", "-p:Version=1.2.3");
+
+        Assert.True(exitCode == 0, output);
+
+        var package = Directory.EnumerateFiles(folder, "Snail.MCP.Sample.1.2.3.nupkg", SearchOption.AllDirectories).Single();
+        using var archive = System.IO.Compression.ZipFile.OpenRead(package);
+        var settings = archive.Entries.SingleOrDefault(entry => entry.Name == "DotnetToolSettings.xml");
+        var nuspec = archive.Entries.Single(entry => entry.Name == "Snail.MCP.Sample.nuspec");
+
+        Assert.NotNull(settings);
+        Assert.Contains(archive.Entries, entry => entry.FullName.StartsWith("tools/", StringComparison.Ordinal) && entry.Name == "Snail.MCP.Sample.dll");
+        Assert.Contains("s3l-mcp-sample", new StreamReader(settings.Open()).ReadToEnd(), StringComparison.Ordinal);
+
+        var manifest = new StreamReader(nuspec.Open()).ReadToEnd();
+
+        Assert.Contains("packageType name=\"DotnetTool\"", manifest, StringComparison.Ordinal);
+        Assert.Contains("packageType name=\"McpServer\"", manifest, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Libraries_ComeImplicitly_ByTransportAndKind()
     {

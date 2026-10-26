@@ -6,6 +6,8 @@ A change that a repository must act on says what to do.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-27
+
 ### Fixed
 
 - A native server that builds an image packs its pointer package again. `SnailMcpContainer` kept `PublishAot` off
@@ -67,6 +69,8 @@ The first release.
 - The shared workflows, called at `@v1`: `lib-ci`, `mcp-ci`, `lib-publish`, `mcp-publish`, `mcp-image`, `perf` and
   `docs`, and the `nuget-push` action for trusted publishing.
 
-[Unreleased]: https://github.com/orldev/Snail.Sdk/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/orldev/Snail.Sdk/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/orldev/Snail.Sdk/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/orldev/Snail.Sdk/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/orldev/Snail.Sdk/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/orldev/Snail.Sdk/tree/v0.1.0

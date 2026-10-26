@@ -6,6 +6,14 @@ A change that a repository must act on says what to do.
 
 ## [Unreleased]
 
+### Fixed
+
+- A native server that builds an image packs its pointer package again. `SnailMcpContainer` kept `PublishAot` off
+  for every build without a runtime, `dotnet pack` of the pointer included, and packed framework-dependent the .NET SDK
+  built a package for every runtime of `ToolPackageRuntimeIdentifiers` in one restore and failed with NETSDK1047: the
+  first release of such a server would have stopped there. It now holds for publishing only. A repository that worked
+  around it with `PublishAot` of its own in the project — Snail.MCP.Documents — may drop that line.
+
 ## [0.2.1] - 2026-10-24
 
 ### Fixed

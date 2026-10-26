@@ -27,7 +27,13 @@
     <EnableConfigurationBindingGenerator Condition="'$(EnableConfigurationBindingGenerator)' == ''">true</EnableConfigurationBindingGenerator>
     <!-- Minimal API endpoints bound by generated code too: PublishAot turns it on only when publishing for a runtime. -->
     <EnableRequestDelegateGenerator Condition="'$(EnableRequestDelegateGenerator)' == '' and '$(SnailMcpTransport)' != 'Stdio'">true</EnableRequestDelegateGenerator>
-    <PublishAot Condition="'$(PublishAot)' == '' and !('$(SnailMcpContainer)' == 'true' and '$(RuntimeIdentifier)' == '')">true</PublishAot>
+    <!--
+      A server that builds an image publishes without a runtime as a framework-dependent program, for a Dockerfile that
+      asks for none. Packing is not publishing: the pointer package is packed without a runtime too, and packed
+      framework-dependent the .NET SDK builds a package for every runtime it names in one restore and fails (NETSDK1047).
+      dotnet pack says it is packing through _IsPacking.
+    -->
+    <PublishAot Condition="'$(PublishAot)' == '' and !('$(SnailMcpContainer)' == 'true' and '$(RuntimeIdentifier)' == '' and '$(_IsPacking)' != 'true')">true</PublishAot>
     <OptimizationPreference Condition="'$(OptimizationPreference)' == ''">Size</OptimizationPreference>
     <ToolPackageRuntimeIdentifiers Condition="'$(ToolPackageRuntimeIdentifiers)' == ''">osx-arm64;linux-x64;linux-arm64;win-x64;any</ToolPackageRuntimeIdentifiers>
   </PropertyGroup>

@@ -93,6 +93,37 @@ public sealed class McpSdkTests(SdkFeed sdk)
         Assert.Equal("true", nativeOutput.Trim());
     }
 
+    /// <summary>
+    /// A native server that builds an image publishes without a runtime for its Dockerfile, but its pointer package is packed
+    /// without a runtime too, and must stay native.
+    /// </summary>
+    /// <remarks>Packed framework-dependent, the .NET SDK builds a package for every runtime of ToolPackageRuntimeIdentifiers in
+    /// the one restore and fails with NETSDK1047. Snail.MCP.Documents met it on 25.10.2026, before its first release, and
+    /// worked around it in its own project; Snail.MCP.FileSystem and Snail.MCP.Git would have failed the same way.</remarks>
+    [Fact]
+    public void Server_ThatBuildsAnImage_PacksItsPointerNatively()
+    {
+        var folder = sdk.Project("Snail.Sdk.Mcp", "Snail.MCP.Sample", """
+            <PropertyGroup>
+              <SnailMcpContainer>true</SnailMcpContainer>
+              <RootNamespace>Server</RootNamespace>
+            </PropertyGroup>
+            <ItemGroup>
+              <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
+            </ItemGroup>
+            """, ("Program.cs", Program), ("EchoTools.cs", Tools));
+
+        var (exitCode, output) = SdkFeed.Dotnet(folder, "pack", "-p:Version=1.2.3");
+
+        Assert.True(exitCode == 0, output);
+
+        var package = Directory.EnumerateFiles(folder, "Snail.MCP.Sample.1.2.3.nupkg", SearchOption.AllDirectories).Single();
+        using var archive = System.IO.Compression.ZipFile.OpenRead(package);
+        var settings = archive.Entries.Single(entry => entry.Name == "DotnetToolSettings.xml");
+
+        Assert.Contains("RuntimeIdentifierPackages", new StreamReader(settings.Open()).ReadToEnd(), StringComparison.Ordinal);
+    }
+
     /// <summary>The short name is the name without a leading Snail.MCP. in any case, without dots, in lower case.</summary>
     [Theory]
     [InlineData("Snail.MCP.Code.Context", "s3l-mcp-codecontext")]

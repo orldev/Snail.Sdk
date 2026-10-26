@@ -259,7 +259,7 @@ A server is described by three properties; everything else follows from them. Ea
 | --- | --- | --- | --- |
 | `SnailMcpNative` | `true`, `false` | `true` | Native AOT wherever it is published for a runtime, size optimisation, the configuration binding generator (and the request delegate generator with HTTP), a tool package per platform; `false` for a server that loads code at run time (Roslyn, MSBuild, Razor, Playwright) |
 | `SnailMcpTransport` | `Stdio`, `Http`, `Both` | `Stdio` | `Http` and `Both` reference `Snail.Sdk.Mcp.Http` and use the launchd job template in `deploy/s3l.mcp.<short>.plist` when it exists |
-| `SnailMcpContainer` | `true`, `false` | `false` | the repository builds an image from its `Dockerfile`; a publish without a runtime stays framework-dependent, as a Dockerfile's build needs |
+| `SnailMcpContainer` | `true`, `false` | `false` | the repository builds an image from its `Dockerfile`; a publish without a runtime stays framework-dependent, as a Dockerfile's build needs; the packages stay native |
 
 And for the server project (no kind):
 

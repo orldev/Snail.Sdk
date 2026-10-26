@@ -137,7 +137,7 @@ Library and Mcp levels act only on a project of no kind: a test or benchmark get
 | --- | --- | --- |
 | `SnailMcpNative` | `true` | Published with Native AOT, a tool package per platform. `false` for code loaded at run time (Roslyn, MSBuild, Razor, Playwright). |
 | `SnailMcpTransport` | `Stdio` | `Stdio`, `Http` or `Both`. `Http` and `Both` bring `Snail.Sdk.Mcp.Http` and a launchd job. |
-| `SnailMcpContainer` | `false` | `true`: an image is built from the repository (S3LC0025); a publish with no runtime stays framework-dependent, as a Dockerfile needs. |
+| `SnailMcpContainer` | `false` | `true`: an image is built from the repository (S3LC0025); a publish with no runtime stays framework-dependent, as a Dockerfile needs; the packages stay native. |
 | `SnailMcpName` | `PackageId`, else `AssemblyName`, else the project name | The server's name: its folder under `SnailMcpRoot`. |
 | `SnailMcpShortName` | `SnailMcpName` without a leading `Snail.MCP.` (any case), without dots, lower case: `Snail.MCP.Code.Context` is `codecontext` | Gives the command `s3l-mcp-<short>`, the launchd label `s3l.mcp.<short>`, the name a client sees in `initialize`. |
 | `SnailReference` | (false) | `true` writes the tool reference after the build. |

@@ -10,6 +10,8 @@ public sealed partial class ToolJsonTests
     {
         var options = ToolJson.Options(DemoJson.Default);
 
+        Assert.NotNull(options.GetTypeInfo(typeof(Snail.Sdk.Mcp.Hosting.Jobs.JobReport)));
+
         Assert.True(options.IsReadOnly);
         Assert.Equal("""{"side":"left"}""", JsonSerializer.Serialize(new Arrow { Side = "left" }, options));
         Assert.NotNull(options.GetTypeInfo(typeof(ModelContextProtocol.Protocol.CallToolResult)));

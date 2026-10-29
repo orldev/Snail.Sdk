@@ -96,7 +96,7 @@ seven days until its first publish binds it — a policy that expired unused is 
 ## Snail.Sdk itself
 
 Every package of the repository — `Snail.Sdk`, `.Analyzers`, `.Library`, `.Mcp`, `.Mcp.Hosting`, `.Mcp.Http`,
-`.Mcp.Testing`, `.Templates` — is released together, at one version, by its own `publish.yml`.
+`.Mcp.Testing`, `.Mcp.JobClient`, `.Templates` — is released together, at one version, by its own `publish.yml`.
 
 1. **Master is green**: `ci.yml` ran the tests, actionlint and shellcheck.
 2. **The release commit**: the entries of `src/Analyzers/AnalyzerReleases.Unshipped.md` move to
@@ -117,8 +117,8 @@ Every package of the repository — `Snail.Sdk`, `.Analyzers`, `.Library`, `.Mcp
    ```
 
    The moving tag starts no workflow: `publish.yml` needs `X.Y.Z` and `ci.yml` runs on branches only.
-6. **After the release**: move the lines of `PublicAPI.Unshipped.txt` of `src/Mcp.Hosting`, `src/Mcp.Http` and
-   `src/Mcp.Testing` into their `PublicAPI.Shipped.txt`; set their `PackageValidationBaselineVersion` to the release (the
+6. **After the release**: move the lines of `PublicAPI.Unshipped.txt` of `src/Mcp.Hosting`, `src/Mcp.Http`,
+   `src/Mcp.Testing` and `src/Mcp.JobClient` into their `PublicAPI.Shipped.txt`; set their `PackageValidationBaselineVersion` to the release (the
    first release sets it for the first time); raise `VersionPrefix` in `Directory.Build.props` to the next version, so
    that local packs (`X.Y.Z-local.N`) sort above the release.
 

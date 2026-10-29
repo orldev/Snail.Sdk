@@ -47,6 +47,23 @@ public sealed class ToolGuardsTests
     }
 
     /// <summary>A value hidden inside a longer word is not named: "all" in "allows" tells the model nothing.</summary>
+    /// <summary>A description that makes the model a timer is a job that was never made one; a description that merely says "poll" of a port is left alone.</summary>
+    [Theory]
+    [InlineData("Starts a render. Returns the job id; poll blender_render_job_status until it ends.", true)]
+    [InlineData("Starts a pass. When the answer says running, call again to poll.", true)]
+    [InlineData("Starts a build; check back with build_status later.", true)]
+    [InlineData("Starts a render and answers when done, or after `wait` seconds with the job's URI to read.", false)]
+    [InlineData("More matches: call again with offset=40.", false)]
+    [InlineData("If the name matches several symbols the answer carries candidates and no edits: pick one and call again by id.", false)]
+    public void Problems_OfADescriptionThatTellsTheModelToPoll_NameIt(string description, bool isNamed)
+    {
+        Tool[] tools = [Tool("render_job", description, DescribedParameters, readOnly: false)];
+
+        var problems = ToolGuards.Problems(tools);
+
+        Assert.Equal(isNamed, problems.Any(problem => problem.Contains("tells the model to poll", StringComparison.Ordinal)));
+    }
+
     [Fact]
     public void Problems_OfAValueOnlyInsideALongerWord_NameIt()
     {

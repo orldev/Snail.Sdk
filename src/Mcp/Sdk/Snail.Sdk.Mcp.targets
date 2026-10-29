@@ -69,13 +69,18 @@
     <None Include="$(_SnailRepository)/.mcp/server.json" Pack="true" PackagePath="/.mcp/" Visible="false" Condition="Exists('$(_SnailRepository)/.mcp/server.json')" />
   </ItemGroup>
 
-  <!-- The libraries of the same release: the host for the server, HTTP when it serves it, the stdio contract for its tests. -->
+  <!--
+    The libraries of the same release: the host for the server, HTTP when it serves it, the stdio contract for its tests,
+    and for its tests the client of its jobs, so a test awaits a job the way an orchestrator does.
+  -->
   <ItemGroup Condition="'$(SnailSdkVersion)' != ''">
     <PackageReference Include="Snail.Sdk.Mcp.Hosting" Version="$(SnailSdkVersion)" IsImplicitlyDefined="true"
                       Condition="'$(SnailProjectKind)' == ''" />
     <PackageReference Include="Snail.Sdk.Mcp.Http" Version="$(SnailSdkVersion)" IsImplicitlyDefined="true"
                       Condition="'$(SnailProjectKind)' == '' and '$(SnailMcpTransport)' != 'Stdio'" />
     <PackageReference Include="Snail.Sdk.Mcp.Testing" Version="$(SnailSdkVersion)" IsImplicitlyDefined="true"
+                      Condition="'$(SnailProjectKind)' == 'Tests'" />
+    <PackageReference Include="Snail.Sdk.Mcp.JobClient" Version="$(SnailSdkVersion)" IsImplicitlyDefined="true"
                       Condition="'$(SnailProjectKind)' == 'Tests'" />
   </ItemGroup>
 

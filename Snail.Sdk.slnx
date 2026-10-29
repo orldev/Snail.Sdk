@@ -7,6 +7,7 @@
     <Project Path="src/Library/Library.csproj" />
     <Project Path="src/Mcp.Hosting/Mcp.Hosting.csproj" />
     <Project Path="src/Mcp.Http/Mcp.Http.csproj" />
+    <Project Path="src/Mcp.JobClient/Mcp.JobClient.csproj" />
     <Project Path="src/Mcp.Testing/Mcp.Testing.csproj" />
     <Project Path="src/Sdk/Sdk.csproj" />
     <Project Path="src/Templates/Templates.csproj" />

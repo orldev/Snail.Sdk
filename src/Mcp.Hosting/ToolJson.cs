@@ -26,13 +26,17 @@ namespace Snail.Sdk.Mcp.Hosting;
 /// </remarks>
 public static class ToolJson
 {
-    /// <summary>The SDK's options with this resolver — a server's generated context — consulted first.</summary>
+    /// <summary>
+    /// The SDK's options with this resolver — a server's generated context — consulted first, and the job report of
+    /// this library known too, so a tool that answers with a job needs no line for it.
+    /// </summary>
     public static JsonSerializerOptions Options(IJsonTypeInfoResolver context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
         var options = new JsonSerializerOptions(McpJsonUtilities.DefaultOptions);
 
+        options.TypeInfoResolverChain.Insert(0, Jobs.JobJson.Default);
         options.TypeInfoResolverChain.Insert(0, context);
         options.MakeReadOnly();
 

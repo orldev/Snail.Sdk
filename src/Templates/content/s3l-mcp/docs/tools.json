@@ -1,5 +1,10 @@
 {
   "families": [
+//#if (jobs)
+    { "type": "DiagnosticsTools", "slug": "diagnostics", "title": "Diagnostics" },
+    { "type": "WorkTools", "slug": "work", "title": "Work" }
+//#else
     { "type": "DiagnosticsTools", "slug": "diagnostics", "title": "Diagnostics" }
+//#endif
   ]
 }

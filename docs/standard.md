@@ -15,6 +15,7 @@ here reaches every project with a version bump instead of a copy, and a reposito
 | `Snail.Sdk.Mcp.Hosting` | a server, at run time | the empty host with log lines on stderr, the JSON options of the tools, settings from prefixed variables, the server's folders, its name and version, the stable path of the running program |
 | `Snail.Sdk.Mcp.Http` | a server shared over HTTP, at run time | the loopback web host (for a container image, the published port on every interface), Streamable HTTP with a session per client, the refusal of browser requests |
 | `Snail.Sdk.Mcp.Testing` | a server's tests | the server started as a client starts it, with a home folder of its own; `ToolGuards` |
+| `Snail.Sdk.Mcp.JobClient` | a client of a server's jobs: an orchestrator, a server's tests | a job awaited by being told — subscribed to its resource over whichever form the protocol revision allows — rather than asked for |
 | `Snail.Sdk.Analyzers` | every project, through `Snail.Sdk` | the rules no .NET analyzer has ([the rules](rules/index.md)) |
 | `Snail.Sdk.Templates` | people starting a project | `dotnet new s3l-lib`, `dotnet new s3l-mcp`, `dotnet new s3l-web` |
 
@@ -287,7 +288,15 @@ And for the server project (no kind):
   ([installing](installing.md#the-idle-trim)).
 - A publication carries the program, not its debug symbols or XML docs.
 - `Snail.Sdk.Mcp.Hosting` implicitly, `Snail.Sdk.Mcp.Http` with HTTP; a test project on `Snail.Sdk.Mcp` gets
-  `Snail.Sdk.Mcp.Testing` instead.
+  `Snail.Sdk.Mcp.Testing` and `Snail.Sdk.Mcp.JobClient` instead.
+- A long operation as a job (`.WithJobs("<short>")` beside `AddMcpServer`): `Jobs.Start` runs the work on, the tool
+  takes `int wait = 60` and answers within it — the result, or the running job — and the job is a resource,
+  `job://<short>/<kind>/<id>`, whose text is its report. The server advertises `resources.subscribe`, tells every
+  subscriber of each change (`resources/subscribe` up to the 2025-11-25 revision, the `subscriptions/listen` stream
+  from 2026-07-28, which it holds open), and cancels every running job when the host stops. The last twenty ended jobs
+  stay readable. A client that can wait — an orchestrator, a test — awaits the job through `Snail.Sdk.Mcp.JobClient`
+  with no turn of a model spent; one that cannot reads the resource when it wants. No `*_status` tool, no "poll" in a
+  description (S3LC0032).
 - `-p:SnailReference=true` writes the tool reference ([Documentation and the site](#documentation-and-the-site)).
 - `dotnet publish -c Release -r <rid> -p:SnailMcpInstall=true` installs the server into
   `~/.s3l-mcp/<name>/<date>-<time>.<commit>/` and points `current` at it ([installing](installing.md)).
@@ -389,9 +398,10 @@ not for a build. So the naming rules (S3L0006–S3L0008) judge only what is not 
 spares a shipped type or member — the declaration itself, not a local or parameter of the same name — the `Async`
 suffix and the other naming rules of IDE1006.
 
-`Snail.Sdk.Mcp.Hosting`, `Snail.Sdk.Mcp.Http` and `Snail.Sdk.Mcp.Testing` keep their own API the same way, and their
-reference is on this site: [Hosting](reference/Snail.Sdk.Mcp.Hosting.md), [Http](reference/Snail.Sdk.Mcp.Http.md),
-[Testing](reference/Snail.Sdk.Mcp.Testing.md).
+`Snail.Sdk.Mcp.Hosting`, `Snail.Sdk.Mcp.Http`, `Snail.Sdk.Mcp.Testing` and `Snail.Sdk.Mcp.JobClient` keep their own API
+the same way, and their reference is on this site: [Hosting](reference/Snail.Sdk.Mcp.Hosting.md),
+[Http](reference/Snail.Sdk.Mcp.Http.md), [Testing](reference/Snail.Sdk.Mcp.Testing.md),
+[JobClient](reference/Snail.Sdk.Mcp.JobClient.md).
 
 The version of a release comes from its tag (`v1.2.0`, `v1.2.0-preview.1`), which the shared release workflow passes
 to the build as `-p:Version`: assemblies, packages and `.mcp/server.json` all carry it, and a server reports it in

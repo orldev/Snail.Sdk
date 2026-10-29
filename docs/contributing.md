@@ -12,7 +12,7 @@ sets the same properties as `Snail.Sdk` and passes `src/Sdk/Sdk/Snail.Sdk.global
 | `src/Sdk` | `Snail.Sdk` | the base MSBuild SDK: `Sdk/*.props`, `*.targets`, the global configs; carries the conformance tool in `tools/conformance` |
 | `src/Library` | `Snail.Sdk.Library` | the library level; carries the docs tool and the site theme in `tools/docs` |
 | `src/Mcp` | `Snail.Sdk.Mcp` | the server level, the install targets, the launchd script; carries the docs tool too |
-| `src/Mcp.Hosting`, `src/Mcp.Http`, `src/Mcp.Testing` | the same names | the server libraries |
+| `src/Mcp.Hosting`, `src/Mcp.Http`, `src/Mcp.Testing`, `src/Mcp.JobClient` | the same names | the server libraries, and the client of their jobs |
 | `src/Analyzers` | `Snail.Sdk.Analyzers` | the S3L rules, their code fixes and the suppressors |
 | `src/Templates` | `Snail.Sdk.Templates` | `content/s3l-lib`, `content/s3l-mcp` |
 | `src/Conformance` | (in `Snail.Sdk`) | `Snail.Sdk.Conformance`, the S3LC checks |
@@ -114,7 +114,7 @@ a newer Roslyn.
 
 ## A conformance check
 
-1. A `Rule` in `src/Conformance/Rules.cs` with the next free id (`S3LC0032`, …), its name, `Required` or `Advice`, whom
+1. A `Rule` in `src/Conformance/Rules.cs` with the next free id (`S3LC0033`, …), its name, `Required` or `Advice`, whom
    it asks (`all`, `library`, `server`, `native`), and what holds — the sentence `--rules` prints.
 2. The check in `src/Conformance/Checks.cs`: it reads files only, never throws on a malformed file (a malformed file is a
    failed check with a detail that says what is wrong), and an unmet finding's detail says what to change.

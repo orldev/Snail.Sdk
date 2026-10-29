@@ -40,6 +40,8 @@ public static partial class ToolGuards
             yield return $"{tool.Name}: no description";
         else if (NotEnglish().IsMatch(tool.Description))
             yield return $"{tool.Name}: the description is not in English";
+        else if (TellsToPoll().Match(tool.Description) is { Success: true } polling)
+            yield return $"{tool.Name}: the description tells the model to poll (\"{polling.Value}\"); a long operation is a job the tool waits for, or answers with to be read";
 
         if (tool.Annotations is not { ReadOnlyHint: not null } and not { DestructiveHint: not null })
             yield return $"{tool.Name}: does not say whether it changes anything (ReadOnly or Destructive)";
@@ -113,6 +115,14 @@ public static partial class ToolGuards
 
     [GeneratedRegex("^[a-z][a-z0-9]*(_[a-z0-9]+)*$")]
     private static partial Regex SnakeCase();
+
+    /// <summary>
+    /// The words that turn the model into a timer: a long operation that outlasts the call is a job, which the tool waits
+    /// for as long as the client allows and answers with as a resource otherwise (Snail.Sdk.Mcp.Hosting.Jobs). "Call
+    /// again" alone is left alone: the next page, or the second step of a two-step tool, is called again by design.
+    /// </summary>
+    [GeneratedRegex(@"\b(poll(ing)?\b[^.]*|call(ing)? (it |this )?again (to poll|until|while|to (check|see|wait))\b[^.]*|check back\b[^.]*|keep calling\b[^.]*|try again later\b[^.]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex TellsToPoll();
 
     [GeneratedRegex(@"\p{IsCyrillic}")]
     private static partial Regex NotEnglish();

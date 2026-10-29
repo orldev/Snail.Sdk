@@ -177,7 +177,7 @@ The install publishes a server into `~/.s3l-mcp/<SnailMcpName>/<date>-<time>.<co
 | `EnableRequestDelegateGenerator` | `true` (default, native, not `Stdio`) | HTTP endpoints bound by generated code too |
 | `ToolPackageRuntimeIdentifiers` | `osx-arm64;linux-x64;linux-arm64;win-x64;any` (default, native) | a tool package per platform and a framework-dependent one, `any`, for the rest; the workflows build exactly these |
 | `PackageReadmeFile` | `README.md` when the repository has one | the README and `.mcp/server.json` are packed |
-| package references | `Snail.Sdk.Mcp.Hosting` (server), `Snail.Sdk.Mcp.Http` (server, not `Stdio`), `Snail.Sdk.Mcp.Testing` (`Tests`), all of `SnailSdkVersion` | the libraries of the same release |
+| package references | `Snail.Sdk.Mcp.Hosting` (server), `Snail.Sdk.Mcp.Http` (server, not `Stdio`), `Snail.Sdk.Mcp.Testing` and `Snail.Sdk.Mcp.JobClient` (`Tests`), all of `SnailSdkVersion` | the libraries of the same release |
 
 ### Targets
 

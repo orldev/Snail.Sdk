@@ -72,4 +72,82 @@ The JSON options a server's tools are registered with: the MCP SDK's own, with t
 
 | Member | Summary |
 | --- | --- |
-| `JsonSerializerOptions Options(IJsonTypeInfoResolver context)` | The SDK's options with this resolver — a server's generated context — consulted first. |
+| `JsonSerializerOptions Options(IJsonTypeInfoResolver context)` | The SDK's options with this resolver — a server's generated context — consulted first, and the job report of this library known too, so a tool that answers with a job needs no line for it. |
+
+## Snail.Sdk.Mcp.Hosting.Jobs
+
+### class Job
+
+A job in flight or ended: what a tool answers with, or waits on, and what its resource shows.
+
+| Member | Summary |
+| --- | --- |
+| `JobReport Report { get; }` | The job as it stands now. |
+| `Task<JobReport> Completion { get; }` | The final report: succeeded, failed or cancelled. It never throws. |
+| `Task<JobReport> ForAsync(TimeSpan wait, CancellationToken cancellationToken = default)` | The report when the job ends within `wait`, or the running report with its URI when it does not. |
+| `string Uri { get; }` | The resource the job is read and watched at. |
+| `void Cancel()` | Stops the work; the report ends cancelled once the work has stopped. |
+
+### struct JobProgress
+
+A step of a job's progress, as the work reports it.
+
+| Member | Summary |
+| --- | --- |
+| `JobProgress(double Done, double? Total = null, string? What = null)` | A step of a job's progress, as the work reports it. |
+| `double Done { get; init; }` | How much is done, in the units of `Total` or as a share of 1 when there is none. |
+| `double? Share { get; }` | The share of the work done, 0 to 1, or null when the step says nothing countable. |
+| `double? Total { get; init; }` | How much there is to do, when known. |
+| `string? What { get; init; }` | What is being done now. |
+
+### class JobReport
+
+A job as its resource shows it and a client reads it.
+
+| Member | Summary |
+| --- | --- |
+| `DateTimeOffset StartedAt { get; init; }` | When the work started. |
+| `DateTimeOffset? EndedAt { get; init; }` | When it ended, once it has. |
+| `JobReport(string Uri, JobState State, DateTimeOffset StartedAt, DateTimeOffset? EndedAt, double? Progress, string? Message, JsonElement? Result)` | A job as its resource shows it and a client reads it. |
+| `JobReport? FromJson(string text)` | The report read back from a resource's text, or null when the text is not one. |
+| `JobState State { get; init; }` | Where the job stands. |
+| `JsonElement? Result { get; init; }` | The outcome, in the job's own type, once it succeeded. |
+| `bool IsRunning { get; }` | Whether the work is still running. |
+| `double? Progress { get; init; }` | How far it has got, 0 to 1, while the work reports it. |
+| `string ToJson()` | The report as its resource carries it: JSON, generated, the same on a native build. |
+| `string Uri { get; init; }` | The resource the job is read and watched at: `job://<server>/<kind>/<id>`. |
+| `string? Message { get; init; }` | The last step the work reported, or why it failed. |
+
+### enum JobState
+
+Where a job stands.
+
+| Member | Summary |
+| --- | --- |
+| `const JobState Cancelled` | The work was cancelled, by a tool or because the server stopped. |
+| `const JobState Failed` | The work threw; `Message` says what. |
+| `const JobState Running` | The work is running. |
+| `const JobState Succeeded` | The work ended with its result. |
+
+### class Jobs
+
+The jobs of a server: started by its tools, read as resources, watched by subscribers.
+
+| Member | Summary |
+| --- | --- |
+| `IReadOnlyList<Job> InFlight { get; }` | Every job still running. |
+| `IReadOnlyList<Job> Recent { get; }` | The jobs ended last, newest first, up to `Kept`. |
+| `Job Start<TResult>(string kind, Func<IProgress<JobProgress>, CancellationToken, Task<TResult>> work, JsonTypeInfo<TResult> resultType)` | Starts work of a kind and answers with its job at once; the work runs on, reporting its steps through the progress it is given and stopping on the token it is given. |
+| `Job? Find(string uri)` | The job at a URI, or null when there is none: never started, or ended and forgotten. |
+| `Jobs(string server, TimeProvider? clock = null, IHostApplicationLifetime? lifetime = null)` | The jobs of the server named `server` — its short name, the first part of every job's URI. |
+| `const int Kept` | How many ended jobs are kept to be read, newest first. |
+| `event Action<JobReport> Changed` | Raised with every change of any job: a state, a progress step. |
+| `string UriTemplate { get; }` | The URI template every job of this server matches. |
+
+### static class JobsRegistration
+
+Puts a server's jobs on the protocol: a resource per job, subscriptions to it, and the listen stream of a sessionless client.
+
+| Member | Summary |
+| --- | --- |
+| `IMcpServerBuilder WithJobs(this IMcpServerBuilder builder, string server)` | The jobs of the server named `server`: `Jobs` for its tools to start work on, each job readable at `job://<server>/<kind>/<id>`, every change sent to the sessions subscribed to it, and the server's running jobs cancelled when the host stops. |

@@ -147,13 +147,17 @@ internal static class Rules
         "every translation `Name.<culture>.resx` holds exactly the keys of the English `Name.resx` beside it, none empty, "
         + "with the same format items (`{0}`)");
 
+    public static readonly Rule Jobs = new("S3LC0032", "jobs", Severity.Advice, "server",
+        "a server whose tools take a `wait` registers its jobs (`WithJobs`), keeps no `*_status` tool beside them, and no tool "
+        + "description tells the model to poll — advice");
+
     /// <summary>Every rule, in the order of its id.</summary>
     public static IReadOnlyList<Rule> All { get; } =
     [
         Solution, GlobalJson, CentralVersions, EditorConfig, License, NuGetConfig, OnSnailSdk, Tests, Benchmarks, BenchmarkBaseline,
         SharedWorkflows, Dependabot, Readme, Reference, SiteTheme, NativeWarnings, MigrationDebt, PublicApi, PackageBaseline,
         NativeProbe, ServerManifest, ToolFamilies, Contract, DataDirectory, ContainerImage, ReleaseFeed, WorkflowInputs, ReleaseTag,
-        JobSecrets, ImageVersion, Translations
+        JobSecrets, ImageVersion, Translations, Jobs
     ];
 
     /// <summary>The rules as a Markdown table: id, check, whom it asks, what holds.</summary>

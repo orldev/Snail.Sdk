@@ -408,6 +408,40 @@ public sealed class ConformanceTests : IDisposable
         Assert.Single(Checks.Of(none, Standard.Embedded()), found => found is { Check: "image version", IsMet: true, Detail: "no image" });
     }
 
+    /// <summary>
+    /// A server whose tool takes a wait runs a job: with WithJobs, no status tool and no word of polling it holds; a
+    /// status tool beside it, or a description that tells the model to poll, is named. A server without jobs holds too,
+    /// unless a description of its makes the model a timer.
+    /// </summary>
+    [Fact]
+    public void Jobs_OfAServerWithAWaitingTool_AreRegisteredAndNeverPolled()
+    {
+        const string job = """
+            [McpServerToolType]
+            public sealed class RenderTools(Jobs jobs)
+            {
+                [McpServerTool(Name = "render_job"), Description("Renders and answers when done, or after wait seconds with the job to read.")]
+                public Task<JobReport> RenderAsync(string path, int wait = 60, CancellationToken cancellationToken = default) => Task.FromResult<JobReport>(null!);
+            }
+            """;
+        var held = Write("Snail.MCP.Foo", ("src/Tools/RenderTools.cs", job),
+            ("src/Extensions/Registration.cs", "class Registration { void Add() { _ = 1; } } // .WithJobs(\"foo\")"));
+        var polled = Write("Snail.MCP.Bar", ("src/Tools/RenderTools.cs", job),
+            ("src/Tools/StatusTools.cs", """[McpServerTool(Name = "render_job_status"), Description("Progress of a render; poll it until done.")]"""));
+        var none = Write("Snail.MCP.Baz", ("src/Tools.cs", "static class Tools { }"));
+
+        var holding = Assert.Single(Checks.Of(held, Standard.Embedded()), found => found.Check == "jobs");
+        var polling = Assert.Single(Checks.Of(polled, Standard.Embedded()), found => found.Check == "jobs");
+
+        Assert.Equal(Severity.Advice, holding.Severity);
+        Assert.True(holding.IsMet, holding.Detail);
+        Assert.False(polling.IsMet);
+        Assert.Contains("no WithJobs registers the jobs", polling.Detail, StringComparison.Ordinal);
+        Assert.Contains("a status tool beside a job: src/Tools/StatusTools.cs: render_job_status", polling.Detail, StringComparison.Ordinal);
+        Assert.Contains("tells the model to poll", polling.Detail, StringComparison.Ordinal);
+        Assert.Single(Checks.Of(none, Standard.Embedded()), found => found is { Check: "jobs", IsMet: true, Detail: "no jobs" });
+    }
+
     private static string Resx(params (string Key, string Text)[] texts)
     {
         var entries = texts.Select(text => $"""  <data name="{text.Key}" xml:space="preserve"><value>{text.Text}</value></data>""");

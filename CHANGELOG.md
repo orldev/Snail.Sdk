@@ -6,6 +6,22 @@ A change that a repository must act on says what to do.
 
 ## [Unreleased]
 
+### Added
+
+- A long operation as a job. `Jobs` of `Snail.Sdk.Mcp.Hosting`, registered with `.WithJobs("<short>")`: a tool starts
+  the work with `Jobs.Start`, takes `int wait = 60` and answers within it — the result, or the running job as the
+  resource `job://<short>/<kind>/<id>` whose text is its report. The server advertises `resources.subscribe`, tells
+  every subscriber of each change over `resources/subscribe` (up to the 2025-11-25 revision) or the
+  `subscriptions/listen` stream (from 2026-07-28, held open), and cancels its running jobs when the host stops.
+- `Snail.Sdk.Mcp.JobClient`, the client side: `CallJobAsync`, `AwaitJobAsync`, `WatchJobAsync` and `ReadJobAsync` on
+  `McpClient` wait for a job by being told, reading the resource again only when nothing was told within a fallback. A
+  test project on `Snail.Sdk.Mcp` references it implicitly, beside `Snail.Sdk.Mcp.Testing`.
+- `ToolGuards` names a description that tells the model to poll ("poll", "call again", "check back"): the model is not a
+  timer. S3LC0032 *jobs* (advice): a server whose tools take a `wait` registers its jobs, keeps no `*_status` tool
+  beside them, and says nothing of polling.
+- `dotnet new s3l-mcp --jobs true`: the sample job tool `<short>_work`, its registration and a contract test that
+  awaits it.
+
 ## [0.3.0] - 2026-10-29
 
 ### Changed

@@ -2,6 +2,9 @@ using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Server;
 using Snail.MCP.Template.Tools;
 using Snail.Sdk.Mcp.Hosting;
+#if (jobs)
+using Snail.Sdk.Mcp.Hosting.Jobs;
+#endif
 
 namespace Snail.MCP.Template.Extensions;
 
@@ -21,6 +24,11 @@ public static class ServerRegistration
     extension(IMcpServerBuilder builder)
     {
         /// <summary>Every tool of the server; a native build keeps the methods of the classes named here.</summary>
+#if (jobs)
+        /// <remarks>The jobs of the server beside its tools: tmplshort_work starts one, and a client reads or awaits it as a resource.</remarks>
+        public IMcpServerBuilder WithServerTools() => builder.WithTools<DiagnosticsTools>().WithTools<WorkTools>(ToolJson.Options(WorkJson.Default)).WithJobs("tmplshort");
+#else
         public IMcpServerBuilder WithServerTools() => builder.WithTools<DiagnosticsTools>();
+#endif
     }
 }

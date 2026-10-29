@@ -83,6 +83,7 @@ internal static partial class Checks
         yield return ContainerImage(repository);
         yield return JobSecrets(repository);
         yield return ImageVersion(repository);
+        yield return JobsOfServer(repository);
     }
 
     private static Finding Solution(Repository repository)
@@ -686,6 +687,36 @@ internal static partial class Checks
     }
 
     /// <summary>
+    /// A long operation is a job: a tool that takes a <c>wait</c> starts one and answers within it, so the server
+    /// registers its jobs, keeps no status tool for the model to poll, and tells the model nothing of polling. Read
+    /// from the sources: the tools' attributes and parameters, and the descriptions in them.
+    /// </summary>
+    private static Finding JobsOfServer(Repository repository)
+    {
+        var sources = repository.Files("*.cs").Where(file => !IsTestSource(repository, file)).Select(file => (Path: Relative(repository, file), Text: File.ReadAllText(file))).ToList();
+        var waiting = sources.Where(source => source.Text.Contains("[McpServerTool", StringComparison.Ordinal) && WaitParameter().IsMatch(source.Text)).Select(source => source.Path).ToList();
+        var polling = sources.SelectMany(source => TellsToPoll().Matches(source.Text).Select(match => $"{source.Path}: \"{match.Value.Trim()}\"")).ToList();
+
+        if (waiting.Count == 0)
+            return polling.Count == 0 ? Rules.Jobs.Met("no jobs") : Rules.Jobs.Unmet($"a description tells the model to poll: {string.Join(", ", polling)}");
+
+        var problems = new List<string>();
+        var registers = sources.Any(source => source.Text.Contains("WithJobs(", StringComparison.Ordinal));
+        var statuses = sources.SelectMany(source => StatusTool().Matches(source.Text).Select(match => $"{source.Path}: {match.Groups["name"].Value}")).ToList();
+
+        if (!registers)
+            problems.Add($"tools take a wait ({string.Join(", ", waiting)}) but no WithJobs registers the jobs");
+
+        problems.AddRange(statuses.Select(status => $"a status tool beside a job: {status}"));
+        problems.AddRange(polling.Select(each => $"a description tells the model to poll: {each}"));
+
+        return problems.Count == 0 ? Rules.Jobs.Met() : Rules.Jobs.Unmet(string.Join("; ", problems));
+    }
+
+    private static bool IsTestSource(Repository repository, string file) =>
+        Relative(repository, file).StartsWith("tests/", StringComparison.Ordinal);
+
+    /// <summary>
     /// A launchd job template names no variable holding a secret. The template is in the repository, and the job
     /// installed from it is restarted by an install only while it is the job written; a secret goes into the server's
     /// settings file, which <c>ServerSettings</c> reads, and never into either.
@@ -810,4 +841,13 @@ internal static partial class Checks
 
     [GeneratedRegex(@"[-/]p:Version=[""']?\$(?:VERSION\b|\{VERSION\})", RegexOptions.CultureInvariant)]
     private static partial Regex PublishedVersion();
+
+    [GeneratedRegex(@"\bint\s+wait\s*=", RegexOptions.CultureInvariant)]
+    private static partial Regex WaitParameter();
+
+    [GeneratedRegex(@"\b(poll(ing)?\b[^.""]*|call(ing)? (it |this )?again (to poll|until|while|to (check|see|wait))\b[^.""]*|check back\b[^.""]*|keep calling\b[^.""]*|try again later\b[^.""]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex TellsToPoll();
+
+    [GeneratedRegex(@"McpServerTool\(\s*Name\s*=\s*""(?<name>[a-z0-9_]+_status)""", RegexOptions.CultureInvariant)]
+    private static partial Regex StatusTool();
 }

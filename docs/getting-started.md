@@ -33,6 +33,7 @@ command `s3l-mcp-foo`, its variables `SNAIL_MCP_FOO_*`, the contract variable `S
 | `s3l-mcp` | `--transport` | `Stdio` | `Stdio`: a process per session; `Http`: one server for every session of the machine, over loopback HTTP, with a launchd job in `deploy/`; `Both`: stdio, or HTTP when `SNAIL_MCP_<SHORT>_TRANSPORT=http` |
 | `s3l-mcp` | `--container` | `false` | `true` adds a `Dockerfile` (native or framework-dependent as `--native` says), `.dockerignore` and `image.yml` |
 | `s3l-mcp` | `--port` | `9300` | the loopback port of the HTTP endpoint |
+| `s3l-mcp` | `--jobs` | `false` | `true` adds a long operation as a job: `tmplshort_work` starts one and answers within its `wait` or with the job's `job://` resource, `WithJobs` registers them, and a contract test awaits one through `Snail.Sdk.Mcp.JobClient` ([the standard](standard.md#snailsdkmcp)) |
 | `s3l-web` | `--kind` | `api` | `api`: a minimal API; `blazor`: Blazor Server pages styled with Tailwind |
 | `s3l-web` | `--auth` | `none` | `cookie`: a sign-in cookie, its keys on a volume; `jwt`: a bearer token through Snail.Toolkit.Authentication.JwtBearer |
 | `s3l-web` | `--mongo`, `--rabbit`, `--vault` | `false` | MongoDB, RabbitMQ, and configuration from HashiCorp Vault, through their Snail.Toolkit packages |

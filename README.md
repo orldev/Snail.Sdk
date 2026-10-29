@@ -13,6 +13,7 @@ instead of a copy. Documentation: <https://orldev.github.io/Snail.Sdk/>.
 | `Snail.Sdk.Mcp.Hosting` | The empty host with log lines on stderr, the JSON options of the tools, settings from prefixed environment variables, the server's folders, its name and version, the stable path of the running program. |
 | `Snail.Sdk.Mcp.Http` | One server for every session of the machine: the loopback web host (or, for a container image, the published port on every interface), Streamable HTTP with a session per client, the refusal of browser requests. Apart from Hosting so a native stdio server never references ASP.NET Core. |
 | `Snail.Sdk.Mcp.Testing` | The server under test started the way a client starts it, with a home folder of its own, against the build or a published native program; `ToolGuards`. |
+| `Snail.Sdk.Mcp.JobClient` | A job of a server — a long operation a tool starts and a resource shows — awaited by being told: subscribed over `resources/subscribe` or `subscriptions/listen` as the protocol revision allows, read again on a fallback, never polled by the model. |
 | `Snail.Sdk.Analyzers` | The rules no .NET analyzer has, S3L0001–S3L0010, with code fixes where the fix is mechanical. |
 | `Snail.Sdk.Templates` | `dotnet new s3l-lib`, `dotnet new s3l-mcp` and `dotnet new s3l-web`: a repository that builds, tests and conforms before a line is changed. |
 

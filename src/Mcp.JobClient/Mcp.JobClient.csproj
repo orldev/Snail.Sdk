@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>
+      The client side of a Snail MCP server's jobs: a long operation started by a tool and read as a resource, awaited
+      here by being told — a subscription to the job's resource, over resources/subscribe or subscriptions/listen as
+      the protocol revision allows — rather than by asking the server again and again.
+    </Description>
+    <PackageTags>mcp;mcp-client;modelcontextprotocol;jobs;subscriptions</PackageTags>
+  </PropertyGroup>
+
+  <!--
+    A library of the servers' clients: its public API written down in PublicAPI.*.txt, the package checked against the
+    last release (PackageValidationBaselineVersion, set from the first release on), and its symbols in a .snupkg beside it.
+  -->
+  <PropertyGroup>
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <IncludeSymbols>true</IncludeSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- JobReport and JobState are the server's: one shape of a job on both sides. -->
+  <ItemGroup>
+    <ProjectReference Include="../Mcp.Hosting/Mcp.Hosting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Snail.Sdk.Mcp.Tests" />
+  </ItemGroup>
+
+</Project>

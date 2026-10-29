@@ -97,7 +97,7 @@ public sealed class TemplatesTests(SdkFeed sdk)
     [Fact]
     public void Server_FromTheTemplateInAContainerNotNative_HasAFrameworkDependentImage()
     {
-        var folder = sdk.FromTemplate("s3l-mcp", "Snail.MCP.Sample", "--container", "true", "--native", "false", "--transport", "Http");
+        var folder = sdk.FromTemplate("s3l-mcp", "Snail.MCP.Sample", "--container", "true", "--native", "false", "--transport", "Http", "--jobs", "true");
 
         var dockerfile = File.ReadAllText(Path.Combine(folder, "Dockerfile"));
 

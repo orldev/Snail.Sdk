@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Mcp.Hosting\Mcp.Hosting.csproj" />
     <ProjectReference Include="..\..\src\Mcp.Http\Mcp.Http.csproj" />
+    <ProjectReference Include="..\..\src\Mcp.JobClient\Mcp.JobClient.csproj" />
     <ProjectReference Include="..\..\src\Mcp.Testing\Mcp.Testing.csproj" />
   </ItemGroup>
 

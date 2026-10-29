@@ -20,5 +20,6 @@ project with a version bump instead of a copy.
 - [Releasing](releasing.md) and [installing servers locally](installing.md).
 - Reference: [MSBuild properties](properties.md), [workflows](workflows.md), [conformance](conformance.md),
   [analyzer rules](rules/index.md), and the API of [Snail.Sdk.Mcp.Hosting](reference/Snail.Sdk.Mcp.Hosting.md),
-  [Snail.Sdk.Mcp.Http](reference/Snail.Sdk.Mcp.Http.md) and [Snail.Sdk.Mcp.Testing](reference/Snail.Sdk.Mcp.Testing.md).
+  [Snail.Sdk.Mcp.Http](reference/Snail.Sdk.Mcp.Http.md), [Snail.Sdk.Mcp.Testing](reference/Snail.Sdk.Mcp.Testing.md)
+  and [Snail.Sdk.Mcp.JobClient](reference/Snail.Sdk.Mcp.JobClient.md).
 - [Contributing](contributing.md): working on Snail.Sdk itself.

@@ -135,6 +135,12 @@ strictly as code.
 - **Compile-time constants**: attributes take `const string`, so a tool's description is static.
 - **Every type a tool takes or gives** beyond the primitives goes into a source-generated `JsonSerializerContext` of the
   server, passed through `ToolJson.Options` of `Snail.Sdk.Mcp.Hosting`: a native build cannot look a type up at run time.
+- **A long operation is a job, never a poll.** Work that outlasts a call — a render, an index pass, a test run — runs
+  through `Jobs.Start` of `Snail.Sdk.Mcp.Hosting`: the tool takes `int wait = 60`, answers within it with the result
+  (`job.ForAsync`) or with the job's `job://` resource, and the client that can wait is told of the end by its
+  subscription (`Snail.Sdk.Mcp.JobClient`). No `*_status` tool — the resource is the status — and no description that
+  says "poll" or "call again": a model made a timer spends a turn on every look. Progress within the call stays
+  `IProgress<ProgressNotificationValue>`. (S3LC0032; `ToolGuards` names a description that tells the model to poll)
 - **Settings** come from the server's settings file and then its own prefixed variables, `SNAIL_MCP_<SHORT>_…`, which
   win — `ServerSettings.Read(name)` before a host exists, the same sources in every host `McpHost` and `McpHttpHost`
   build; no server keeps a lookup chain of its own. A secret goes into the file, never into a job or a registration.
@@ -151,7 +157,7 @@ Descriptions written by hand drift from the code they describe, so reflection-ba
 
 `ToolGuards.Problems` of `Snail.Sdk.Mcp.Testing` checks the list a client receives: snake-case names listed once, the
 tool and every parameter described, read-only or destructive stated, every allowed value named as a word of its own,
-English.
+English, and no description that tells the model to poll.
 
 ## Tests
 

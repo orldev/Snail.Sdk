@@ -84,6 +84,12 @@
       "defaultValue": "false",
       "description": "An image is built from the repository (SnailMcpContainer): a Dockerfile, native or framework-dependent as the server is, and the workflow that builds it."
     },
+    "jobs": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "false",
+      "description": "A long operation as a job: the sample tool tmplshort_work starts one, answers within the wait or with the job's resource, and a client awaits it by being told (Snail.Sdk.Mcp.JobClient)."
+    },
     "port": {
       "type": "parameter",
       "datatype": "integer",
@@ -155,6 +161,14 @@
             ".dockerignore",
             ".github/workflows/image.yml"
           ]
+        },
+        {
+          "condition": "(!jobs)",
+          "exclude": [
+            "src/Tools/WorkTools.cs",
+            "src/Tools/WorkJson.cs",
+            "docs/reference/tools/work.md"
+          ]
         }
       ]
     }
@@ -199,6 +213,52 @@
             ],
             "endif": [
               "<!--#endif"
+            ],
+            "trim": "true",
+            "wholeLine": "true"
+          }
+        }
+      ]
+    },
+    "**/*.md": {
+      "operations": [
+        {
+          "type": "conditional",
+          "configuration": {
+            "actionableIf": [
+              "<!--#if"
+            ],
+            "actionableElse": [
+              "<!--#else"
+            ],
+            "actionableElseif": [
+              "<!--#elseif"
+            ],
+            "endif": [
+              "<!--#endif"
+            ],
+            "trim": "true",
+            "wholeLine": "true"
+          }
+        }
+      ]
+    },
+    "**/docs/tools.json": {
+      "operations": [
+        {
+          "type": "conditional",
+          "configuration": {
+            "actionableIf": [
+              "//#if"
+            ],
+            "actionableElse": [
+              "//#else"
+            ],
+            "actionableElseif": [
+              "//#elseif"
+            ],
+            "endif": [
+              "//#endif"
             ],
             "trim": "true",
             "wholeLine": "true"

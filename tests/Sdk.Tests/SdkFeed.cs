@@ -26,7 +26,7 @@ public sealed class SdkFeed : IDisposable
     private static readonly string[] Packed =
     [
         "src/Sdk/Sdk.csproj", "src/Analyzers/Analyzers.csproj", "src/Library/Library.csproj",
-        "src/Mcp/Mcp.csproj", "src/Mcp.Hosting/Mcp.Hosting.csproj", "src/Mcp.Http/Mcp.Http.csproj", "src/Mcp.Testing/Mcp.Testing.csproj",
+        "src/Mcp/Mcp.csproj", "src/Mcp.Hosting/Mcp.Hosting.csproj", "src/Mcp.Http/Mcp.Http.csproj", "src/Mcp.Testing/Mcp.Testing.csproj", "src/Mcp.JobClient/Mcp.JobClient.csproj",
         "src/Templates/Templates.csproj"
     ];
 

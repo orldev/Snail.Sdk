@@ -1,1 +1,69 @@
 #nullable enable
+Snail.Sdk.Mcp.Hosting.Jobs.Job
+Snail.Sdk.Mcp.Hosting.Jobs.Job.Cancel() -> void
+Snail.Sdk.Mcp.Hosting.Jobs.Job.Completion.get -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Hosting.Jobs.JobReport!>!
+Snail.Sdk.Mcp.Hosting.Jobs.Job.ForAsync(System.TimeSpan wait, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Hosting.Jobs.JobReport!>!
+Snail.Sdk.Mcp.Hosting.Jobs.Job.Report.get -> Snail.Sdk.Mcp.Hosting.Jobs.JobReport!
+Snail.Sdk.Mcp.Hosting.Jobs.Job.Uri.get -> string!
+Snail.Sdk.Mcp.Hosting.Jobs.JobProgress
+Snail.Sdk.Mcp.Hosting.Jobs.JobProgress.Deconstruct(out double Done, out double? Total, out string? What) -> void
+Snail.Sdk.Mcp.Hosting.Jobs.JobProgress.Done.get -> double
+Snail.Sdk.Mcp.Hosting.Jobs.JobProgress.Done.init -> void
+Snail.Sdk.Mcp.Hosting.Jobs.JobProgress.Equals(Snail.Sdk.Mcp.Hosting.Jobs.JobProgress other) -> bool
+Snail.Sdk.Mcp.Hosting.Jobs.JobProgress.JobProgress() -> void
+Snail.Sdk.Mcp.Hosting.Jobs.JobProgress.JobProgress(double Done, double? Total = null, string? What = null) -> void
+Snail.Sdk.Mcp.Hosting.Jobs.JobProgress.Share.get -> double?
+Snail.Sdk.Mcp.Hosting.Jobs.JobProgress.Total.get -> double?
+Snail.Sdk.Mcp.Hosting.Jobs.JobProgress.Total.init -> void
+Snail.Sdk.Mcp.Hosting.Jobs.JobProgress.What.get -> string?
+Snail.Sdk.Mcp.Hosting.Jobs.JobProgress.What.init -> void
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.<Clone>$() -> Snail.Sdk.Mcp.Hosting.Jobs.JobReport!
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Deconstruct(out string! Uri, out Snail.Sdk.Mcp.Hosting.Jobs.JobState State, out System.DateTimeOffset StartedAt, out System.DateTimeOffset? EndedAt, out double? Progress, out string? Message, out System.Text.Json.JsonElement? Result) -> void
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.EndedAt.get -> System.DateTimeOffset?
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.EndedAt.init -> void
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Equals(Snail.Sdk.Mcp.Hosting.Jobs.JobReport? other) -> bool
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.IsRunning.get -> bool
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.JobReport(string! Uri, Snail.Sdk.Mcp.Hosting.Jobs.JobState State, System.DateTimeOffset StartedAt, System.DateTimeOffset? EndedAt, double? Progress, string? Message, System.Text.Json.JsonElement? Result) -> void
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Message.get -> string?
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Message.init -> void
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Progress.get -> double?
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Progress.init -> void
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Result.get -> System.Text.Json.JsonElement?
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Result.init -> void
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.StartedAt.get -> System.DateTimeOffset
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.StartedAt.init -> void
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.State.get -> Snail.Sdk.Mcp.Hosting.Jobs.JobState
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.State.init -> void
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.ToJson() -> string!
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Uri.get -> string!
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Uri.init -> void
+Snail.Sdk.Mcp.Hosting.Jobs.JobState
+Snail.Sdk.Mcp.Hosting.Jobs.JobState.Cancelled = 3 -> Snail.Sdk.Mcp.Hosting.Jobs.JobState
+Snail.Sdk.Mcp.Hosting.Jobs.JobState.Failed = 2 -> Snail.Sdk.Mcp.Hosting.Jobs.JobState
+Snail.Sdk.Mcp.Hosting.Jobs.JobState.Running = 0 -> Snail.Sdk.Mcp.Hosting.Jobs.JobState
+Snail.Sdk.Mcp.Hosting.Jobs.JobState.Succeeded = 1 -> Snail.Sdk.Mcp.Hosting.Jobs.JobState
+Snail.Sdk.Mcp.Hosting.Jobs.Jobs
+Snail.Sdk.Mcp.Hosting.Jobs.Jobs.Changed -> System.Action<Snail.Sdk.Mcp.Hosting.Jobs.JobReport!>?
+Snail.Sdk.Mcp.Hosting.Jobs.Jobs.Find(string! uri) -> Snail.Sdk.Mcp.Hosting.Jobs.Job?
+Snail.Sdk.Mcp.Hosting.Jobs.Jobs.InFlight.get -> System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Jobs.Job!>!
+Snail.Sdk.Mcp.Hosting.Jobs.Jobs.Jobs(string! server, System.TimeProvider? clock = null, Microsoft.Extensions.Hosting.IHostApplicationLifetime? lifetime = null) -> void
+Snail.Sdk.Mcp.Hosting.Jobs.Jobs.Recent.get -> System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Jobs.Job!>!
+Snail.Sdk.Mcp.Hosting.Jobs.Jobs.Start<TResult>(string! kind, System.Func<System.IProgress<Snail.Sdk.Mcp.Hosting.Jobs.JobProgress>!, System.Threading.CancellationToken, System.Threading.Tasks.Task<TResult>!>! work, System.Text.Json.Serialization.Metadata.JsonTypeInfo<TResult>! resultType) -> Snail.Sdk.Mcp.Hosting.Jobs.Job!
+Snail.Sdk.Mcp.Hosting.Jobs.Jobs.UriTemplate.get -> string!
+Snail.Sdk.Mcp.Hosting.Jobs.JobsRegistration
+Snail.Sdk.Mcp.Hosting.Jobs.JobsRegistration.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!)
+Snail.Sdk.Mcp.Hosting.Jobs.JobsRegistration.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).WithJobs(string! server) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+const Snail.Sdk.Mcp.Hosting.Jobs.Jobs.Kept = 20 -> int
+override Snail.Sdk.Mcp.Hosting.Jobs.JobProgress.GetHashCode() -> int
+override Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Equals(object? obj) -> bool
+override Snail.Sdk.Mcp.Hosting.Jobs.JobReport.GetHashCode() -> int
+override Snail.Sdk.Mcp.Hosting.Jobs.JobReport.ToString() -> string!
+static Snail.Sdk.Mcp.Hosting.Jobs.JobProgress.operator !=(Snail.Sdk.Mcp.Hosting.Jobs.JobProgress left, Snail.Sdk.Mcp.Hosting.Jobs.JobProgress right) -> bool
+static Snail.Sdk.Mcp.Hosting.Jobs.JobProgress.operator ==(Snail.Sdk.Mcp.Hosting.Jobs.JobProgress left, Snail.Sdk.Mcp.Hosting.Jobs.JobProgress right) -> bool
+static Snail.Sdk.Mcp.Hosting.Jobs.JobReport.FromJson(string! text) -> Snail.Sdk.Mcp.Hosting.Jobs.JobReport?
+static Snail.Sdk.Mcp.Hosting.Jobs.JobReport.operator !=(Snail.Sdk.Mcp.Hosting.Jobs.JobReport? left, Snail.Sdk.Mcp.Hosting.Jobs.JobReport? right) -> bool
+static Snail.Sdk.Mcp.Hosting.Jobs.JobReport.operator ==(Snail.Sdk.Mcp.Hosting.Jobs.JobReport? left, Snail.Sdk.Mcp.Hosting.Jobs.JobReport? right) -> bool
+static Snail.Sdk.Mcp.Hosting.Jobs.JobsRegistration.WithJobs(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, string! server) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+~override Snail.Sdk.Mcp.Hosting.Jobs.JobProgress.Equals(object obj) -> bool
+~override Snail.Sdk.Mcp.Hosting.Jobs.JobProgress.ToString() -> string

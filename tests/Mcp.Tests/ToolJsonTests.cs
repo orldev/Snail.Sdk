@@ -12,6 +12,10 @@ public sealed partial class ToolJsonTests
 
         Assert.NotNull(options.GetTypeInfo(typeof(Snail.Sdk.Mcp.Hosting.Jobs.JobReport)));
 
+        var report = new Snail.Sdk.Mcp.Hosting.Jobs.JobReport("job://x/y/1", Snail.Sdk.Mcp.Hosting.Jobs.JobState.Succeeded, DateTimeOffset.UnixEpoch, null, null, null, null);
+
+        Assert.Contains("\"state\":\"succeeded\"", JsonSerializer.Serialize(report, options), StringComparison.Ordinal);
+
         Assert.True(options.IsReadOnly);
         Assert.Equal("""{"side":"left"}""", JsonSerializer.Serialize(new Arrow { Side = "left" }, options));
         Assert.NotNull(options.GetTypeInfo(typeof(ModelContextProtocol.Protocol.CallToolResult)));

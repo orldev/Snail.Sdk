@@ -30,6 +30,11 @@ public static class ToolJson
     /// The SDK's options with this resolver — a server's generated context — consulted first, and the job report of
     /// this library known too, so a tool that answers with a job needs no line for it.
     /// </summary>
+    /// <remarks>
+    /// The job's state goes in as a converter of the options, not only as the attribute on its enum: the SDK's options
+    /// carry a string-enum converter of their own, and a converter of the options outranks the attribute of a type, so
+    /// without this a tool wrote <c>Succeeded</c> where the job's resource wrote <c>succeeded</c>.
+    /// </remarks>
     public static JsonSerializerOptions Options(IJsonTypeInfoResolver context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -38,6 +43,7 @@ public static class ToolJson
 
         options.TypeInfoResolverChain.Insert(0, Jobs.JobJson.Default);
         options.TypeInfoResolverChain.Insert(0, context);
+        options.Converters.Insert(0, new Jobs.JobStateJson());
         options.MakeReadOnly();
 
         return options;

@@ -12,7 +12,7 @@ public sealed class DocsToolTests(SdkFeed sdk) : IDisposable
           <RootNamespace>Server</RootNamespace>
         </PropertyGroup>
         <ItemGroup>
-          <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
+          <PackageReference Include="ModelContextProtocol" Version="2.3.0" />
         </ItemGroup>
         """;
 

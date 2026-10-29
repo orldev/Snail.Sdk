@@ -6,6 +6,22 @@ A change that a repository must act on says what to do.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-29
+
+### Changed
+
+- The server libraries move to ModelContextProtocol 2.3.0, and `Snail.Sdk.Mcp.Hosting` requires it. A server that pins
+  `ModelContextProtocol` itself raises it to 2.3.0 with this release, or the restore fails on a downgrade (NU1605). In
+  2.3.0 `McpClient.ServerInfo` may be null, so a test reading `client.ServerInfo.Name` no longer builds (CS8602): read
+  `client.ServerInfo?.Name`, or assert it is not null first. The `s3l-mcp` template does so.
+- Microsoft.Extensions.Hosting and the other .NET packages move to 10.0.14; the templates take Microsoft.NET.Test.Sdk
+  18.11.0, xunit.runner.visualstudio 4.0.1, Microsoft.AspNetCore.Mvc.Testing 10.0.14 and Snail.Toolkit.RabbitMQ 2.1.0.
+
+### Fixed
+
+- S3LC0019 reads `SnailPackageBaseline` where MSBuild does — the packed project, or the `Directory.Build.props` above it.
+  A library that named its baseline in its project file was refused its release.
+
 ## [0.2.2] - 2026-10-27
 
 ### Fixed
@@ -69,7 +85,8 @@ The first release.
 - The shared workflows, called at `@v1`: `lib-ci`, `mcp-ci`, `lib-publish`, `mcp-publish`, `mcp-image`, `perf` and
   `docs`, and the `nuget-push` action for trusted publishing.
 
-[Unreleased]: https://github.com/orldev/Snail.Sdk/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/orldev/Snail.Sdk/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/orldev/Snail.Sdk/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/orldev/Snail.Sdk/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/orldev/Snail.Sdk/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/orldev/Snail.Sdk/compare/v0.1.0...v0.2.0

@@ -54,7 +54,7 @@ public sealed class McpSdkTests(SdkFeed sdk)
           <RootNamespace>Server</RootNamespace>
         </PropertyGroup>
         <ItemGroup>
-          <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
+          <PackageReference Include="ModelContextProtocol" Version="2.3.0" />
         </ItemGroup>
         """;
 
@@ -109,7 +109,7 @@ public sealed class McpSdkTests(SdkFeed sdk)
               <RootNamespace>Server</RootNamespace>
             </PropertyGroup>
             <ItemGroup>
-              <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
+              <PackageReference Include="ModelContextProtocol" Version="2.3.0" />
             </ItemGroup>
             """, ("Program.cs", Program), ("EchoTools.cs", Tools));
 

@@ -25,7 +25,7 @@ public sealed class StdioContractTests
     {
         await using var client = await ServerProgram.StartAsync(Assembly, Variable);
 
-        Assert.Equal("s3l-mcp-tmplshort", client.ServerInfo.Name);
+        Assert.Equal("s3l-mcp-tmplshort", client.ServerInfo?.Name);
     }
 
     [Fact]

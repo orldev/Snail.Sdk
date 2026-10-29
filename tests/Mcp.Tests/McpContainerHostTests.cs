@@ -39,6 +39,7 @@ public sealed class McpContainerHostTests : IAsyncLifetime
         await using var client = await McpClient.CreateAsync(
             new HttpClientTransport(new HttpClientTransportOptions { Endpoint = new Uri($"http://127.0.0.1:{_port}{McpHttpHost.DefaultPath}") }));
 
+        Assert.NotNull(client.ServerInfo);
         Assert.NotEmpty(client.ServerInfo.Name);
     }
 

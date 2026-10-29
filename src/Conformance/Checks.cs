@@ -695,7 +695,7 @@ internal static partial class Checks
     {
         var sources = repository.Files("*.cs").Where(file => !IsTestSource(repository, file)).Select(file => (Path: Relative(repository, file), Text: File.ReadAllText(file))).ToList();
         var waiting = sources.Where(source => source.Text.Contains("[McpServerTool", StringComparison.Ordinal) && WaitParameter().IsMatch(source.Text)).Select(source => source.Path).ToList();
-        var polling = sources.SelectMany(source => TellsToPoll().Matches(source.Text).Select(match => $"{source.Path}: \"{match.Value.Trim()}\"")).ToList();
+        var polling = sources.SelectMany(source => PollingIn(source.Path, source.Text)).ToList();
 
         if (waiting.Count == 0)
             return polling.Count == 0 ? Rules.Jobs.Met("no jobs") : Rules.Jobs.Unmet($"a description tells the model to poll: {string.Join(", ", polling)}");
@@ -715,6 +715,27 @@ internal static partial class Checks
 
     private static bool IsTestSource(Repository repository, string file) =>
         Relative(repository, file).StartsWith("tests/", StringComparison.Ordinal);
+
+    /// <summary>Every phrase of a source that tells the model to poll, named with the source.</summary>
+    private static IEnumerable<string> PollingIn(string path, string text)
+    {
+        var read = ModelReads(path, text);
+        var phrases = read.SelectMany(each => TellsToPoll().Matches(each)).Select(match => match.Value.Trim());
+
+        return phrases.Select(phrase => $"{path}: \"{phrase}\"");
+    }
+
+    /// <summary>
+    /// The text of a source the model reads: every Description attribute, and every string of a file under Prompts — the
+    /// tool descriptions, the prompts, the guidance. A comment, a log line or a literal elsewhere is the program's own.
+    /// </summary>
+    private static IEnumerable<string> ModelReads(string path, string text)
+    {
+        if (path.Contains("/Prompts/", StringComparison.Ordinal))
+            return StringLiteral().Matches(text).Select(match => match.Groups["text"].Value);
+
+        return DescriptionAttribute().Matches(text).Select(match => match.Groups["text"].Value);
+    }
 
     /// <summary>
     /// A launchd job template names no variable holding a secret. The template is in the repository, and the job
@@ -850,4 +871,10 @@ internal static partial class Checks
 
     [GeneratedRegex(@"McpServerTool\(\s*Name\s*=\s*""(?<name>[a-z0-9_]+_status)""", RegexOptions.CultureInvariant)]
     private static partial Regex StatusTool();
+
+    [GeneratedRegex(@"Description\(\s*(?<text>(?:""(?:[^""\\]|\\.)*""\s*\+?\s*)+)\)", RegexOptions.CultureInvariant)]
+    private static partial Regex DescriptionAttribute();
+
+    [GeneratedRegex(@"""(?<text>(?:[^""\\]|\\.)*)""", RegexOptions.CultureInvariant)]
+    private static partial Regex StringLiteral();
 }

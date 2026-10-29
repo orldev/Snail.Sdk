@@ -8,6 +8,9 @@ A change that a repository must act on says what to do.
 
 ### Fixed
 
+- S3LC0032 reads what the model reads — the `Description` attributes, and the strings of the files under `Prompts/` —
+  and nothing else: a comment, a log line or a literal elsewhere that says "poll" is the program's own. 0.4.0 named
+  them all.
 - A job's state is written in JSON as its lower-case word (`running`, `succeeded`, `failed`, `cancelled`), the way a
   state reads everywhere else; 0.4.0 wrote `Running`.
 - A `subscriptions/listen` request that asks for nothing is acknowledged with nothing: the acknowledgement names no

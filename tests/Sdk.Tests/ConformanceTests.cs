@@ -427,7 +427,8 @@ public sealed class ConformanceTests : IDisposable
         var held = Write("Snail.MCP.Foo", ("src/Tools/RenderTools.cs", job),
             ("src/Extensions/Registration.cs", "class Registration { void Add() { _ = 1; } } // .WithJobs(\"foo\")"));
         var polled = Write("Snail.MCP.Bar", ("src/Tools/RenderTools.cs", job),
-            ("src/Tools/StatusTools.cs", """[McpServerTool(Name = "render_job_status"), Description("Progress of a render; poll it until done.")]"""));
+            ("src/Tools/StatusTools.cs", """[McpServerTool(Name = "render_job_status"), Description("Progress of a render; poll it until done.")]"""),
+            ("src/Application/Watch.cs", "// polls the monitor every two seconds\nclass Watch { const string Log = \"poll interval\"; }"));
         var none = Write("Snail.MCP.Baz", ("src/Tools.cs", "static class Tools { }"));
 
         var holding = Assert.Single(Checks.Of(held, Standard.Embedded()), found => found.Check == "jobs");
@@ -439,6 +440,7 @@ public sealed class ConformanceTests : IDisposable
         Assert.Contains("no WithJobs registers the jobs", polling.Detail, StringComparison.Ordinal);
         Assert.Contains("a status tool beside a job: src/Tools/StatusTools.cs: render_job_status", polling.Detail, StringComparison.Ordinal);
         Assert.Contains("tells the model to poll", polling.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("Watch.cs", polling.Detail, StringComparison.Ordinal);
         Assert.Single(Checks.Of(none, Standard.Embedded()), found => found is { Check: "jobs", IsMet: true, Detail: "no jobs" });
     }
 

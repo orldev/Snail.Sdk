@@ -6,6 +6,8 @@ A change that a repository must act on says what to do.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-29
+
 ### Fixed
 
 - S3LC0032 reads what the model reads — the `Description` attributes, and the strings of the files under `Prompts/` —
@@ -114,7 +116,8 @@ The first release.
 - The shared workflows, called at `@v1`: `lib-ci`, `mcp-ci`, `lib-publish`, `mcp-publish`, `mcp-image`, `perf` and
   `docs`, and the `nuget-push` action for trusted publishing.
 
-[Unreleased]: https://github.com/orldev/Snail.Sdk/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/orldev/Snail.Sdk/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/orldev/Snail.Sdk/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/orldev/Snail.Sdk/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/orldev/Snail.Sdk/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/orldev/Snail.Sdk/compare/v0.2.1...v0.2.2

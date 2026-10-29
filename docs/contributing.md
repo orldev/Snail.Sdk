@@ -59,11 +59,11 @@ Until a change is released, a repository that needs it takes Snail.Sdk from a lo
 since NuGet never reads a version again once it is in the global packages folder:
 
 ```bash
-dotnet pack Snail.Sdk.slnx -c Release -p:VersionSuffix=local.8 -o ~/nuget    # 0.4.1-local.8
+dotnet pack Snail.Sdk.slnx -c Release -p:VersionSuffix=local.8 -o ~/nuget    # 0.4.2-local.8
 dotnet nuget add source ~/nuget -n LocalPackages                             # once per machine
 ```
 
-then, in the repository, `global.json`'s `msbuild-sdks` names `0.4.1-local.8`, and `nuget.config` maps the SDK to the
+then, in the repository, `global.json`'s `msbuild-sdks` names `0.4.2-local.8`, and `nuget.config` maps the SDK to the
 feed beside its other mappings — the longer pattern wins, so `Snail.Sdk.*` comes from the feed and everything else from
 nuget.org:
 
@@ -74,7 +74,7 @@ nuget.org:
 </packageSource>
 ```
 
-The templates are installed again from `~/nuget/Snail.Sdk.Templates.0.4.1-local.8.nupkg`; their `global.json` is stamped
+The templates are installed again from `~/nuget/Snail.Sdk.Templates.0.4.2-local.8.nupkg`; their `global.json` is stamped
 with the version being packed (`SNAIL_SDK_VERSION`), so they always name the SDK of their own pack. A repository on the
 local feed builds, tests and passes the conformance check, but cannot be released: the release checks refuse a
 `LocalPackages` mapping and a `-local` version (S3LC0026). Once the change is released, it moves back as

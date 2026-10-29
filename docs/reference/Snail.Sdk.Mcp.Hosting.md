@@ -120,7 +120,7 @@ A job as its resource shows it and a client reads it.
 
 ### enum JobState
 
-Where a job stands.
+Where a job stands; written in JSON as the lower-case word, the way a state is read everywhere else.
 
 | Member | Summary |
 | --- | --- |

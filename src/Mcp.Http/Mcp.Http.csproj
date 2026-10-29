@@ -14,7 +14,7 @@
   -->
   <PropertyGroup>
     <EnablePackageValidation>true</EnablePackageValidation>
-    <PackageValidationBaselineVersion>0.2.2</PackageValidationBaselineVersion>
+    <PackageValidationBaselineVersion>0.3.0</PackageValidationBaselineVersion>
     <IncludeSymbols>true</IncludeSymbols>
   </PropertyGroup>
 

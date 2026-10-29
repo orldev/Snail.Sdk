@@ -99,7 +99,7 @@ internal static class Rules
         "`PublicAPI.Shipped.txt` beside every packed project (not a kind, not `IsPackable` false)");
 
     public static readonly Rule PackageBaseline = new("S3LC0019", "package baseline", Severity.Required, "library",
-        "`SnailPackageBaseline` in `Directory.Build.props` once released: a `PublicAPI.Shipped.txt` lists an API, or a "
+        "`SnailPackageBaseline` — in `Directory.Build.props` or the packed project — once released: a `PublicAPI.Shipped.txt` lists an API, or a "
         + "`v*` tag of an earlier release exists — the tag of the release being made does not count");
 
     public static readonly Rule NativeProbe = new("S3LC0020", "native probe", Severity.Required, "library",

@@ -612,13 +612,15 @@ internal static partial class Checks
     /// A released library names the release its package is validated against. Released means a PublicAPI.Shipped.txt
     /// lists an API — which a checkout without tags still shows — or a v* tag of an earlier release exists. The tag of
     /// the release being made is not one: a first release, checked out by its tag, has nothing on nuget.org to name yet.
+    /// The baseline is read where MSBuild reads it — the project, or the Directory.Build.props above it — so a repository
+    /// that keeps its package's metadata in the project file is not taken for one that names no release.
     /// </summary>
     private static Finding PackageBaseline(Repository repository)
     {
         var shipped = repository.Projects.Where(Repository.IsPacked).Where(project => ListsAnApi(ShippedApi(project))).Select(Path.GetFileName).ToList();
         var releaseTags = repository.Tags().Where(name => name.StartsWith('v')).ToList();
         var tag = releaseTags.FirstOrDefault(name => !repository.IsBeingReleased(name));
-        var hasBaseline = repository.Text("Directory.Build.props")?.Contains("<SnailPackageBaseline>", StringComparison.Ordinal) == true;
+        var hasBaseline = repository.Projects.Where(Repository.IsPacked).Any(project => Repository.Setting(project, "SnailPackageBaseline") is not null);
 
         if (shipped.Count == 0 && tag is null)
             return Rules.PackageBaseline.Met(releaseTags.Count > 0 ? $"the first release, {releaseTags[0]}, is being made" : "not released yet");

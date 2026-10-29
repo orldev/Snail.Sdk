@@ -506,6 +506,27 @@ public sealed class ConformanceTests : IDisposable
         Assert.True(none.IsMet);
     }
 
+    /// <summary>
+    /// The baseline is read where MSBuild reads it: a repository that keeps its package's metadata in the project file and
+    /// names the release there holds, as one that names it in Directory.Build.props does.
+    /// </summary>
+    /// <remarks>Snail.Toolkit.RabbitMQ.Workflow named it in its csproj on 26.10.2026: the pack was validated against it, and
+    /// the check, reading Directory.Build.props alone, refused the release.</remarks>
+    [Fact]
+    public void PackageBaseline_NamedInTheProject_OrInDirectoryBuildProps_Holds()
+    {
+        const string shipped = "#nullable enable\nSnail.Toolkit.Shipped.Greeting\n";
+        var inProject = Write("Snail.Toolkit.Shipped",
+            ("src/Snail.Toolkit.Shipped.csproj", "<Project Sdk=\"Snail.Sdk.Library\"><PropertyGroup><SnailPackageBaseline>0.1.0</SnailPackageBaseline></PropertyGroup></Project>"),
+            ("src/PublicAPI.Shipped.txt", shipped));
+        var inProps = Write("Snail.Toolkit.Props", ("src/Snail.Toolkit.Props.csproj", "<Project Sdk=\"Snail.Sdk.Library\" />"),
+            ("src/PublicAPI.Shipped.txt", shipped),
+            ("Directory.Build.props", "<Project><PropertyGroup><SnailPackageBaseline>0.1.0</SnailPackageBaseline></PropertyGroup></Project>"));
+
+        Assert.Single(Checks.Of(inProject, Standard.Embedded()), found => found is { Check: "package baseline", IsMet: true });
+        Assert.Single(Checks.Of(inProps, Standard.Embedded()), found => found is { Check: "package baseline", IsMet: true });
+    }
+
     /// <summary>A worktree's .git is a file: its tags are read from the common git folder it points to.</summary>
     [Fact]
     public void PackageBaseline_OfAWorktree_ReadsTheTagsOfItsRepository()

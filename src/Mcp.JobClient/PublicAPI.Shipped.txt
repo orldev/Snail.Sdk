@@ -1,1 +1,25 @@
 #nullable enable
+Snail.Sdk.Mcp.JobClient.JobAwaitOptions
+Snail.Sdk.Mcp.JobClient.JobAwaitOptions.<Clone>$() -> Snail.Sdk.Mcp.JobClient.JobAwaitOptions!
+Snail.Sdk.Mcp.JobClient.JobAwaitOptions.Equals(Snail.Sdk.Mcp.JobClient.JobAwaitOptions? other) -> bool
+Snail.Sdk.Mcp.JobClient.JobAwaitOptions.Fallback.get -> System.TimeSpan
+Snail.Sdk.Mcp.JobClient.JobAwaitOptions.Fallback.init -> void
+Snail.Sdk.Mcp.JobClient.JobAwaitOptions.JobAwaitOptions() -> void
+Snail.Sdk.Mcp.JobClient.JobAwaitOptions.Progress.get -> System.IProgress<Snail.Sdk.Mcp.Hosting.Jobs.JobReport!>?
+Snail.Sdk.Mcp.JobClient.JobAwaitOptions.Progress.init -> void
+Snail.Sdk.Mcp.JobClient.JobClient
+Snail.Sdk.Mcp.JobClient.JobClient.extension(ModelContextProtocol.Client.McpClient!)
+Snail.Sdk.Mcp.JobClient.JobClient.extension(ModelContextProtocol.Client.McpClient!).AwaitJobAsync(string! uri, Snail.Sdk.Mcp.JobClient.JobAwaitOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Hosting.Jobs.JobReport!>!
+Snail.Sdk.Mcp.JobClient.JobClient.extension(ModelContextProtocol.Client.McpClient!).CallJobAsync(string! tool, System.Collections.Generic.IReadOnlyDictionary<string!, object?>? arguments = null, Snail.Sdk.Mcp.JobClient.JobAwaitOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Hosting.Jobs.JobReport!>!
+Snail.Sdk.Mcp.JobClient.JobClient.extension(ModelContextProtocol.Client.McpClient!).ReadJobAsync(string! uri, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Hosting.Jobs.JobReport!>!
+Snail.Sdk.Mcp.JobClient.JobClient.extension(ModelContextProtocol.Client.McpClient!).WatchJobAsync(string! uri, Snail.Sdk.Mcp.JobClient.JobAwaitOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Snail.Sdk.Mcp.Hosting.Jobs.JobReport!>!
+const Snail.Sdk.Mcp.JobClient.JobClient.WaitParameter = "wait" -> string!
+override Snail.Sdk.Mcp.JobClient.JobAwaitOptions.Equals(object? obj) -> bool
+override Snail.Sdk.Mcp.JobClient.JobAwaitOptions.GetHashCode() -> int
+override Snail.Sdk.Mcp.JobClient.JobAwaitOptions.ToString() -> string!
+static Snail.Sdk.Mcp.JobClient.JobAwaitOptions.operator !=(Snail.Sdk.Mcp.JobClient.JobAwaitOptions? left, Snail.Sdk.Mcp.JobClient.JobAwaitOptions? right) -> bool
+static Snail.Sdk.Mcp.JobClient.JobAwaitOptions.operator ==(Snail.Sdk.Mcp.JobClient.JobAwaitOptions? left, Snail.Sdk.Mcp.JobClient.JobAwaitOptions? right) -> bool
+static Snail.Sdk.Mcp.JobClient.JobClient.AwaitJobAsync(this ModelContextProtocol.Client.McpClient! client, string! uri, Snail.Sdk.Mcp.JobClient.JobAwaitOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Hosting.Jobs.JobReport!>!
+static Snail.Sdk.Mcp.JobClient.JobClient.CallJobAsync(this ModelContextProtocol.Client.McpClient! client, string! tool, System.Collections.Generic.IReadOnlyDictionary<string!, object?>? arguments = null, Snail.Sdk.Mcp.JobClient.JobAwaitOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Hosting.Jobs.JobReport!>!
+static Snail.Sdk.Mcp.JobClient.JobClient.ReadJobAsync(this ModelContextProtocol.Client.McpClient! client, string! uri, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Hosting.Jobs.JobReport!>!
+static Snail.Sdk.Mcp.JobClient.JobClient.WatchJobAsync(this ModelContextProtocol.Client.McpClient! client, string! uri, Snail.Sdk.Mcp.JobClient.JobAwaitOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Snail.Sdk.Mcp.Hosting.Jobs.JobReport!>!

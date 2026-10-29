@@ -3,8 +3,8 @@ using System.Text.Json.Serialization;
 
 namespace Snail.Sdk.Mcp.Hosting.Jobs;
 
-/// <summary>Where a job stands.</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<JobState>))]
+/// <summary>Where a job stands; written in JSON as the lower-case word, the way a state is read everywhere else.</summary>
+[JsonConverter(typeof(JobStateJson))]
 public enum JobState
 {
     /// <summary>The work is running.</summary>
@@ -18,6 +18,15 @@ public enum JobState
 
     /// <summary>The work was cancelled, by a tool or because the server stopped.</summary>
     Cancelled,
+}
+
+/// <summary>The state as its lower-case word: <c>running</c>, <c>succeeded</c>, <c>failed</c>, <c>cancelled</c>.</summary>
+internal sealed class JobStateJson : JsonStringEnumConverter<JobState>
+{
+    public JobStateJson()
+        : base(JsonNamingPolicy.CamelCase)
+    {
+    }
 }
 
 /// <summary>A job as its resource shows it and a client reads it.</summary>

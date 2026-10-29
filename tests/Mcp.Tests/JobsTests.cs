@@ -30,6 +30,9 @@ public sealed class JobsTests
         var report = await job.ForAsync(Patience);
 
         Assert.Equal("job://sample/echo/1", job.Uri);
+        Assert.Contains("\"state\":\"succeeded\"", report.ToJson(), StringComparison.Ordinal);
+        Assert.Equal(report with { Result = null }, JobReport.FromJson(report.ToJson())! with { Result = null });
+        Assert.Equal(report.Result!.Value.GetRawText(), JobReport.FromJson(report.ToJson())!.Result!.Value.GetRawText());
         Assert.Equal(JobState.Succeeded, report.State);
         Assert.Equal(1, report.Progress);
         Assert.Equal("half", report.Message);
@@ -135,6 +138,36 @@ public sealed class JobsTests
         var refused = await Assert.ThrowsAnyAsync<McpException>(async () => await stand.Client.ReadResourceAsync("job://sample/echo/404"));
 
         Assert.Contains("job://sample/echo/404", refused.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A listen stream that asks for nothing is acknowledged with nothing — the acknowledgement names no notification kind at all,
+    /// as a client that opens the stream beside tools/list expects — and stays open until the client ends it.
+    /// </summary>
+    [Fact]
+    public async Task Listen_AskingForNothing_IsAcknowledgedWithNothing_AndHeldOpen()
+    {
+        await using var stand = await Stand.StartAsync("2026-07-28");
+        var acknowledged = new TaskCompletionSource<JsonNode?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var handler = stand.Client.RegisterNotificationHandler(NotificationMethods.SubscriptionsAcknowledgedNotification, (notification, _) =>
+        {
+            acknowledged.TrySetResult(notification.Params?["notifications"]);
+
+            return ValueTask.CompletedTask;
+        });
+        using var listening = new CancellationTokenSource();
+        var request = new JsonRpcRequest { Id = new RequestId("listen-nothing"), Method = RequestMethods.SubscriptionsListen, Params = new JsonObject { ["notifications"] = new JsonObject() } };
+
+        var held = stand.Client.SendRequestAsync(request, listening.Token);
+        var notifications = await acknowledged.Task.WaitAsync(Patience);
+        var ended = await Task.WhenAny(held, Task.Delay(300));
+
+        Assert.NotNull(notifications);
+        Assert.Empty(notifications.AsObject());
+        Assert.NotSame(held, ended);
+
+        await stand.Client.SendNotificationAsync(NotificationMethods.CancelledNotification, new CancelledNotificationParams { RequestId = request.Id }, McpJsonUtilities.DefaultOptions, CancellationToken.None);
+        await listening.CancelAsync();
     }
 
     /// <summary>A subscriber is told of the end rather than asking: the notification arrives, and the report read after it is the final one.</summary>

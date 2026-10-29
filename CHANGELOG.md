@@ -6,6 +6,14 @@ A change that a repository must act on says what to do.
 
 ## [Unreleased]
 
+### Fixed
+
+- A job's state is written in JSON as its lower-case word (`running`, `succeeded`, `failed`, `cancelled`), the way a
+  state reads everywhere else; 0.4.0 wrote `Running`.
+- A `subscriptions/listen` request that asks for nothing is acknowledged with nothing: the acknowledgement names no
+  notification kind, as a client that opens the stream beside `tools/list` expects. 0.4.0 answered it with an empty
+  `resourceSubscriptions` list.
+
 ## [0.4.0] - 2026-10-29
 
 ### Added

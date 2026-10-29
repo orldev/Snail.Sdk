@@ -143,7 +143,7 @@ internal sealed class JobWatchers(Jobs jobs, TimeProvider? clock = null)
     private async ValueTask<EmptyResult> ListenAsync(RequestContext<SubscriptionsListenRequestParams> request, CancellationToken cancellationToken)
     {
         var asked = request.Params?.Notifications?.ResourceSubscriptions ?? [];
-        var granted = new SubscriptionsListenNotifications { ResourceSubscriptions = [.. asked] };
+        var granted = new SubscriptionsListenNotifications { ResourceSubscriptions = asked.Count > 0 ? [.. asked] : null };
         var acknowledgement = JsonSerializer.SerializeToNode(new SubscriptionsAcknowledgedNotificationParams { Notifications = granted }, McpJsonUtilities.DefaultOptions.GetTypeInfo(typeof(SubscriptionsAcknowledgedNotificationParams)))!.AsObject();
 
         acknowledgement["_meta"] = new JsonObject { [MetaKeys.SubscriptionId] = JsonSerializer.SerializeToNode(request.JsonRpcRequest.Id, McpJsonUtilities.DefaultOptions.GetTypeInfo(typeof(RequestId))) };

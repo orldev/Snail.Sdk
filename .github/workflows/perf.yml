@@ -8,6 +8,10 @@ name: performance
 #     perf:
 #       uses: orldev/Snail.Sdk/.github/workflows/perf.yml@v1
 #
+# BenchmarkDotNet separates the columns of its CSV by the machine's culture — ';' where the decimal mark is a comma, ','
+# on the runner — so the comparison reads either, and a report it cannot read fails the job rather than comparing
+# nothing: read with ';' only, a runner's report gave no allocation, and every growth passed.
+#
 # The benchmarks run against the baseline kept in baseline/ beside the benchmark project — benchmarks/baseline/ when the
 # project sits directly in benchmarks/ — the CSV reports BenchmarkDotNet writes with --job short on the same kind of
 # runner, copied there when a change is accepted. Time on a shared runner moves by tens of percent between runs, so only memory
@@ -84,7 +88,10 @@ jobs:
 
           def allocated(path):
               with open(path, newline="", encoding="utf-8") as report:
-                  rows = list(csv.DictReader(report, delimiter=";"))
+                  header = report.readline()
+                  report.seek(0)
+                  delimiter = ";" if header.count(";") > header.count(",") else ","
+                  rows = list(csv.DictReader(report, delimiter=delimiter))
               if not rows or "Allocated" not in rows[0]:
                   return {}
               columns = list(rows[0])
@@ -99,19 +106,25 @@ jobs:
               return measured
 
           grown = []
+          unread = []
           for path in glob.glob(os.path.join(baseline, "*-report.csv")):
               now = os.path.join(current, os.path.basename(path))
               if not os.path.exists(now):
                   continue
               before, after = allocated(path), allocated(now)
+              if not before or not after:
+                  unread.append(path if not before else now)
+                  continue
               for key, bytes_before in before.items():
                   bytes_after = after.get(key)
                   if bytes_after is not None and bytes_before > 0 and bytes_after > bytes_before * (1 + tolerance / 100):
                       grown.append(f"{os.path.basename(path)} {key}: {bytes_before:.0f} B -> {bytes_after:.0f} B")
 
+          for path in unread:
+              print(f"::error::no allocation could be read from {path}, so nothing was compared")
           for line in grown:
               print(f"::error::allocation grew past {tolerance}%: {line}")
-          sys.exit(1 if grown else 0)
+          sys.exit(1 if grown or unread else 0)
           PY
 
       - if: always()

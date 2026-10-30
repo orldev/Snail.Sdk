@@ -35,6 +35,12 @@ A change that a repository must act on says what to do.
   silicon the link failed. It now publishes for the platform the image is built for, from buildx's `TARGETARCH`. A
   repository made from an earlier template may take the same two lines (`ARG TARGETARCH` and the `case` that picks
   the runtime).
+- `perf.yml` compares allocations again. BenchmarkDotNet separates the columns of its CSV by the machine's culture —
+  `;` on a machine whose decimal mark is a comma, `,` on the runner — and the comparison read `;` only: a runner's
+  report gave no allocation, nothing was compared, and the job passed whatever grew (a report with every allocation
+  ten times larger passed). The comparison now reads either separator, and a report it reads nothing from fails the
+  job. A baseline written on either kind of machine stays valid. Once `v1` moves, a repository whose allocations did
+  grow past the tolerance since its baseline sees the job fail for the first time.
 
 ## [0.4.1] - 2026-10-29
 

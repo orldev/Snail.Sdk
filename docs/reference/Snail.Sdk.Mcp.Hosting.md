@@ -86,7 +86,16 @@ A job in flight or ended: what a tool answers with, or waits on, and what its re
 | `Task<JobReport> Completion { get; }` | The final report: succeeded, failed or cancelled. It never throws. |
 | `Task<JobReport> ForAsync(TimeSpan wait, CancellationToken cancellationToken = default)` | The report when the job ends within `wait`, or the running report with its URI when it does not. |
 | `string Uri { get; }` | The resource the job is read and watched at. |
+| `string? Owner { get; }` | Who the job belongs to, or null when it is anyone's who holds its URI. |
 | `void Cancel()` | Stops the work; the report ends cancelled once the work has stopped. |
+
+### static class JobAnswer
+
+A job as the answer of a tool that speaks in words of its own: its text, with the job's report beside it.
+
+| Member | Summary |
+| --- | --- |
+| `CallToolResult Of(JobReport report, Func<JobReport, CallToolResult> said)` | The tool result `said` makes of the report, with the report itself as its structured content. |
 
 ### struct JobProgress
 
@@ -138,7 +147,9 @@ The jobs of a server: started by its tools, read as resources, watched by subscr
 | `IReadOnlyList<Job> InFlight { get; }` | Every job still running. |
 | `IReadOnlyList<Job> Recent { get; }` | The jobs ended last, newest first, up to `Kept`. |
 | `Job Start<TResult>(string kind, Func<IProgress<JobProgress>, CancellationToken, Task<TResult>> work, JsonTypeInfo<TResult> resultType)` | Starts work of a kind and answers with its job at once; the work runs on, reporting its steps through the progress it is given and stopping on the token it is given. |
+| `Job Start<TResult>(string kind, string? owner, Func<IProgress<JobProgress>, CancellationToken, Task<TResult>> work, JsonTypeInfo<TResult> resultType)` | Starts work of a kind for an owner and answers with its job at once: only a client the server names that owner reads or watches it. A null owner leaves it to whoever holds its URI. |
 | `Job? Find(string uri)` | The job at a URI, or null when there is none: never started, or ended and forgotten. |
+| `Job? Find(string uri, string? owner)` | The job at a URI as a client of `owner` may see it: null when there is none, or when it belongs to another owner. |
 | `Jobs(string server, TimeProvider? clock = null, IHostApplicationLifetime? lifetime = null)` | The jobs of the server named `server` — its short name, the first part of every job's URI. |
 | `const int Kept` | How many ended jobs are kept to be read, newest first. |
 | `event Action<JobReport> Changed` | Raised with every change of any job: a state, a progress step. |
@@ -151,3 +162,4 @@ Puts a server's jobs on the protocol: a resource per job, subscriptions to it, a
 | Member | Summary |
 | --- | --- |
 | `IMcpServerBuilder WithJobs(this IMcpServerBuilder builder, string server)` | The jobs of the server named `server`: `Jobs` for its tools to start work on, each job readable at `job://<server>/<kind>/<id>`, every change sent to the sessions subscribed to it, and the server's running jobs cancelled when the host stops. |
+| `IMcpServerBuilder WithJobs(this IMcpServerBuilder builder, string server, Func<IServiceProvider, string?>? ownerOf)` | The jobs of the server named `server`, each read and watched only by a client of its owner: `ownerOf` names the owner of a request from the services it is served with, and a job started with an owner (`Start1`) is unknown to a request of another one. |

@@ -26,6 +26,9 @@ A change that a repository must act on says what to do.
   in `<SnailStatusToolsBecause>e2e_status: where the environment stands</SnailStatusToolsBecause>`. Snail.MCP.E2E was
   advised against `e2e_status`, which reports whether the app runs, not a job; its description is a constant, which the
   check does not read, so the name has to be said.
+- Ended jobs are kept per owner: the last twenty of each (`Jobs.Kept`), and five hundred of the server in all
+  (`Jobs.KeptInAll`). Counted for the whole server, twenty ended jobs of other tasks forgot a task's result before it
+  was read — on a stand of a few dozen tasks, within minutes.
 - A step the work reports is in the job's report at once. It went through `Progress<T>`, which posts it to be handled
   later: the first answer of a running job carried no step, and a step reported just before the end could land after it.
 

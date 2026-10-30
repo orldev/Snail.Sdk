@@ -65,7 +65,8 @@ public sealed class Job
         return Report;
     }
 
-    internal async Task RunAsync<TResult>(Func<IProgress<JobProgress>, CancellationToken, Task<TResult>> work, JsonTypeInfo<TResult> resultType, CancellationToken stopping, TimeProvider clock)
+    /// <summary>Runs the work to its end; <paramref name="kept"/> is told of the end before <see cref="Completion"/> is, so whoever awaits the job finds the jobs kept as they will stand.</summary>
+    internal async Task RunAsync<TResult>(Func<IProgress<JobProgress>, CancellationToken, Task<TResult>> work, JsonTypeInfo<TResult> resultType, CancellationToken stopping, TimeProvider clock, Action<Job> kept)
     {
         using var either = CancellationTokenSource.CreateLinkedTokenSource(_cancelling.Token, stopping);
         var progress = new Steps(step => Change(report => report with { Progress = step.Share ?? report.Progress, Message = step.What ?? report.Message }));
@@ -74,21 +75,22 @@ public sealed class Job
         {
             var result = await work(progress, either.Token).ConfigureAwait(false);
 
-            End(JobState.Succeeded, null, JsonSerializer.SerializeToElement(result, resultType), clock);
+            End(JobState.Succeeded, null, JsonSerializer.SerializeToElement(result, resultType), clock, kept);
         }
         catch (OperationCanceledException) when (either.IsCancellationRequested)
         {
-            End(JobState.Cancelled, "cancelled", null, clock);
+            End(JobState.Cancelled, "cancelled", null, clock, kept);
         }
         catch (Exception failure)
         {
-            End(JobState.Failed, failure.Message, null, clock);
+            End(JobState.Failed, failure.Message, null, clock, kept);
         }
     }
 
-    private void End(JobState state, string? message, JsonElement? result, TimeProvider clock)
+    private void End(JobState state, string? message, JsonElement? result, TimeProvider clock, Action<Job> kept)
     {
         Change(report => report with { State = state, EndedAt = clock.GetUtcNow(), Progress = state == JobState.Succeeded ? 1 : report.Progress, Message = message ?? report.Message, Result = result });
+        kept(this);
         _ended.TrySetResult(Report);
         _cancelling.Dispose();
     }

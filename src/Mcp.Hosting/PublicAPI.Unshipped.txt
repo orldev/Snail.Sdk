@@ -6,3 +6,4 @@ Snail.Sdk.Mcp.Hosting.Jobs.JobsRegistration.extension(Microsoft.Extensions.Depen
 static Snail.Sdk.Mcp.Hosting.Jobs.JobsRegistration.WithJobs(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, string! server, System.Func<System.IServiceProvider!, string?>? ownerOf) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
 Snail.Sdk.Mcp.Hosting.Jobs.JobAnswer
 static Snail.Sdk.Mcp.Hosting.Jobs.JobAnswer.Of(Snail.Sdk.Mcp.Hosting.Jobs.JobReport! report, System.Func<Snail.Sdk.Mcp.Hosting.Jobs.JobReport!, ModelContextProtocol.Protocol.CallToolResult!>! said) -> ModelContextProtocol.Protocol.CallToolResult!
+const Snail.Sdk.Mcp.Hosting.Jobs.Jobs.KeptInAll = 500 -> int

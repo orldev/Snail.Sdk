@@ -19,18 +19,26 @@ namespace Snail.Sdk.Mcp.Hosting.Jobs;
 /// one task read another's test output by counting.
 /// </para>
 /// <para>
-/// Ended jobs are kept, the last <see cref="Kept"/> of them, so a client that was answered with a running job can read
-/// its result after; a stdio server's memory ends with its process, so a job is read before the session ends. When
-/// the host stops, every running job is cancelled, and the server exits with its client.
+/// Ended jobs are kept, the last <see cref="Kept"/> of each owner and <see cref="KeptInAll"/> of the server, so a client
+/// that was answered with a running job can read its result after; a stdio server's memory ends with its process, so a
+/// job is read before the session ends. Counted for the whole server, twenty ended jobs of other tasks forgot a task's
+/// result before it was read (Snail.MCP.E2E, 2026-10-30). When the host stops, every running job is cancelled, and the
+/// server exits with its client.
 /// </para>
 /// </remarks>
 public sealed class Jobs
 {
-    /// <summary>How many ended jobs are kept to be read, newest first.</summary>
+    /// <summary>How many ended jobs of one owner are kept to be read, newest first; jobs without an owner count as one owner's.</summary>
     public const int Kept = 20;
 
+    /// <summary>How many ended jobs of every owner together are kept: past it the oldest is forgotten, whoever owns it.</summary>
+    /// <remarks>Owners come and go — a task, a session — and the jobs of one that never came back would otherwise stay for ever.</remarks>
+    public const int KeptInAll = 500;
+
     private readonly ConcurrentDictionary<string, Job> _jobs = new(StringComparer.Ordinal);
-    private readonly ConcurrentQueue<string> _ended = new();
+    private readonly Lock _gate = new();
+    private readonly LinkedList<Job> _ended = new();
+    private readonly Dictionary<string, Queue<LinkedListNode<Job>>> _endedOf = new(StringComparer.Ordinal);
     private readonly string _server;
     private readonly TimeProvider _clock;
     private readonly CancellationToken _stopping;
@@ -51,8 +59,15 @@ public sealed class Jobs
     /// <summary>Every job still running.</summary>
     public IReadOnlyList<Job> InFlight => [.. _jobs.Values.Where(job => job.Report.IsRunning).OrderBy(job => job.Report.StartedAt)];
 
-    /// <summary>The jobs ended last, newest first, up to <see cref="Kept"/>.</summary>
-    public IReadOnlyList<Job> Recent => [.. _ended.Reverse().Select(uri => _jobs[uri])];
+    /// <summary>The ended jobs still kept, newest first: up to <see cref="Kept"/> of each owner and <see cref="KeptInAll"/> in all.</summary>
+    public IReadOnlyList<Job> Recent
+    {
+        get
+        {
+            lock (_gate)
+                return [.. _ended.Reverse()];
+        }
+    }
 
     /// <summary>The URI template every job of this server matches.</summary>
     public string UriTemplate => $"job://{_server}/{{kind}}/{{id}}";
@@ -104,11 +119,42 @@ public sealed class Jobs
     private async Task RunAsync<TResult>(Job job, Func<IProgress<JobProgress>, CancellationToken, Task<TResult>> work, JsonTypeInfo<TResult> resultType)
     {
         await Task.Yield();
-        await job.RunAsync(work, resultType, _stopping, _clock).ConfigureAwait(false);
+        await job.RunAsync(work, resultType, _stopping, _clock, Keep).ConfigureAwait(false);
+    }
 
-        _ended.Enqueue(job.Uri);
+    /// <summary>Keeps an ended job, forgetting its owner's oldest past <see cref="Kept"/> and the server's oldest past <see cref="KeptInAll"/>.</summary>
+    private void Keep(Job job)
+    {
+        lock (_gate)
+        {
+            string owner = job.Owner ?? string.Empty;
+            if (!_endedOf.TryGetValue(owner, out var theirs))
+            {
+                theirs = new Queue<LinkedListNode<Job>>();
+                _endedOf[owner] = theirs;
+            }
 
-        while (_ended.Count > Kept && _ended.TryDequeue(out var forgotten))
-            _jobs.TryRemove(forgotten, out _);
+            theirs.Enqueue(_ended.AddLast(job));
+
+            if (theirs.Count > Kept)
+                Forget(theirs.Peek());
+
+            if (_ended.Count > KeptInAll)
+                Forget(_ended.First!);
+        }
+    }
+
+    /// <summary>Forgets an ended job, which is always the oldest its owner has kept: both lists hold jobs in the order they ended.</summary>
+    private void Forget(LinkedListNode<Job> oldest)
+    {
+        string owner = oldest.Value.Owner ?? string.Empty;
+        var theirs = _endedOf[owner];
+
+        theirs.Dequeue();
+        if (theirs.Count == 0)
+            _endedOf.Remove(owner);
+
+        _ended.Remove(oldest);
+        _jobs.TryRemove(oldest.Value.Uri, out _);
     }
 }

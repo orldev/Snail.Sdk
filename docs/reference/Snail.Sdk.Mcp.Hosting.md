@@ -145,13 +145,14 @@ The jobs of a server: started by its tools, read as resources, watched by subscr
 | Member | Summary |
 | --- | --- |
 | `IReadOnlyList<Job> InFlight { get; }` | Every job still running. |
-| `IReadOnlyList<Job> Recent { get; }` | The jobs ended last, newest first, up to `Kept`. |
+| `IReadOnlyList<Job> Recent { get; }` | The ended jobs still kept, newest first: up to `Kept` of each owner and `KeptInAll` in all. |
 | `Job Start<TResult>(string kind, Func<IProgress<JobProgress>, CancellationToken, Task<TResult>> work, JsonTypeInfo<TResult> resultType)` | Starts work of a kind and answers with its job at once; the work runs on, reporting its steps through the progress it is given and stopping on the token it is given. |
 | `Job Start<TResult>(string kind, string? owner, Func<IProgress<JobProgress>, CancellationToken, Task<TResult>> work, JsonTypeInfo<TResult> resultType)` | Starts work of a kind for an owner and answers with its job at once: only a client the server names that owner reads or watches it. A null owner leaves it to whoever holds its URI. |
 | `Job? Find(string uri)` | The job at a URI, or null when there is none: never started, or ended and forgotten. |
 | `Job? Find(string uri, string? owner)` | The job at a URI as a client of `owner` may see it: null when there is none, or when it belongs to another owner. |
 | `Jobs(string server, TimeProvider? clock = null, IHostApplicationLifetime? lifetime = null)` | The jobs of the server named `server` — its short name, the first part of every job's URI. |
-| `const int Kept` | How many ended jobs are kept to be read, newest first. |
+| `const int Kept` | How many ended jobs of one owner are kept to be read, newest first; jobs without an owner count as one owner's. |
+| `const int KeptInAll` | How many ended jobs of every owner together are kept: past it the oldest is forgotten, whoever owns it. |
 | `event Action<JobReport> Changed` | Raised with every change of any job: a state, a progress step. |
 | `string UriTemplate { get; }` | The URI template every job of this server matches. |
 

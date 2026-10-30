@@ -91,6 +91,49 @@ public sealed class JobsTests
         Assert.Single(jobs.Recent);
     }
 
+    /// <summary>Counted for the whole server, twenty ended jobs of other tasks forgot a task's result before it was read.</summary>
+    [Fact]
+    public async Task EndedJob_AfterTwentyOfOtherOwners_IsStillReadByItsOwner()
+    {
+        var jobs = new Jobs("sample");
+        var mine = jobs.Start("echo", "task-a", (_, _) => Task.FromResult(new Outcome("mine")), SampleJson.Default.Outcome);
+        await mine.Completion.WaitAsync(Patience);
+
+        for (int other = 0; other < Jobs.Kept; other++)
+            await jobs.Start("echo", $"task-{other}", (_, _) => Task.FromResult(new Outcome("theirs")), SampleJson.Default.Outcome).Completion.WaitAsync(Patience);
+
+        Assert.Same(mine, jobs.Find(mine.Uri, "task-a"));
+    }
+
+    [Fact]
+    public async Task EndedJobs_OfOneOwnerPastTheKept_ForgetItsOldest()
+    {
+        var jobs = new Jobs("sample");
+        var first = jobs.Start("echo", "task-a", (_, _) => Task.FromResult(new Outcome("first")), SampleJson.Default.Outcome);
+        await first.Completion.WaitAsync(Patience);
+
+        for (int next = 0; next < Jobs.Kept; next++)
+            await jobs.Start("echo", "task-a", (_, _) => Task.FromResult(new Outcome("next")), SampleJson.Default.Outcome).Completion.WaitAsync(Patience);
+
+        Assert.Null(jobs.Find(first.Uri));
+        Assert.Equal(Jobs.Kept, jobs.Recent.Count);
+    }
+
+    /// <summary>Owners come and go; the jobs of every one that never came back would otherwise stay for ever.</summary>
+    [Fact]
+    public async Task EndedJobs_OfManyOwners_StayWithinTheServersLimit()
+    {
+        var jobs = new Jobs("sample");
+        var first = jobs.Start("echo", "task-first", (_, _) => Task.FromResult(new Outcome("first")), SampleJson.Default.Outcome);
+        await first.Completion.WaitAsync(Patience);
+
+        for (int other = 0; other < Jobs.KeptInAll; other++)
+            await jobs.Start("echo", $"task-{other}", (_, _) => Task.FromResult(new Outcome("theirs")), SampleJson.Default.Outcome).Completion.WaitAsync(Patience);
+
+        Assert.Null(jobs.Find(first.Uri));
+        Assert.Equal(Jobs.KeptInAll, jobs.Recent.Count);
+    }
+
     [Fact]
     public async Task Job_ThatThrows_FailsWithTheMessage_AndACancelledOne_IsCancelled()
     {

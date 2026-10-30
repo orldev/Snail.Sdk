@@ -296,7 +296,7 @@ And for the server project (no kind):
   `job://<short>/<kind>/<id>`, whose text is its report. The server advertises `resources.subscribe`, tells every
   subscriber of each change (`resources/subscribe` up to the 2025-11-25 revision, the `subscriptions/listen` stream
   from 2026-07-28, which it holds open), and cancels every running job when the host stops. The last twenty ended jobs
-  stay readable. A client that can wait — an orchestrator, a test — awaits the job through `Snail.Sdk.Mcp.JobClient`
+  of each owner stay readable, five hundred in all. A client that can wait — an orchestrator, a test — awaits the job through `Snail.Sdk.Mcp.JobClient`
   with no turn of a model spent; one that cannot reads the resource when it wants. No `*_status` tool, no "poll" in a
   description (S3LC0032). A job's URI ends in a random id; a server many clients share gives its jobs an owner
   (`Jobs.Start(kind, owner, …)`, `.WithJobs("<short>", ownerOf)`), and a job of another owner is unknown to a client. A

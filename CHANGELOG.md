@@ -30,6 +30,11 @@ A change that a repository must act on says what to do.
   and waiting for the server to close the stream; a server without sessions gets that cancellation as a request of its
   own, cannot tie it to the stream it holds, and never closed it. `CallJobAsync` and `AwaitJobAsync` hung, past their
   own cancellation. The watch now ends the request on its own side once the cancellation is sent.
+- The native `Dockerfile` of `dotnet new s3l-mcp --container true` builds on an arm64 machine. It published for
+  `linux-x64` alone, and ahead-of-time compilation does not cross architectures in the SDK image: on a Mac with Apple
+  silicon the link failed. It now publishes for the platform the image is built for, from buildx's `TARGETARCH`. A
+  repository made from an earlier template may take the same two lines (`ARG TARGETARCH` and the `case` that picks
+  the runtime).
 
 ## [0.4.1] - 2026-10-29
 

@@ -310,8 +310,9 @@ Every public property, its default and its effect: [the properties](properties.m
 The `Dockerfile` is the repository's own (`dotnet new s3l-mcp --container true` writes one); the build and the tags are
 the shared `mcp-image.yml`. Its build stage names the band of `global.json` (`mcr.microsoft.com/dotnet/sdk:10.0.302`),
 never the moving `sdk:10.0`, which would one day bring a band the build refuses. A native server publishes with Native
-AOT for `linux-x64` — `clang` and `zlib1g-dev` in the build stage — onto `mcr.microsoft.com/dotnet/runtime-deps:10.0`:
-no .NET runtime in the image, a smaller image and a faster start. Any other server publishes framework-dependent onto
+AOT — `clang` and `zlib1g-dev` in the build stage — for the platform the image is built for, `linux-x64` or
+`linux-arm64` from buildx's `TARGETARCH`, since ahead-of-time compilation does not cross architectures in the SDK image,
+onto `mcr.microsoft.com/dotnet/runtime-deps:10.0`: no .NET runtime in the image, a smaller image and a faster start. Any other server publishes framework-dependent onto
 `mcr.microsoft.com/dotnet/aspnet:10.0`. Both run as the image's `app` user. `McpHttpHost.CreateBuilder` listens on loopback only,
 which a container's published port does not reach, so a server that serves HTTP from an image builds its host with
 `McpHttpHost.CreateContainerBuilder(args, port)`: the port on every interface, the published port the boundary, and

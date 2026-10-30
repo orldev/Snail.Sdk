@@ -68,7 +68,7 @@ public sealed class TemplatesTests(SdkFeed sdk)
     public void Server_FromTheTemplateWithBothTransportsNotNative_PassesTheSharedCi() =>
         AssertPassesTheSharedCi(sdk.FromTemplate("s3l-mcp", "Snail.MCP.Sample", "--transport", "Both", "--native", "false"));
 
-    /// <summary>A container server conforms: its Dockerfile publishes natively onto runtime-deps, on the SDK band of global.json, and image.yml builds it.</summary>
+    /// <summary>A container server conforms: its Dockerfile publishes natively for the platform of the image onto runtime-deps, on the SDK band of global.json, and image.yml builds it.</summary>
     [Fact]
     public void Server_FromTheTemplateInAContainer_PassesTheSharedCiWithANativeImage()
     {
@@ -80,7 +80,9 @@ public sealed class TemplatesTests(SdkFeed sdk)
 
         Assert.Contains($"FROM mcr.microsoft.com/dotnet/sdk:{SdkBand(folder)} AS build", dockerfile, StringComparison.Ordinal);
         Assert.Contains("clang zlib1g-dev", dockerfile, StringComparison.Ordinal);
-        Assert.Contains("dotnet publish src/Snail.MCP.Sample.csproj -c Release -r linux-x64 -o /app", dockerfile, StringComparison.Ordinal);
+        Assert.Contains("ARG TARGETARCH", dockerfile, StringComparison.Ordinal);
+        Assert.Contains("amd64|\"\") rid=linux-x64", dockerfile, StringComparison.Ordinal);
+        Assert.Contains("dotnet publish src/Snail.MCP.Sample.csproj -c Release -r \"$rid\" -o /app", dockerfile, StringComparison.Ordinal);
         Assert.Contains("FROM mcr.microsoft.com/dotnet/runtime-deps:10.0", dockerfile, StringComparison.Ordinal);
         Assert.Contains("ENTRYPOINT [\"/app/Snail.MCP.Sample\"]", dockerfile, StringComparison.Ordinal);
         Assert.Contains("docker build -t s3l-sample-mcp:local .", dockerfile, StringComparison.Ordinal);

@@ -138,7 +138,8 @@ strictly as code.
 - **A long operation is a job, never a poll.** Work that outlasts a call — a render, an index pass, a test run — runs
   through `Jobs.Start` of `Snail.Sdk.Mcp.Hosting`: the tool takes `int wait = 60`, answers within it with the result
   (`job.ForAsync`) or with the job's `job://` resource, and the client that can wait is told of the end by its
-  subscription (`Snail.Sdk.Mcp.JobClient`). No `*_status` tool — the resource is the status — and no description that
+  subscription (`Snail.Sdk.Mcp.JobClient`). No `*_status` tool — the resource is the status; one that says where
+  something else stands is named in `SnailStatusToolsBecause` with its reason — and no description that
   says "poll" or "call again": a model made a timer spends a turn on every look. Progress within the call stays
   `IProgress<ProgressNotificationValue>`. (S3LC0032; `ToolGuards` names a description that tells the model to poll)
 - **Settings** come from the server's settings file and then its own prefixed variables, `SNAIL_MCP_<SHORT>_…`, which

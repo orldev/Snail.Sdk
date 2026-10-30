@@ -22,6 +22,10 @@ A change that a repository must act on says what to do.
 - A job's URI ends in a random id, not a count: `job://<short>/<kind>/<32 hex digits>`. A client of a shared server read
   another's jobs — their test output, their logs — by counting from its own. A client that kept a URI keeps working; one
   that built a URI from a number, which nothing in the SDK does, no longer finds the job.
+- S3LC0032 keeps a status tool that says where something other than a job stands: the server names it, with its reason,
+  in `<SnailStatusToolsBecause>e2e_status: where the environment stands</SnailStatusToolsBecause>`. Snail.MCP.E2E was
+  advised against `e2e_status`, which reports whether the app runs, not a job; its description is a constant, which the
+  check does not read, so the name has to be said.
 - A step the work reports is in the job's report at once. It went through `Progress<T>`, which posts it to be handled
   later: the first answer of a running job carried no step, and a step reported just before the end could land after it.
 

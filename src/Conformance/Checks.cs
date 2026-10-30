@@ -691,6 +691,12 @@ internal static partial class Checks
     /// registers its jobs, keeps no status tool for the model to poll, and tells the model nothing of polling. Read
     /// from the sources: the tools' attributes and parameters, and the descriptions in them.
     /// </summary>
+    /// <remarks>
+    /// A status tool that says where something else stands — an environment, a node — is no poll of a job, and the
+    /// server names it in <c>SnailStatusToolsBecause</c> with its reason (<c>e2e_status: where the environment stands</c>).
+    /// Its description cannot tell: it is often a constant, which the check does not read. Snail.MCP.E2E was named
+    /// beside its jobs for <c>e2e_status</c>, which reports whether the app runs.
+    /// </remarks>
     private static Finding JobsOfServer(Repository repository)
     {
         var sources = repository.Files("*.cs").Where(file => !IsTestSource(repository, file)).Select(file => (Path: Relative(repository, file), Text: File.ReadAllText(file))).ToList();
@@ -702,7 +708,9 @@ internal static partial class Checks
 
         var problems = new List<string>();
         var registers = sources.Any(source => source.Text.Contains("WithJobs(", StringComparison.Ordinal));
-        var statuses = sources.SelectMany(source => StatusTool().Matches(source.Text).Select(match => $"{source.Path}: {match.Groups["name"].Value}")).ToList();
+        var kept = KeptStatusTools(repository);
+        var statusTools = sources.SelectMany(source => StatusTool().Matches(source.Text).Select(match => (source.Path, Name: match.Groups["name"].Value)));
+        var statuses = statusTools.Where(tool => !kept.ContainsKey(tool.Name)).Select(tool => $"{tool.Path}: {tool.Name}").ToList();
 
         if (!registers)
             problems.Add($"tools take a wait ({string.Join(", ", waiting)}) but no WithJobs registers the jobs");
@@ -710,7 +718,22 @@ internal static partial class Checks
         problems.AddRange(statuses.Select(status => $"a status tool beside a job: {status}"));
         problems.AddRange(polling.Select(each => $"a description tells the model to poll: {each}"));
 
-        return problems.Count == 0 ? Rules.Jobs.Met() : Rules.Jobs.Unmet(string.Join("; ", problems));
+        if (problems.Count > 0)
+            return Rules.Jobs.Unmet(string.Join("; ", problems));
+
+        return kept.Count == 0 ? Rules.Jobs.Met() : Rules.Jobs.Met($"status tools kept: {string.Join("; ", kept.Select(tool => $"{tool.Key} — {tool.Value}"))}");
+    }
+
+    /// <summary>The status tools a server keeps beside its jobs on purpose, each with its reason, from SnailStatusToolsBecause.</summary>
+    /// <remarks>A name without a reason keeps nothing: the declaration exists to say why.</remarks>
+    private static Dictionary<string, string> KeptStatusTools(Repository repository)
+    {
+        var buildFiles = repository.Projects.Append(Path.Combine(repository.Root, "Directory.Build.props")).Where(File.Exists);
+        var declared = buildFiles.Select(file => StatusToolsBecause().Match(File.ReadAllText(file))).Where(match => match.Success);
+        var entries = declared.SelectMany(match => match.Groups["declared"].Value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        var named = entries.Select(entry => entry.Split(':', 2, StringSplitOptions.TrimEntries)).Where(parts => parts is [{ Length: > 0 }, { Length: > 0 }]);
+
+        return named.GroupBy(parts => parts[0], StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First()[1], StringComparer.Ordinal);
     }
 
     private static bool IsTestSource(Repository repository, string file) =>
@@ -871,6 +894,9 @@ internal static partial class Checks
 
     [GeneratedRegex(@"McpServerTool\(\s*Name\s*=\s*""(?<name>[a-z0-9_]+_status)""", RegexOptions.CultureInvariant)]
     private static partial Regex StatusTool();
+
+    [GeneratedRegex(@"<SnailStatusToolsBecause>(?<declared>[^<]+)</SnailStatusToolsBecause>", RegexOptions.CultureInvariant)]
+    private static partial Regex StatusToolsBecause();
 
     [GeneratedRegex(@"Description\(\s*(?<text>(?:""(?:[^""\\]|\\.)*""\s*\+?\s*)+)\)", RegexOptions.CultureInvariant)]
     private static partial Regex DescriptionAttribute();

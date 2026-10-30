@@ -298,7 +298,9 @@ And for the server project (no kind):
   from 2026-07-28, which it holds open), and cancels every running job when the host stops. The last twenty ended jobs
   stay readable. A client that can wait — an orchestrator, a test — awaits the job through `Snail.Sdk.Mcp.JobClient`
   with no turn of a model spent; one that cannot reads the resource when it wants. No `*_status` tool, no "poll" in a
-  description (S3LC0032).
+  description (S3LC0032). A job's URI ends in a random id; a server many clients share gives its jobs an owner
+  (`Jobs.Start(kind, owner, …)`, `.WithJobs("<short>", ownerOf)`), and a job of another owner is unknown to a client. A
+  tool that answers in words of its own returns `JobAnswer.Of(report, said)`: its text, with the report beside it.
 - `-p:SnailReference=true` writes the tool reference ([Documentation and the site](#documentation-and-the-site)).
 - `dotnet publish -c Release -r <rid> -p:SnailMcpInstall=true` installs the server into
   `~/.s3l-mcp/<name>/<date>-<time>.<commit>/` and points `current` at it ([installing](installing.md)).

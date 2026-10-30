@@ -444,6 +444,52 @@ public sealed class ConformanceTests : IDisposable
         Assert.Single(Checks.Of(none, Standard.Embedded()), found => found is { Check: "jobs", IsMet: true, Detail: "no jobs" });
     }
 
+    /// <summary>
+    /// A status tool that says where something other than a job stands is kept when the server names it with its reason
+    /// in SnailStatusToolsBecause; one it does not name, or names without a reason, is still a status tool beside a job.
+    /// </summary>
+    [Fact]
+    public void Jobs_StatusToolNamedWithItsReason_IsKeptAndSaidSo()
+    {
+        const string tools = """
+            [McpServerToolType]
+            public sealed class EnvironmentTools(Jobs jobs)
+            {
+                [McpServerTool(Name = "env_up"), Description(Descriptions.Up)]
+                public Task<CallToolResult> UpAsync(int wait = 60, CancellationToken cancellationToken = default) => null!;
+
+                [McpServerTool(Name = "env_status"), Description(Descriptions.Status)]
+                public Task<CallToolResult> StatusAsync(CancellationToken cancellationToken = default) => null!;
+
+                [McpServerTool(Name = "env_job_status"), Description(Descriptions.JobStatus)]
+                public Task<CallToolResult> JobStatusAsync(CancellationToken cancellationToken = default) => null!;
+            }
+            """;
+        const string registration = "class Registration { void Add() { _ = 1; } } // .WithJobs(\"env\")";
+        string Project(string declared) => $"""
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <Sdk Name="Snail.Sdk.Mcp" />
+              <PropertyGroup>
+                <SnailStatusToolsBecause>{declared}</SnailStatusToolsBecause>
+              </PropertyGroup>
+            </Project>
+            """;
+        var named = Write("Snail.MCP.Env", ("src/Snail.MCP.Env.csproj", Project("env_status: where the environment stands; env_job_status: where the job stands")),
+            ("src/Tools/EnvironmentTools.cs", tools.Replace("""[McpServerTool(Name = "env_job_status"), Description(Descriptions.JobStatus)]""", string.Empty, StringComparison.Ordinal)),
+            ("src/Extensions/Registration.cs", registration));
+        var unnamed = Write("Snail.MCP.Envs", ("src/Snail.MCP.Envs.csproj", Project("env_status: where the environment stands; env_job_status:")),
+            ("src/Tools/EnvironmentTools.cs", tools), ("src/Extensions/Registration.cs", registration));
+
+        var keeping = Assert.Single(Checks.Of(named, Standard.Embedded()), found => found.Check == "jobs");
+        var naming = Assert.Single(Checks.Of(unnamed, Standard.Embedded()), found => found.Check == "jobs");
+
+        Assert.True(keeping.IsMet, keeping.Detail);
+        Assert.Contains("env_status — where the environment stands", keeping.Detail, StringComparison.Ordinal);
+        Assert.False(naming.IsMet);
+        Assert.Contains("a status tool beside a job: src/Tools/EnvironmentTools.cs: env_job_status", naming.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain(": env_status", naming.Detail, StringComparison.Ordinal);
+    }
+
     private static string Resx(params (string Key, string Text)[] texts)
     {
         var entries = texts.Select(text => $"""  <data name="{text.Key}" xml:space="preserve"><value>{text.Text}</value></data>""");

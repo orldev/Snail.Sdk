@@ -11,7 +11,6 @@
   -->
   <PropertyGroup Condition="'$(SnailProjectKind)' == ''">
     <PackageType>McpServer</PackageType>
-    <IsAotCompatible Condition="'$(IsAotCompatible)' == ''">$(SnailMcpNative)</IsAotCompatible>
     <!-- A publication carries the program, not its debug symbols or its API docs: both stay in obj/. -->
     <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
     <PublishDocumentationFile>false</PublishDocumentationFile>
@@ -19,24 +18,12 @@
   </PropertyGroup>
 
   <!--
-    A native server: settings bound by generated code in every build alike, Native AOT wherever it is published for a
-    runtime, optimised for size (measured on CleanUp: the same speed, 1.4 MB smaller), and a tool package per platform
-    with a framework-dependent one for the rest.
+    What a native server is — Native AOT where it is published for a runtime, the generated binders, the AOT analyzers —
+    lives in Snail.Sdk.Mcp.Native.targets, since the .NET SDK has to read it before its own targets. A server on this SDK
+    alone gets it here, ahead of them; one on the Web or Razor SDK gets it through BeforeMicrosoftNETSdkTargets
+    (Snail.Sdk.Mcp.props), which those SDKs read at the start of the same targets.
   -->
-  <PropertyGroup Condition="'$(SnailProjectKind)' == '' and '$(SnailMcpNative)' == 'true'">
-    <EnableConfigurationBindingGenerator Condition="'$(EnableConfigurationBindingGenerator)' == ''">true</EnableConfigurationBindingGenerator>
-    <!-- Minimal API endpoints bound by generated code too: PublishAot turns it on only when publishing for a runtime. -->
-    <EnableRequestDelegateGenerator Condition="'$(EnableRequestDelegateGenerator)' == '' and '$(SnailMcpTransport)' != 'Stdio'">true</EnableRequestDelegateGenerator>
-    <!--
-      A server that builds an image publishes without a runtime as a framework-dependent program, for a Dockerfile that
-      asks for none. Packing is not publishing: the pointer package is packed without a runtime too, and packed
-      framework-dependent the .NET SDK builds a package for every runtime it names in one restore and fails (NETSDK1047).
-      dotnet pack says it is packing through _IsPacking.
-    -->
-    <PublishAot Condition="'$(PublishAot)' == '' and !('$(SnailMcpContainer)' == 'true' and '$(RuntimeIdentifier)' == '' and '$(_IsPacking)' != 'true')">true</PublishAot>
-    <OptimizationPreference Condition="'$(OptimizationPreference)' == ''">Size</OptimizationPreference>
-    <ToolPackageRuntimeIdentifiers Condition="'$(ToolPackageRuntimeIdentifiers)' == ''">osx-arm64;linux-x64;linux-arm64;win-x64;any</ToolPackageRuntimeIdentifiers>
-  </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)Snail.Sdk.Mcp.Native.targets" Condition="'$(_SnailImportsMicrosoftSdk)' == 'true'" />
 
   <!--
     A framework-dependent server runs its code through the JIT without profile-guided tiering: measured on Roslyn 281 → 259

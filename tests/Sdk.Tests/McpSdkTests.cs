@@ -124,6 +124,73 @@ public sealed class McpSdkTests(SdkFeed sdk)
         Assert.Contains("RuntimeIdentifierPackages", new StreamReader(settings.Open()).ReadToEnd(), StringComparison.Ordinal);
     }
 
+    private const string WebNative = """
+        <Sdk Name="Snail.Sdk.Mcp" />
+        <PropertyGroup>
+          <SnailMcpTransport>Http</SnailMcpTransport>
+          <SnailMcpContainer>true</SnailMcpContainer>
+          <RootNamespace>Server</RootNamespace>
+        </PropertyGroup>
+        <ItemGroup>
+          <PackageReference Include="ModelContextProtocol" Version="2.3.0" />
+        </ItemGroup>
+        """;
+
+    /// <summary>
+    /// A native server on the Web SDK is decided before the .NET SDK reads it: the AOT compiler when published for a runtime
+    /// (PublishTrimmed follows PublishAot there), the interceptors of both binders, the AOT and trim analyzers in every build.
+    /// </summary>
+    /// <remarks>
+    /// The final value of PublishAot was true all along and said nothing: the Web SDK reads Snail.Sdk.Mcp.targets after
+    /// its own, which by then had imported the compiler only for a PublishAot already true. Snail.MCP.Security published
+    /// framework-dependent for a runtime, failed a native build on CS9137, and built with the analyzers off (30.10.2026).
+    /// </remarks>
+    [Fact]
+    public void WebServer_ThatIsNative_IsDecidedBeforeTheDotnetSdkReadsIt()
+    {
+        var folder = sdk.Project("Microsoft.NET.Sdk.Web", "Snail.MCP.Sample", WebNative);
+
+        var (_, build) = SdkFeed.Dotnet(folder, "msbuild", "-getProperty:EnableAotAnalyzer", "-getProperty:EnableTrimAnalyzer", "-getProperty:PublishTrimmed");
+        var (_, published) = SdkFeed.Dotnet(folder, "msbuild", "-getProperty:PublishTrimmed", "-getProperty:InterceptorsPreviewNamespaces", "-p:RuntimeIdentifier=osx-arm64");
+
+        Assert.Contains("\"EnableAotAnalyzer\": \"true\"", build, StringComparison.Ordinal);
+        Assert.Contains("\"EnableTrimAnalyzer\": \"true\"", build, StringComparison.Ordinal);
+        Assert.Contains("\"PublishTrimmed\": \"\"", build, StringComparison.Ordinal);
+        Assert.Contains("\"PublishTrimmed\": \"true\"", published, StringComparison.Ordinal);
+        Assert.Contains("Microsoft.AspNetCore.Http.Generated", published, StringComparison.Ordinal);
+        Assert.Contains("Microsoft.Extensions.Configuration.Binder.SourceGeneration", published, StringComparison.Ordinal);
+    }
+
+    /// <summary>A native server on the Web SDK with an endpoint and bound settings builds: both generators have their interceptors.</summary>
+    [Fact]
+    public void WebServer_ThatIsNative_BuildsWithTheGeneratedBinders()
+    {
+        var folder = sdk.Project("Microsoft.NET.Sdk.Web", "Snail.MCP.Sample", WebNative, ("Program.cs", """
+            using Server;
+
+            var builder = WebApplication.CreateSlimBuilder(args);
+            var settings = builder.Configuration.GetSection("Sample").Get<SampleSettings>() ?? new SampleSettings();
+            var app = builder.Build();
+
+            app.MapGet("/name", () => settings.Name);
+
+            await app.RunAsync();
+            """), ("SampleSettings.cs", """
+            namespace Server;
+
+            /// <summary>What the sample is called.</summary>
+            internal sealed class SampleSettings
+            {
+                /// <summary>The name the endpoint answers with.</summary>
+                public string Name { get; set; } = "sample";
+            }
+            """));
+
+        var (exitCode, output) = SdkFeed.Dotnet(folder, "build");
+
+        Assert.True(exitCode == 0, output);
+    }
+
     /// <summary>The short name is the name without a leading Snail.MCP. in any case, without dots, in lower case.</summary>
     [Theory]
     [InlineData("Snail.MCP.Code.Context", "s3l-mcp-codecontext")]

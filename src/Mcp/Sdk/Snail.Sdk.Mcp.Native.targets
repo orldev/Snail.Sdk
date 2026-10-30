@@ -1,0 +1,46 @@
+<Project>
+
+  <!--
+    What a native server is, decided after the project body and before the .NET SDK's targets, which read all of it
+    while they are evaluated rather than when they run:
+
+      PublishAot                        Microsoft.NET.Sdk.targets imports the AOT compiler only when it is already true;
+                                        set later, a publish for a runtime comes out framework-dependent.
+      EnableConfigurationBindingGenerator,
+      EnableRequestDelegateGenerator    the SDK grants the generated binders their interceptors only when these are
+                                        already true, and turns the generators on when it runs; enabled later, a native
+                                        build fails on CS9137.
+      IsAotCompatible                   the AOT and trim analyzers are turned on only when it is already true; set
+                                        later, no build warns of what a native one breaks, and S3LC0016 passes on
+                                        nothing.
+
+    A server on Snail.Sdk.Mcp alone imports this from Snail.Sdk.Mcp.targets, ahead of the .NET SDK's targets. A server on
+    the Web or Razor SDK, with Snail.Sdk.Mcp as an Sdk element, has those targets read before Snail.Sdk.Mcp.targets, and
+    gets this through BeforeMicrosoftNETSdkTargets instead. Snail.MCP.Security found all three on 30.10.2026, going
+    native on the Web SDK.
+  -->
+  <PropertyGroup Condition="'$(SnailProjectKind)' == ''">
+    <IsAotCompatible Condition="'$(IsAotCompatible)' == ''">$(SnailMcpNative)</IsAotCompatible>
+  </PropertyGroup>
+
+  <!--
+    A native server: settings bound by generated code in every build alike, Native AOT wherever it is published for a
+    runtime, optimised for size (measured on CleanUp: the same speed, 1.4 MB smaller), and a tool package per platform
+    with a framework-dependent one for the rest.
+  -->
+  <PropertyGroup Condition="'$(SnailProjectKind)' == '' and '$(SnailMcpNative)' == 'true'">
+    <EnableConfigurationBindingGenerator Condition="'$(EnableConfigurationBindingGenerator)' == ''">true</EnableConfigurationBindingGenerator>
+    <!-- Minimal API endpoints bound by generated code too: PublishAot turns it on only when publishing for a runtime. -->
+    <EnableRequestDelegateGenerator Condition="'$(EnableRequestDelegateGenerator)' == '' and '$(SnailMcpTransport)' != 'Stdio'">true</EnableRequestDelegateGenerator>
+    <!--
+      A server that builds an image publishes without a runtime as a framework-dependent program, for a Dockerfile that
+      asks for none. Packing is not publishing: the pointer package is packed without a runtime too, and packed
+      framework-dependent the .NET SDK builds a package for every runtime it names in one restore and fails (NETSDK1047).
+      dotnet pack says it is packing through _IsPacking.
+    -->
+    <PublishAot Condition="'$(PublishAot)' == '' and !('$(SnailMcpContainer)' == 'true' and '$(RuntimeIdentifier)' == '' and '$(_IsPacking)' != 'true')">true</PublishAot>
+    <OptimizationPreference Condition="'$(OptimizationPreference)' == ''">Size</OptimizationPreference>
+    <ToolPackageRuntimeIdentifiers Condition="'$(ToolPackageRuntimeIdentifiers)' == ''">osx-arm64;linux-x64;linux-arm64;win-x64;any</ToolPackageRuntimeIdentifiers>
+  </PropertyGroup>
+
+</Project>

@@ -42,6 +42,15 @@
     <ToolCommandName Condition="'$(ToolCommandName)' == ''">s3l-mcp-$(SnailMcpShortName)</ToolCommandName>
   </PropertyGroup>
 
+  <!--
+    Beside the Web or Razor SDK, which import the .NET SDK's targets before Snail.Sdk.Mcp.targets, what a native server
+    is reaches them through the hook they read first (Snail.Sdk.Mcp.Native.targets says why it has to). A server on this
+    SDK alone imports the file from Snail.Sdk.Mcp.targets, which comes ahead of them anyway.
+  -->
+  <PropertyGroup Condition="'$(_SnailImportsMicrosoftSdk)' != 'true'">
+    <BeforeMicrosoftNETSdkTargets>$(BeforeMicrosoftNETSdkTargets);$(MSBuildThisFileDirectory)Snail.Sdk.Mcp.Native.targets</BeforeMicrosoftNETSdkTargets>
+  </PropertyGroup>
+
   <!-- Defaults, so a repository's Directory.Build.props may set any of them for all its projects. -->
   <PropertyGroup>
     <SnailMcpNative Condition="'$(SnailMcpNative)' == ''">true</SnailMcpNative>

@@ -236,7 +236,9 @@ needs no lines of its own; the fourth is set in the project body or a `Directory
 A project on another Microsoft SDK (`Microsoft.NET.Sdk.Razor`, `Microsoft.NET.Sdk.Web`) keeps it in its `Sdk` attribute and
 adds the Snail level as its first element, `<Sdk Name="Snail.Sdk.Library" />`. Snail's targets then come after
 Microsoft's and make up for what those had already decided: the test relaxations reach the compiler, and a native library
-is still checked by the trim and AOT analyzers.
+is still checked by the trim and AOT analyzers. What the .NET SDK reads while it is evaluated cannot be made up for
+afterwards, so a native server says it before them: `Snail.Sdk.Mcp.Native.targets` — Native AOT for a runtime, the
+generated binders, the analyzers — comes in through `BeforeMicrosoftNETSdkTargets`, which those SDKs read first.
 
 ### Snail.Sdk.Library
 

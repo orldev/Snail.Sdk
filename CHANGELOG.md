@@ -6,6 +6,26 @@ A change that a repository must act on says what to do.
 
 ## [Unreleased]
 
+### Fixed
+
+- A native server on the Web or Razor SDK — `Sdk="Microsoft.NET.Sdk.Web"` with `<Sdk Name="Snail.Sdk.Mcp" />` — is
+  native again. Snail.Sdk.Mcp decided `PublishAot`, the generated binders and `IsAotCompatible` in its targets, which
+  such a project imports after the .NET SDK's, and the .NET SDK reads all three while it is evaluated:
+  - published for a runtime, the server came out framework-dependent;
+  - a build with an endpoint or bound settings failed on CS9137, the binders' interceptors not granted;
+  - the AOT and trim analyzers stayed off, so no build warned of what a native one breaks, and S3LC0016 passed on
+    nothing.
+
+  They are now decided in `Snail.Sdk.Mcp.Native.targets`, which such a project gets through
+  `BeforeMicrosoftNETSdkTargets`, before the .NET SDK's targets; a server on Snail.Sdk.Mcp alone gets it as before.
+  A server that worked around this in its project — `PublishAot`, `IsAotCompatible`,
+  `EnableConfigurationBindingGenerator`, `EnableRequestDelegateGenerator` or `InterceptorsNamespaces` of its own, as
+  Snail.MCP.Security does — may drop those lines.
+
+  A native server on the Web SDK now builds with the analyzers on, and their IL2xxx and IL3xxx warnings fail the
+  build. Fix what they name — a `JsonSerializerContext` for JSON on reflection — or set `SnailMcpNative` to false if
+  the server cannot be native.
+
 ## [0.4.1] - 2026-10-29
 
 ### Fixed

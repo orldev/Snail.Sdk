@@ -125,6 +125,52 @@ public sealed class JobClientTests
         }
     }
 
+    /// <summary>
+    /// A server without sessions — the MCP SDK's default HTTP transport — holds the listen request open and cannot tie the
+    /// cancellation that ends it to that request: the wait still ends with the job, and a wait given up on ends at once.
+    /// </summary>
+    /// <remarks>
+    /// The watch used to wait, with no limit and no token, for the server to close its listen stream, which a server
+    /// without sessions never does: Snail.MCP.Security's contract test hung past its own cancellation (30.10.2026).
+    /// </remarks>
+    [Fact]
+    public async Task CallJob_OverHttpWithoutSessions_EndsWithTheJobAndEndsWhenCancelled()
+    {
+        var port = FreePort();
+        var builder = McpHttpHost.CreateBuilder([], new Uri($"http://127.0.0.1:{port}"));
+
+        builder.Services.AddMcpServer().WithTools<SampleJobTools>(ToolJson.Options(SampleJson.Default)).WithHttpTransport().WithJobs("sample");
+
+        var app = builder.Build();
+        app.MapLocalMcp();
+        await app.StartAsync();
+
+        try
+        {
+            await using var client = await McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions { Endpoint = new Uri($"http://127.0.0.1:{port}{McpHttpHost.DefaultPath}") }));
+            var jobs = app.Services.GetRequiredService<Jobs>();
+            var endless = jobs.Start("long", async (_, token) =>
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, token);
+
+                return new Outcome("never");
+            }, SampleJson.Default.Outcome);
+            using var giveUp = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+
+            var report = await client.CallJobAsync("sample_slow", new Dictionary<string, object?> { ["text"] = "no session" }).WaitAsync(Patience);
+            var waited = client.AwaitJobAsync(endless.Uri, cancellationToken: giveUp.Token);
+
+            Assert.Equal(JobState.Succeeded, report.State);
+            Assert.Equal("no session", report.Result!.Value.GetProperty("text").GetString());
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waited.WaitAsync(Patience));
+            endless.Cancel();
+        }
+        finally
+        {
+            await app.DisposeAsync();
+        }
+    }
+
     private static int FreePort()
     {
         using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);

@@ -25,6 +25,11 @@ A change that a repository must act on says what to do.
   A native server on the Web SDK now builds with the analyzers on, and their IL2xxx and IL3xxx warnings fail the
   build. Fix what they name — a `JsonSerializerContext` for JSON on reflection — or set `SnailMcpNative` to false if
   the server cannot be native.
+- `Snail.Sdk.Mcp.JobClient` waits for a job of a server without sessions — the MCP SDK's default HTTP transport — and
+  stops waiting when cancelled. The watch ended its `subscriptions/listen` request by sending `notifications/cancelled`
+  and waiting for the server to close the stream; a server without sessions gets that cancellation as a request of its
+  own, cannot tie it to the stream it holds, and never closed it. `CallJobAsync` and `AwaitJobAsync` hung, past their
+  own cancellation. The watch now ends the request on its own side once the cancellation is sent.
 
 ## [0.4.1] - 2026-10-29
 

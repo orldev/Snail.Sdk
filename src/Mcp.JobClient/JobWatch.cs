@@ -18,6 +18,12 @@ namespace Snail.Sdk.Mcp.JobClient;
 /// the number back, so a cancellation named after the request's id would name none, and cancelling the token alone
 /// tells the server nothing. What ends the stream on the server is <c>notifications/cancelled</c> with that id.
 /// </para>
+/// <para>
+/// A server without sessions — the MCP SDK's default HTTP transport — receives that cancellation as a request of its own
+/// and cannot tie it to the stream it holds, so the stream never ends from its side. The watch therefore also ends the
+/// request on its own side once the cancellation is sent: it used to wait for the server, with no limit and no token,
+/// and a client of such a server hung past its own cancellation (Snail.MCP.Security, 30.10.2026).
+/// </para>
 /// </remarks>
 internal sealed class JobWatch : IAsyncDisposable
 {
@@ -27,14 +33,16 @@ internal sealed class JobWatch : IAsyncDisposable
     private readonly McpClient _client;
     private readonly RequestId? _listening;
     private readonly Task? _held;
+    private readonly CancellationTokenSource? _holding;
     private bool _ended;
 
-    private JobWatch(McpClient client, IAsyncDisposable handler, RequestId? listening, Task? held)
+    private JobWatch(McpClient client, IAsyncDisposable handler, RequestId? listening, Task? held, CancellationTokenSource? holding)
     {
         _client = client;
         _handler = handler;
         _listening = listening;
         _held = held;
+        _holding = holding;
     }
 
     /// <summary>Opens the watch and calls <paramref name="updated"/> with every notification of the resource's change.</summary>
@@ -49,7 +57,7 @@ internal sealed class JobWatch : IAsyncDisposable
                 return ValueTask.CompletedTask;
             }, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-            return new JobWatch(client, subscription, null, null);
+            return new JobWatch(client, subscription, null, null, null);
         }
 
         var handler = client.RegisterNotificationHandler(NotificationMethods.ResourceUpdatedNotification, (notification, _) =>
@@ -66,16 +74,17 @@ internal sealed class JobWatch : IAsyncDisposable
             Method = RequestMethods.SubscriptionsListen,
             Params = new JsonObject { ["notifications"] = new JsonObject { ["resourceSubscriptions"] = new JsonArray(uri) } },
         };
-        var held = client.SendRequestAsync(request, CancellationToken.None);
+        var holding = new CancellationTokenSource();
+        var held = client.SendRequestAsync(request, holding.Token);
 
-        return new JobWatch(client, handler, id, held);
+        return new JobWatch(client, handler, id, held, holding);
     }
 
     /// <summary>Whether the session speaks the revision that replaced resource subscriptions with the listen stream.</summary>
     public static bool IsListening(McpClient client) =>
         string.CompareOrdinal(client.NegotiatedProtocolVersion, ListenRevision) >= 0;
 
-    /// <summary>Ends the watch: unsubscribes, or cancels the listen request on the server and waits for its stream to end.</summary>
+    /// <summary>Ends the watch: unsubscribes, or cancels the listen request on the server and then on this side, and waits for it to end.</summary>
     public async ValueTask DisposeAsync()
     {
         if (_ended)
@@ -83,10 +92,12 @@ internal sealed class JobWatch : IAsyncDisposable
 
         _ended = true;
 
-        if (_listening is { } id && _held is { } held)
+        if (_listening is { } id && _held is { } held && _holding is { } holding)
         {
             await CancelAsync(id).ConfigureAwait(false);
+            await holding.CancelAsync().ConfigureAwait(false);
             await EndedAsync(held).ConfigureAwait(false);
+            holding.Dispose();
         }
 
         await _handler.DisposeAsync().ConfigureAwait(false);

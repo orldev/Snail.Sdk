@@ -6,7 +6,19 @@ A change that a repository must act on says what to do.
 
 ## [Unreleased]
 
+### Added
+
+- A job may belong to an owner. `Jobs.Start(kind, owner, work, resultType)` starts one, and `.WithJobs("<short>", ownerOf)`
+  names the owner of a request from the services it is served with; a job of another owner is then unknown to a read,
+  a subscription and a listen stream, as if it did not exist. For a server many clients share — one HTTP server for
+  every task of a platform — where one client must not read another's job. `Jobs.Find(uri, owner)` and `Job.Owner` are
+  the same check in code. A server that adds no owner works as before.
+
 ### Fixed
+
+- A job's URI ends in a random id, not a count: `job://<short>/<kind>/<32 hex digits>`. A client of a shared server read
+  another's jobs — their test output, their logs — by counting from its own. A client that kept a URI keeps working; one
+  that built a URI from a number, which nothing in the SDK does, no longer finds the job.
 
 - A native server on the Web or Razor SDK — `Sdk="Microsoft.NET.Sdk.Web"` with `<Sdk Name="Snail.Sdk.Mcp" />` — is
   native again. Snail.Sdk.Mcp decided `PublishAot`, the generated binders and `IsAotCompatible` in its targets, which

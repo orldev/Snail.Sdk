@@ -13,6 +13,12 @@ namespace Snail.Sdk.Mcp.Hosting.Jobs;
 /// (<c>WithJobs</c> of <see cref="JobsRegistration"/>); one that cannot reads it when it wants.
 /// </para>
 /// <para>
+/// A job's URI is its own random id, never a count: a client that holds the URI was given it. On a server many clients
+/// share — one HTTP server for every task of a platform — a job may also belong to an owner, and is then read and watched
+/// only by a client of that owner (<c>WithJobs</c> with an owner, <see cref="Find(string, string?)"/>). Numbered jobs let
+/// one task read another's test output by counting.
+/// </para>
+/// <para>
 /// Ended jobs are kept, the last <see cref="Kept"/> of them, so a client that was answered with a running job can read
 /// its result after; a stdio server's memory ends with its process, so a job is read before the session ends. When
 /// the host stops, every running job is cancelled, and the server exits with its client.
@@ -28,7 +34,6 @@ public sealed class Jobs
     private readonly string _server;
     private readonly TimeProvider _clock;
     private readonly CancellationToken _stopping;
-    private int _numbered;
 
     /// <summary>The jobs of the server named <paramref name="server"/> — its short name, the first part of every job's URI.</summary>
     public Jobs(string server, TimeProvider? clock = null, IHostApplicationLifetime? lifetime = null)
@@ -59,14 +64,25 @@ public sealed class Jobs
     /// <param name="kind">What the work is, one word a URI can carry: <c>render</c>, <c>index</c>.</param>
     /// <param name="work">The work; its result becomes the job's, serialized with <paramref name="resultType"/>.</param>
     /// <param name="resultType">The result's type information, from the server's generated context: a native build looks nothing up at run time.</param>
-    public Job Start<TResult>(string kind, Func<IProgress<JobProgress>, CancellationToken, Task<TResult>> work, JsonTypeInfo<TResult> resultType)
+    public Job Start<TResult>(string kind, Func<IProgress<JobProgress>, CancellationToken, Task<TResult>> work, JsonTypeInfo<TResult> resultType) =>
+        Start(kind, null, work, resultType);
+
+    /// <summary>
+    /// Starts work of a kind for an owner and answers with its job at once: only a client the server names that owner
+    /// reads or watches it. A null owner leaves it to whoever holds its URI.
+    /// </summary>
+    /// <param name="kind">What the work is, one word a URI can carry: <c>render</c>, <c>index</c>.</param>
+    /// <param name="owner">Who the job belongs to, in the server's own terms — a session, a task, a user — as <c>WithJobs</c> names the owner of a request.</param>
+    /// <param name="work">The work; its result becomes the job's, serialized with <paramref name="resultType"/>.</param>
+    /// <param name="resultType">The result's type information, from the server's generated context.</param>
+    public Job Start<TResult>(string kind, string? owner, Func<IProgress<JobProgress>, CancellationToken, Task<TResult>> work, JsonTypeInfo<TResult> resultType)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(kind);
         ArgumentNullException.ThrowIfNull(work);
         ArgumentNullException.ThrowIfNull(resultType);
 
-        var uri = $"job://{_server}/{kind}/{Interlocked.Increment(ref _numbered)}";
-        var job = new Job(uri, _clock.GetUtcNow(), report => Changed?.Invoke(report));
+        var uri = $"job://{_server}/{kind}/{Guid.NewGuid():N}";
+        var job = new Job(uri, owner, _clock.GetUtcNow(), report => Changed?.Invoke(report));
 
         _jobs[uri] = job;
         _ = RunAsync(job, work, resultType);
@@ -76,6 +92,14 @@ public sealed class Jobs
 
     /// <summary>The job at a URI, or null when there is none: never started, or ended and forgotten.</summary>
     public Job? Find(string uri) => _jobs.GetValueOrDefault(uri);
+
+    /// <summary>The job at a URI as a client of <paramref name="owner"/> may see it: null when there is none, or when it belongs to another owner.</summary>
+    /// <remarks>A job without an owner is anyone's who holds its URI; a client without an owner sees only those.</remarks>
+    public Job? Find(string uri, string? owner) =>
+        Find(uri) is { } job && (job.Owner is null || string.Equals(job.Owner, owner, StringComparison.Ordinal)) ? job : null;
+
+    /// <summary>Whether a URI names a job of this server, found or not.</summary>
+    internal bool IsJobUri(string uri) => uri.StartsWith($"job://{_server}/", StringComparison.Ordinal);
 
     private async Task RunAsync<TResult>(Job job, Func<IProgress<JobProgress>, CancellationToken, Task<TResult>> work, JsonTypeInfo<TResult> resultType)
     {

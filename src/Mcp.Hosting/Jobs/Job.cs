@@ -17,15 +17,19 @@ public sealed class Job
     private readonly Lock _gate = new();
     private JobReport _report;
 
-    internal Job(string uri, DateTimeOffset startedAt, Action<JobReport> changed)
+    internal Job(string uri, string? owner, DateTimeOffset startedAt, Action<JobReport> changed)
     {
         _changed = changed;
         _report = new JobReport(uri, JobState.Running, startedAt, null, null, null, null);
         Uri = uri;
+        Owner = owner;
     }
 
     /// <summary>The resource the job is read and watched at.</summary>
     public string Uri { get; }
+
+    /// <summary>Who the job belongs to, or null when it is anyone's who holds its URI.</summary>
+    public string? Owner { get; }
 
     /// <summary>The job as it stands now.</summary>
     public JobReport Report

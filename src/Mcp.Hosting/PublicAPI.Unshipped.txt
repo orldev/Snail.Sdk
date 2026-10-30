@@ -1,1 +1,6 @@
 #nullable enable
+Snail.Sdk.Mcp.Hosting.Jobs.Job.Owner.get -> string?
+Snail.Sdk.Mcp.Hosting.Jobs.Jobs.Find(string! uri, string? owner) -> Snail.Sdk.Mcp.Hosting.Jobs.Job?
+Snail.Sdk.Mcp.Hosting.Jobs.Jobs.Start<TResult>(string! kind, string? owner, System.Func<System.IProgress<Snail.Sdk.Mcp.Hosting.Jobs.JobProgress>!, System.Threading.CancellationToken, System.Threading.Tasks.Task<TResult>!>! work, System.Text.Json.Serialization.Metadata.JsonTypeInfo<TResult>! resultType) -> Snail.Sdk.Mcp.Hosting.Jobs.Job!
+Snail.Sdk.Mcp.Hosting.Jobs.JobsRegistration.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).WithJobs(string! server, System.Func<System.IServiceProvider!, string?>? ownerOf) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+static Snail.Sdk.Mcp.Hosting.Jobs.JobsRegistration.WithJobs(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, string! server, System.Func<System.IServiceProvider!, string?>? ownerOf) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!

@@ -29,13 +29,26 @@ public static class JobsRegistration
         /// </para>
         /// <para>Called twice, it registers once.</para>
         /// </remarks>
-        public IMcpServerBuilder WithJobs(string server)
+        public IMcpServerBuilder WithJobs(string server) => builder.WithJobs(server, null);
+
+        /// <summary>
+        /// The jobs of the server named <paramref name="server"/>, each read and watched only by a client of its owner:
+        /// <paramref name="ownerOf"/> names the owner of a request from the services it is served with, and a job started
+        /// with an owner (<see cref="Jobs.Start{TResult}(string, string?, Func{IProgress{JobProgress}, CancellationToken, Task{TResult}}, System.Text.Json.Serialization.Metadata.JsonTypeInfo{TResult})"/>)
+        /// is unknown to a request of another one.
+        /// </summary>
+        /// <remarks>
+        /// For a server many clients share, where one client must not read another's job by its URI — the tasks of one
+        /// platform behind one HTTP server. A server of one client needs no owner: its jobs' URIs are random already.
+        /// </remarks>
+        public IMcpServerBuilder WithJobs(string server, Func<IServiceProvider, string?>? ownerOf)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(server);
 
             if (builder.Services.Any(service => service.ServiceType == typeof(Jobs)))
                 return builder;
 
+            builder.Services.AddSingleton(new JobOwners(ownerOf));
             builder.Services.AddSingleton(provider => new Jobs(server, provider.GetService<TimeProvider>(), provider.GetService<IHostApplicationLifetime>()));
             builder.Services.AddSingleton<JobWatchers>();
             builder.Services.AddOptions<McpServerOptions>().PostConfigure<JobWatchers>(JobWatchers.Configure);
@@ -51,7 +64,7 @@ public static class JobsRegistration
 /// server's to write, and so is sending. One instance serves every session of the host, keyed by the server of the
 /// session, which a stdio host has one of and an HTTP host one per client.
 /// </remarks>
-internal sealed class JobWatchers(Jobs jobs, TimeProvider? clock = null)
+internal sealed class JobWatchers(Jobs jobs, JobOwners owners, TimeProvider? clock = null)
 {
     /// <summary>How often at most a progress step reaches a watcher; a change of state reaches it at once.</summary>
     internal static readonly TimeSpan Throttle = TimeSpan.FromSeconds(1);
@@ -107,7 +120,7 @@ internal sealed class JobWatchers(Jobs jobs, TimeProvider? clock = null)
 
     private ValueTask<EmptyResult> SubscribeAsync(RequestContext<SubscribeRequestParams> request, CancellationToken cancellationToken)
     {
-        if (request.Params?.Uri is { } uri)
+        if (request.Params?.Uri is { } uri && IsSeen(uri, request.Services))
         {
             lock (_gate)
             {
@@ -142,7 +155,7 @@ internal sealed class JobWatchers(Jobs jobs, TimeProvider? clock = null)
     /// <summary>Acknowledges the resources the client asked for and holds the stream open until the client closes it or the host stops.</summary>
     private async ValueTask<EmptyResult> ListenAsync(RequestContext<SubscriptionsListenRequestParams> request, CancellationToken cancellationToken)
     {
-        var asked = request.Params?.Notifications?.ResourceSubscriptions ?? [];
+        IReadOnlyList<string> asked = [.. (request.Params?.Notifications?.ResourceSubscriptions ?? []).Where(uri => IsSeen(uri, request.Services))];
         var granted = new SubscriptionsListenNotifications { ResourceSubscriptions = asked.Count > 0 ? [.. asked] : null };
         var acknowledgement = JsonSerializer.SerializeToNode(new SubscriptionsAcknowledgedNotificationParams { Notifications = granted }, McpJsonUtilities.DefaultOptions.GetTypeInfo(typeof(SubscriptionsAcknowledgedNotificationParams)))!.AsObject();
 
@@ -184,7 +197,7 @@ internal sealed class JobWatchers(Jobs jobs, TimeProvider? clock = null)
     private McpRequestHandler<ReadResourceRequestParams, ReadResourceResult> Wrap(McpRequestHandler<ReadResourceRequestParams, ReadResourceResult>? inner) =>
         (request, cancellationToken) =>
         {
-            if (request.Params?.Uri is { } uri && jobs.Find(uri) is { } job)
+            if (request.Params?.Uri is { } uri && jobs.Find(uri, owners.Of(request.Services)) is { } job)
             {
                 var contents = new TextResourceContents { Uri = uri, MimeType = "application/json", Text = job.Report.ToJson() };
 
@@ -208,6 +221,11 @@ internal sealed class JobWatchers(Jobs jobs, TimeProvider? clock = null)
 
             return listed;
         };
+
+    /// <summary>Whether a request may watch a URI: anything but a job of this server, and a job of the request's owner.</summary>
+    /// <remarks>A job of another owner is refused as if it did not exist, so a client cannot tell another's URI from a wrong one.</remarks>
+    private bool IsSeen(string uri, IServiceProvider? services) =>
+        !jobs.IsJobUri(uri) || jobs.Find(uri, owners.Of(services)) is not null;
 
     private async Task SendAsync(JobReport report)
     {
@@ -243,4 +261,11 @@ internal sealed class JobWatchers(Jobs jobs, TimeProvider? clock = null)
 
         public HashSet<string> Uris { get; } = new(uris ?? [], StringComparer.Ordinal);
     }
+}
+
+/// <summary>How the server names the owner of a request, when its jobs belong to owners.</summary>
+internal sealed class JobOwners(Func<IServiceProvider, string?>? ownerOf)
+{
+    /// <summary>The owner of a request served with these services, or null when the server names none.</summary>
+    public string? Of(IServiceProvider? services) => services is null || ownerOf is null ? null : ownerOf(services);
 }

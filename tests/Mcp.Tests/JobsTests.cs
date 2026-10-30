@@ -29,7 +29,7 @@ public sealed class JobsTests
         }, SampleJson.Default.Outcome);
         var report = await job.ForAsync(Patience);
 
-        Assert.Equal("job://sample/echo/1", job.Uri);
+        Assert.Matches("^job://sample/echo/[0-9a-f]{32}$", job.Uri);
         Assert.Contains("\"state\":\"succeeded\"", report.ToJson(), StringComparison.Ordinal);
         Assert.Equal(report with { Result = null }, JobReport.FromJson(report.ToJson())! with { Result = null });
         Assert.Equal(report.Result!.Value.GetRawText(), JobReport.FromJson(report.ToJson())!.Result!.Value.GetRawText());
@@ -128,6 +128,80 @@ public sealed class JobsTests
         Assert.Equal(JobState.Succeeded, report.State);
         Assert.Equal("read me", report.Result!.Value.GetProperty("text").GetString());
         Assert.Contains(templates, template => template.UriTemplate == "job://sample/{kind}/{id}");
+    }
+
+    /// <summary>Numbered jobs let one task of a shared server read another's output by counting: a URI is a random id now.</summary>
+    [Fact]
+    public void Start_TwoJobsOfOneKind_HaveUrisNobodyCanCount()
+    {
+        var jobs = new Jobs("sample");
+
+        var first = jobs.Start("echo", (_, _) => Task.FromResult(new Outcome("a")), SampleJson.Default.Outcome);
+        var second = jobs.Start("echo", (_, _) => Task.FromResult(new Outcome("b")), SampleJson.Default.Outcome);
+
+        Assert.NotEqual(first.Uri, second.Uri);
+        Assert.DoesNotMatch("/[0-9]{1,9}$", first.Uri);
+    }
+
+    [Fact]
+    public void Find_JobOfAnOwner_IsFoundForThatOwnerOnly_AndOneWithoutAnOwnerForAnyone()
+    {
+        var jobs = new Jobs("sample");
+
+        var owned = jobs.Start("echo", "task-a", (_, _) => Task.FromResult(new Outcome("a")), SampleJson.Default.Outcome);
+        var shared = jobs.Start("echo", (_, _) => Task.FromResult(new Outcome("b")), SampleJson.Default.Outcome);
+
+        Assert.Same(owned, jobs.Find(owned.Uri, "task-a"));
+        Assert.Null(jobs.Find(owned.Uri, "task-b"));
+        Assert.Null(jobs.Find(owned.Uri, null));
+        Assert.Same(shared, jobs.Find(shared.Uri, "task-b"));
+        Assert.Equal("task-a", owned.Owner);
+    }
+
+    /// <summary>A job of another owner reads as if it did not exist, so a client cannot tell another's URI from a wrong one.</summary>
+    [Fact]
+    public async Task Job_OfAnotherOwner_IsUnknownToARead_AndKnownToItsOwn()
+    {
+        string owner = "task-b";
+        await using var stand = await Stand.StartAsync(ownerOf: _ => owner);
+        var jobs = stand.Host.Services.GetRequiredService<Jobs>();
+        var job = jobs.Start("echo", "task-a", (_, _) => Task.FromResult(new Outcome("the output of task a")), SampleJson.Default.Outcome);
+        await job.Completion.WaitAsync(Patience);
+
+        var refused = await Assert.ThrowsAnyAsync<McpException>(async () => await stand.Client.ReadResourceAsync(job.Uri));
+        owner = "task-a";
+        var read = await stand.Client.ReadResourceAsync(job.Uri);
+
+        Assert.Contains("Unknown resource", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("the output of task a", Assert.IsType<TextResourceContents>(Assert.Single(read.Contents)).Text, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("2025-11-25")]
+    [InlineData("2026-07-28")]
+    public async Task Job_OfAnotherOwner_IsNeverToldToItsWatcher(string protocolVersion)
+    {
+        await using var stand = await Stand.StartAsync(protocolVersion, _ => "task-b");
+        var jobs = stand.Host.Services.GetRequiredService<Jobs>();
+        var release = new TaskCompletionSource();
+        var job = jobs.Start("slow", "task-a", async (_, token) =>
+        {
+            await release.Task.WaitAsync(token);
+
+            return new Outcome("ended");
+        }, SampleJson.Default.Outcome);
+        var told = new List<string>();
+
+        await using var watch = await stand.SubscribeAsync(job.Uri, told.Add);
+        var watchers = stand.Host.Services.GetRequiredService<JobWatchers>();
+        await Task.Delay(500);
+        int watching = watchers.WatchersOf(job.Uri);
+        release.SetResult();
+        await job.Completion.WaitAsync(Patience);
+        await Task.Delay(300);
+
+        Assert.Equal(0, watching);
+        Assert.Empty(told);
     }
 
     [Fact]
@@ -264,13 +338,13 @@ public sealed class JobsTests
 
         public McpClient Client { get; }
 
-        public static async Task<Stand> StartAsync(string? protocolVersion = null)
+        public static async Task<Stand> StartAsync(string? protocolVersion = null, Func<IServiceProvider, string?>? ownerOf = null)
         {
             var toServer = new Pipe();
             var toClient = new Pipe();
             var builder = McpHost.CreateBuilder([]);
 
-            builder.Services.AddMcpServer().WithStreamServerTransport(toServer.Reader.AsStream(), toClient.Writer.AsStream()).WithJobs("sample");
+            builder.Services.AddMcpServer().WithStreamServerTransport(toServer.Reader.AsStream(), toClient.Writer.AsStream()).WithJobs("sample", ownerOf);
 
             var host = builder.Build();
             await host.StartAsync();

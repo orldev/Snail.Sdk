@@ -68,7 +68,7 @@ public sealed class Job
     internal async Task RunAsync<TResult>(Func<IProgress<JobProgress>, CancellationToken, Task<TResult>> work, JsonTypeInfo<TResult> resultType, CancellationToken stopping, TimeProvider clock)
     {
         using var either = CancellationTokenSource.CreateLinkedTokenSource(_cancelling.Token, stopping);
-        var progress = new Progress<JobProgress>(step => Change(report => report with { Progress = step.Share ?? report.Progress, Message = step.What ?? report.Message }));
+        var progress = new Steps(step => Change(report => report with { Progress = step.Share ?? report.Progress, Message = step.What ?? report.Message }));
 
         try
         {
@@ -107,5 +107,15 @@ public sealed class Job
         }
 
         _changed(changed);
+    }
+
+    /// <summary>Each step written into the report as the work reports it.</summary>
+    /// <remarks>
+    /// <see cref="Progress{T}"/> posts a step to be handled later, so a job asked right after a step stood without it: the
+    /// first answer of a running job carried no step, and a step reported just before the end could land after it.
+    /// </remarks>
+    private sealed class Steps(Action<JobProgress> step) : IProgress<JobProgress>
+    {
+        public void Report(JobProgress value) => step(value);
     }
 }

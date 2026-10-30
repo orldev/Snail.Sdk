@@ -40,6 +40,30 @@ public sealed class JobsTests
         Assert.Equal("done", report.Result!.Value.GetProperty("text").GetString());
     }
 
+    /// <summary>A step went through Progress, which posts it later: the first answer of a running job carried no step at all.</summary>
+    [Fact]
+    public async Task Job_StepReported_IsInItsReportTheMomentTheWorkGoesOn()
+    {
+        var jobs = new Jobs("sample");
+        var reported = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource();
+        var job = jobs.Start("slow", async (progress, token) =>
+        {
+            progress.Report(new JobProgress(1, 4, "a quarter"));
+            reported.SetResult();
+            await release.Task.WaitAsync(token);
+
+            return new Outcome("done");
+        }, SampleJson.Default.Outcome);
+
+        await reported.Task.WaitAsync(Patience);
+        var running = job.Report;
+        release.SetResult();
+        await job.Completion.WaitAsync(Patience);
+
+        Assert.Equal(("a quarter", 0.25), (running.Message, running.Progress));
+    }
+
     [Fact]
     public async Task Job_StillRunningPastTheWait_IsAnsweredRunning_AndEndsOnItsOwn()
     {

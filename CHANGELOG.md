@@ -22,6 +22,8 @@ A change that a repository must act on says what to do.
 - A job's URI ends in a random id, not a count: `job://<short>/<kind>/<32 hex digits>`. A client of a shared server read
   another's jobs — their test output, their logs — by counting from its own. A client that kept a URI keeps working; one
   that built a URI from a number, which nothing in the SDK does, no longer finds the job.
+- A step the work reports is in the job's report at once. It went through `Progress<T>`, which posts it to be handled
+  later: the first answer of a running job carried no step, and a step reported just before the end could land after it.
 
 - A native server on the Web or Razor SDK — `Sdk="Microsoft.NET.Sdk.Web"` with `<Sdk Name="Snail.Sdk.Mcp" />` — is
   native again. Snail.Sdk.Mcp decided `PublishAot`, the generated binders and `IsAotCompatible` in its targets, which

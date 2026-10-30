@@ -13,6 +13,9 @@ A change that a repository must act on says what to do.
   a subscription and a listen stream, as if it did not exist. For a server many clients share — one HTTP server for
   every task of a platform — where one client must not read another's job. `Jobs.Find(uri, owner)` and `Job.Owner` are
   the same check in code. A server that adds no owner works as before.
+- `JobAnswer.Of(report, said)`: a tool that answers in words of its own — an `ok` flag with `data`, a text the model reads
+  as it always has — keeps them, and the job's report goes beside them as the structured content, where a client of
+  `Snail.Sdk.Mcp.JobClient` finds it. Returning the report alone made it the text too.
 
 ### Fixed
 

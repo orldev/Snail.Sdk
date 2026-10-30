@@ -36,6 +36,22 @@ public sealed class JobClientTests
         Assert.Empty(jobs.InFlight);
     }
 
+    /// <summary>A tool that answers in words of its own keeps them for the model, and its job is still found and awaited.</summary>
+    [Fact]
+    public async Task CallJob_ToolAnsweringInItsOwnWords_IsAwaitedFromTheReportBesideTheText()
+    {
+        await using var stand = await StreamStand.StartAsync("2025-11-25");
+
+        var report = await stand.Client.CallJobAsync("sample_worded", new Dictionary<string, object?> { ["text"] = "worded" }).WaitAsync(Patience);
+        var answered = await stand.Client.CallToolAsync("sample_worded", new Dictionary<string, object?> { ["text"] = "kept" }).AsTask().WaitAsync(Patience);
+        var beside = JobReport.FromJson(answered.StructuredContent!.Value.GetRawText());
+
+        Assert.Equal(JobState.Succeeded, report.State);
+        Assert.Equal("worded", report.Result!.Value.GetProperty("text").GetString());
+        Assert.Equal("echoed: kept", Assert.IsType<TextContentBlock>(Assert.Single(answered.Content)).Text);
+        Assert.Equal(JobState.Succeeded, beside!.State);
+    }
+
     [Fact]
     public async Task CallJob_WhoseToolAnswersAtOnce_ReturnsTheReportAsItIs()
     {
@@ -236,6 +252,20 @@ public sealed class SampleJobTools(Jobs jobs)
         }, SampleJson.Default.Outcome);
 
         return await job.ForAsync(TimeSpan.FromSeconds(wait), cancellationToken);
+    }
+
+    [McpServerTool(Name = "sample_worded"), Description("Echoes the text after a moment, as a job, answering in words of its own.")]
+    public async Task<CallToolResult> WordedAsync([Description("What to echo.")] string text, [Description("Seconds to wait for the result.")] int wait = 60, CancellationToken cancellationToken = default)
+    {
+        var job = jobs.Start("worded", async (_, token) =>
+        {
+            await Task.Delay(150, token);
+
+            return new Outcome(text);
+        }, SampleJson.Default.Outcome);
+        var report = await job.ForAsync(TimeSpan.FromSeconds(wait), cancellationToken);
+
+        return JobAnswer.Of(report, ended => new CallToolResult { Content = [new TextContentBlock { Text = ended.IsRunning ? "still echoing" : $"echoed: {ended.Result!.Value.GetProperty("text").GetString()}" }] });
     }
 
     [McpServerTool(Name = "sample_quick"), Description("Echoes the text at once, as a job already ended.")]

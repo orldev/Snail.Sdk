@@ -609,6 +609,39 @@ public sealed class ConformanceTests : IDisposable
         Assert.Single(Checks.Of(inProps, Standard.Embedded()), found => found is { Check: "package baseline", IsMet: true });
     }
 
+    /// <summary>
+    /// A nested Directory.Build.props is read with what it imports, in MSBuild's order: the baseline the root names holds for
+    /// a project under src/, whether src/ imports the root by a relative path or by GetPathOfFileAbove, and a value the nested
+    /// file sets after the import has the last word.
+    /// </summary>
+    /// <remarks>Snail.Toolkit.Web names SnailPackageBaseline in the root's Directory.Build.props, which src/Directory.Build.props
+    /// imports. The check read the nested file alone and, on 01.11.2026, refused a released repository.</remarks>
+    [Theory]
+    [InlineData("<Import Project=\"..\\Directory.Build.props\" />")]
+    [InlineData("<Import Project=\"$(MSBuildThisFileDirectory)../Directory.Build.props\" />")]
+    [InlineData("<Import Project=\"$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))\" />")]
+    public void PackageBaseline_NamedInTheRootPropsANestedOneImports_Holds(string import)
+    {
+        var repository = Write("Snail.Toolkit.Nested", ("src/Snail.Toolkit.Nested.csproj", "<Project Sdk=\"Snail.Sdk.Library\" />"),
+            ("src/PublicAPI.Shipped.txt", "#nullable enable\nSnail.Toolkit.Nested.Greeting\n"),
+            ("src/Directory.Build.props", $"<Project>{import}<PropertyGroup><IsPackable>true</IsPackable></PropertyGroup></Project>"),
+            ("Directory.Build.props", "<Project><PropertyGroup><SnailPackageBaseline>0.1.0</SnailPackageBaseline></PropertyGroup></Project>"));
+
+        Assert.Single(Checks.Of(repository, Standard.Embedded()), found => found is { Check: "package baseline", IsMet: true });
+        Assert.Equal("0.1.0", Repository.Setting(Path.Combine(repository.Root, "src", "Snail.Toolkit.Nested.csproj"), "SnailPackageBaseline"));
+    }
+
+    /// <summary>A value a nested Directory.Build.props sets after its import of the root's outranks the root's, as in MSBuild.</summary>
+    [Fact]
+    public void Setting_SetAgainAfterTheImport_IsTheNestedOne()
+    {
+        var repository = Write("Snail.Toolkit.Override", ("src/Snail.Toolkit.Override.csproj", "<Project Sdk=\"Snail.Sdk.Library\" />"),
+            ("src/Directory.Build.props", "<Project><Import Project=\"../Directory.Build.props\" /><PropertyGroup><SnailPackageBaseline>0.2.0</SnailPackageBaseline></PropertyGroup></Project>"),
+            ("Directory.Build.props", "<Project><PropertyGroup><SnailPackageBaseline>0.1.0</SnailPackageBaseline></PropertyGroup></Project>"));
+
+        Assert.Equal("0.2.0", Repository.Setting(Path.Combine(repository.Root, "src", "Snail.Toolkit.Override.csproj"), "SnailPackageBaseline"));
+    }
+
     /// <summary>A worktree's .git is a file: its tags are read from the common git folder it points to.</summary>
     [Fact]
     public void PackageBaseline_OfAWorktree_ReadsTheTagsOfItsRepository()

@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace Snail.Sdk.Conformance;
@@ -14,7 +15,7 @@ internal enum RepositoryKind
 }
 
 /// <summary>A repository as the checks read it: its folder, its kind and its files.</summary>
-internal sealed class Repository
+internal sealed partial class Repository
 {
     private const string ServerPrefix = "Snail.MCP.";
 
@@ -306,13 +307,17 @@ internal sealed class Repository
     public static bool IsPacked(string project) =>
         KindOf(project).Length == 0 && !string.Equals(Property(Project(project), "IsPackable"), "false", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>A property as the project sets it, or as the nearest Directory.Build.props above it does.</summary>
+    /// <summary>A property as the project sets it, or as the nearest Directory.Build.props above it leaves it.</summary>
     public static string? Setting(string project, string name) => Property(Project(project), name) ?? Inherited(project, name);
 
     private static string? Property(XDocument? document, string name) =>
         document?.Root?.Elements("PropertyGroup").Elements(name).Select(element => element.Value.Trim()).LastOrDefault(value => value.Length > 0);
 
-    /// <summary>A property the nearest Directory.Build.props above the project sets, up to the repository's global.json.</summary>
+    /// <summary>
+    /// A property as the nearest Directory.Build.props above the project leaves it, up to the repository's global.json. MSBuild
+    /// reads only that one file, so a nested one imports the file above it: src/Directory.Build.props of Snail.Toolkit.Web
+    /// imports the root's, which names SnailPackageBaseline, and a check reading the nested file alone found none.
+    /// </summary>
     private static string? Inherited(string project, string name)
     {
         for (var folder = Path.GetDirectoryName(Path.GetFullPath(project)); folder is not null; folder = Path.GetDirectoryName(folder))
@@ -320,7 +325,7 @@ internal sealed class Repository
             var props = Path.Combine(folder, "Directory.Build.props");
 
             if (File.Exists(props))
-                return Property(Project(props), name);
+                return Evaluated(props, name, []);
 
             if (File.Exists(Path.Combine(folder, "global.json")))
                 return null;
@@ -328,6 +333,71 @@ internal sealed class Repository
 
         return null;
     }
+
+    /// <summary>
+    /// A property as a props file leaves it: its property groups and the files it imports, read in their order, the last value
+    /// standing. Conditions are not evaluated, and a file seen once is not read again.
+    /// </summary>
+    private static string? Evaluated(string props, string name, HashSet<string> seen)
+    {
+        if (!seen.Add(Path.GetFullPath(props)) || Project(props)?.Root is not { } root)
+            return null;
+
+        string? value = null;
+
+        foreach (var element in root.Elements())
+            value = ValueIn(element, props, name, seen) ?? value;
+
+        return value;
+    }
+
+    private static string? ValueIn(XElement element, string props, string name, HashSet<string> seen) => element.Name.LocalName switch
+    {
+        "PropertyGroup" => element.Elements(name).Select(property => property.Value.Trim()).LastOrDefault(value => value.Length > 0),
+        "Import" when Imported(props, element.Attribute("Project")?.Value) is { } imported => Evaluated(imported, name, seen),
+        _ => null,
+    };
+
+    /// <summary>
+    /// The file an Import names, relative to the importing file or through $(MSBuildThisFileDirectory), or found above it by
+    /// GetPathOfFileAbove; null for a path that needs anything else evaluated.
+    /// </summary>
+    private static string? Imported(string props, string? project)
+    {
+        if (string.IsNullOrWhiteSpace(project))
+            return null;
+
+        var folder = Path.GetDirectoryName(Path.GetFullPath(props))!;
+        var above = FileAbove().Match(project);
+
+        if (above.Success)
+            return Above(Path.GetDirectoryName(folder), above.Groups["file"].Value);
+
+        var path = project.Trim().Replace("$(MSBuildThisFileDirectory)", folder + Path.DirectorySeparatorChar, StringComparison.Ordinal).Replace('\\', Path.DirectorySeparatorChar);
+
+        if (path.Contains("$(", StringComparison.Ordinal))
+            return null;
+
+        var full = Path.GetFullPath(Path.Combine(folder, path));
+
+        return File.Exists(full) ? full : null;
+    }
+
+    private static string? Above(string? folder, string file)
+    {
+        for (; folder is not null; folder = Path.GetDirectoryName(folder))
+        {
+            var candidate = Path.Combine(folder, file);
+
+            if (File.Exists(candidate))
+                return candidate;
+        }
+
+        return null;
+    }
+
+    [GeneratedRegex(@"GetPathOfFileAbove\(\s*'(?<file>[^']+)'\s*,\s*'\$\(MSBuildThisFileDirectory\)\.\.[/\\]?'\s*\)")]
+    private static partial Regex FileAbove();
 
     private static bool IsSource(string path) =>
         !path.Split(Path.DirectorySeparatorChar).Any(part => part is "bin" or "obj" or ".git" or "node_modules" or "BenchmarkDotNet.Artifacts");

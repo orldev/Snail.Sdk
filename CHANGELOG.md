@@ -19,6 +19,11 @@ A change that a repository must act on says what to do.
 
 ### Fixed
 
+- A native publish on the 10.0.3xx band passes the package audit again. CVE-2026-111497 (GHSA-p3jp-9v83-76w9,
+  3 November 2026) names the AOT compiler the band bundles, `Microsoft.DotNet.ILCompiler` 10.0.10, and no SDK of the
+  band carries the fix, so a server's image, the CI's native builds and a library's probe all failed on NU1903. The
+  band's compiler entry is raised to the patched 10.0.14 from NuGet while the band bundles an older one; an SDK that
+  brings the fix turns it off by itself, and `SnailILCompilerVersion` names another compiler.
 - A job's URI ends in a random id, not a count: `job://<short>/<kind>/<32 hex digits>`. A client of a shared server read
   another's jobs — their test output, their logs — by counting from its own. A client that kept a URI keeps working; one
   that built a URI from a number, which nothing in the SDK does, no longer finds the job.

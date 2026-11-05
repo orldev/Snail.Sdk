@@ -37,6 +37,7 @@ A project on another Microsoft SDK (Razor, Web) keeps it in the attribute and ad
 | `SnailEveryRuleAsAdvice` | (true) | `false` leaves out the generated config that lists every rule of the SDK's analysis level as a suggestion. |
 | `SnailThreadingAnalyzersVersion` | `17.14.15` | The version of `Microsoft.VisualStudio.Threading.Analyzers` every project references. |
 | `SnailConformanceRelease` | (false) | `true` with `-t:SnailConformance` adds the release checks (S3LC0026). The release workflows pass it. |
+| `SnailILCompilerVersion` | `10.0.14` while the SDK band bundles an older compiler; otherwise empty | The `Microsoft.DotNet.ILCompiler` a native publish compiles with, in place of the band's own, for net10.0. Set by default against CVE-2026-111497 (the band's 10.0.10), and turned off by itself once an SDK bundles the fix. |
 
 ### Read, never set
 
@@ -49,6 +50,7 @@ A project on another Microsoft SDK (Razor, Web) keeps it in the attribute and ad
 | Target | Run | Does |
 | --- | --- | --- |
 | `SnailConformance` | `dotnet msbuild <a project> -t:SnailConformance` | Runs the [conformance check](conformance.md) on the repository the project is in (the folder of its `global.json`); an unmet required check is an MSBuild error carrying its id, advice a warning. Fails with a message when there is no `global.json` above the project. |
+| `SnailRaiseILCompiler` | before the framework references are processed, in a restore and a build alike, while `SnailILCompilerVersion` is set | Raises the band's `Microsoft.DotNet.ILCompiler` entry for net10.0 to `SnailILCompilerVersion`, so a native publish compiles with the patched compiler (CVE-2026-111497). |
 | `SnailAddEveryRuleAsAdvice` | before every compile | Reads the SDK's listing of every rule of its analysis level, makes each warning or error a suggestion and gives the compiler that config between the SDK's own (level −100) and `Snail.Sdk.globalconfig` (level 100). A newer SDK band brings its new rules as advice with no file edited. |
 
 ### Defaults and rules

@@ -58,6 +58,24 @@ public sealed class McpSdkTests(SdkFeed sdk)
         </ItemGroup>
         """;
 
+    /// <summary>
+    /// CVE-2026-111497: the AOT compiler the 10.0.3xx band bundles, 10.0.10, fails the package audit of every native publish;
+    /// the band's entry is raised to the patched compiler on NuGet, for net10.0 alone, until an SDK brings the fix itself.
+    /// </summary>
+    [Fact]
+    public void Server_OnABandBundlingTheVulnerableCompiler_PublishesWithThePatchedOne()
+    {
+        var folder = sdk.Project("Snail.Sdk.Mcp", "Snail.MCP.Sample", string.Empty);
+
+        var (_, bundled) = SdkFeed.Dotnet(folder, "msbuild", "-getProperty:BundledNETCoreAppPackageVersion");
+        var (_, packs) = SdkFeed.Dotnet(folder, "msbuild", "-t:SnailRaiseILCompiler", "-getItem:KnownILCompilerPack");
+        var compilers = System.Text.Json.JsonDocument.Parse(packs).RootElement.GetProperty("Items").GetProperty("KnownILCompilerPack").EnumerateArray()
+            .ToDictionary(pack => pack.GetProperty("TargetFramework").GetString()!, pack => pack.GetProperty("ILCompilerPackVersion").GetString());
+
+        Assert.Equal(Version.Parse(bundled.Trim()) < new Version(10, 0, 14) ? "10.0.14" : bundled.Trim(), compilers["net10.0"]);
+        Assert.StartsWith("9.", compilers["net9.0"], StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Server_IsANativeToolOfTheMcpServerKind_ByDefault()
     {

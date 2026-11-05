@@ -37,6 +37,28 @@
   </PropertyGroup>
 
   <!--
+    The AOT compiler of the 10.0.3xx band, patched. CVE-2026-111497 (GHSA-p3jp-9v83-76w9, 3 November 2026): the
+    Microsoft.DotNet.ILCompiler the band bundles, 10.0.10, carries a Brotli decoder flaw, and the package audit fails
+    every native publish on it — a server's image, the CI's native builds, a library's probe — while no SDK of the band
+    carries the fix. The patched compiler is on NuGet, so the band's entry is raised to it; for the portable runtimes the
+    compiler package carries the native runtime as well, so nothing else moves. Only the compiler is a package the
+    audit reads: the runtime packs of a self-contained publish are downloads, and the audit leaves them alone. The entry
+    is raised only while the band bundles a compiler below the fix, so an SDK that brings the fix turns this off by
+    itself, and a project that wants another compiler sets SnailILCompilerVersion. Raised in a target rather than at
+    evaluation: the band's entries are one per target framework, and only a target may choose one by its metadata
+    (MSB4191 outside one); ProcessFrameworkReferences, which reads the entry, runs for the restore as for the build.
+  -->
+  <PropertyGroup Condition="'$(SnailILCompilerVersion)' == '' and '$(BundledNETCoreAppPackageVersion.StartsWith(`10.0.`))' == 'true' and '$(BundledNETCoreAppPackageVersion)' &lt; '10.0.14'">
+    <SnailILCompilerVersion>10.0.14</SnailILCompilerVersion>
+  </PropertyGroup>
+
+  <Target Name="SnailRaiseILCompiler" BeforeTargets="ProcessFrameworkReferences" Condition="'$(SnailILCompilerVersion)' != ''">
+    <ItemGroup>
+      <KnownILCompilerPack Update="Microsoft.DotNet.ILCompiler" Condition="'%(TargetFramework)' == 'net10.0'" ILCompilerPackVersion="$(SnailILCompilerVersion)" />
+    </ItemGroup>
+  </Target>
+
+  <!--
     What Microsoft.NET.Sdk.Web turns off for a native app, a probe on Microsoft.NET.Sdk turns off too: SignalR's custom
     awaitables are found by reflection, and a probe of a SignalR library would otherwise warn (IL2026, IL3053) at publish.
   -->

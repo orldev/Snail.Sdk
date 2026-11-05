@@ -60,14 +60,14 @@
     The libraries of the same release: the host for the server, HTTP when it serves it, the stdio contract for its tests,
     and for its tests the client of its jobs, so a test awaits a job the way an orchestrator does.
   -->
-  <ItemGroup Condition="'$(SnailSdkVersion)' != ''">
-    <PackageReference Include="Snail.Sdk.Mcp.Hosting" Version="$(SnailSdkVersion)" IsImplicitlyDefined="true"
+  <ItemGroup Condition="'$(SnailLevelVersion)' != ''">
+    <PackageReference Include="Snail.Sdk.Mcp.Hosting" Version="$(SnailLevelVersion)" IsImplicitlyDefined="true"
                       Condition="'$(SnailProjectKind)' == ''" />
-    <PackageReference Include="Snail.Sdk.Mcp.Http" Version="$(SnailSdkVersion)" IsImplicitlyDefined="true"
+    <PackageReference Include="Snail.Sdk.Mcp.Http" Version="$(SnailLevelVersion)" IsImplicitlyDefined="true"
                       Condition="'$(SnailProjectKind)' == '' and '$(SnailMcpTransport)' != 'Stdio'" />
-    <PackageReference Include="Snail.Sdk.Mcp.Testing" Version="$(SnailSdkVersion)" IsImplicitlyDefined="true"
+    <PackageReference Include="Snail.Sdk.Mcp.Testing" Version="$(SnailLevelVersion)" IsImplicitlyDefined="true"
                       Condition="'$(SnailProjectKind)' == 'Tests'" />
-    <PackageReference Include="Snail.Sdk.Mcp.JobClient" Version="$(SnailSdkVersion)" IsImplicitlyDefined="true"
+    <PackageReference Include="Snail.Sdk.Mcp.JobClient" Version="$(SnailLevelVersion)" IsImplicitlyDefined="true"
                       Condition="'$(SnailProjectKind)' == 'Tests'" />
   </ItemGroup>
 
@@ -93,5 +93,16 @@
 
   <Import Project="$(MSBuildThisFileDirectory)Snail.Sdk.Mcp.Install.targets" />
   <Import Project="$(MSBuildThisFileDirectory)Snail.Sdk.Site.targets" />
+
+  <!--
+    One release for the whole SDK. global.json names Snail.Sdk and Snail.Sdk.Mcp separately, and each can move alone — a
+    Dependabot pull request bumps one of them — but the level and the Snail.Sdk under it are built and tested together:
+    apart, the build takes the analyzers of one release and the libraries of another, and fails far from the cause.
+    Checked before restore too, which would otherwise fail first on a package of the wrong release.
+  -->
+  <Target Name="SnailCheckOneRelease" BeforeTargets="_GenerateRestoreGraphProjectEntry;_CheckForInvalidConfigurationAndPlatform"
+          Condition="'$(SnailLevelVersion)' != '' and '$(SnailSdkVersion)' != '' and '$(SnailLevelVersion)' != '$(SnailSdkVersion)'">
+    <Error Text="global.json names Snail.Sdk $(SnailSdkVersion) and Snail.Sdk.Mcp $(SnailLevelVersion): they are released together and build only at one version; name the same release for both." />
+  </Target>
 
 </Project>

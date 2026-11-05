@@ -31,9 +31,11 @@ A project names one level in its `Sdk` attribute, and the version once, in `glob
 "msbuild-sdks": { "Snail.Sdk": "0.1.0", "Snail.Sdk.Library": "0.1.0" }
 ```
 
-Every package is released together, at one version. A level references the analyzers and the server libraries of its
-own release (`SnailSdkVersion`, written into the package when it is packed), so an SDK never meets a host library or an
-analyzer it was not built and tested with.
+Every package is released together, at one version, and `msbuild-sdks` names the same release for every entry. A level
+references the Snail.Sdk and the server libraries of its own release (`SnailLevelVersion`, written into the package
+when it is packed), Snail.Sdk the analyzers of its own (`SnailSdkVersion`), so an SDK never meets a host library or an
+analyzer it was not built and tested with. A build resolves an SDK once, so a level whose Snail.Sdk is of another
+release stops before restore and names both.
 
 ## Names
 
@@ -448,14 +450,14 @@ every push. Beyond what a test of the code itself asserts:
   without asking whose it is. A folder named at random proves nothing — a temporary folder holding thousands of
   them cannot be told apart from one still in use. `ServerProgram.Home` is such a folder. A test that deletes its
   folder sooner still may; a library's tests, which do not reference the package, name theirs by the same convention.
-- **Mutation testing** (Stryker.NET, a pinned version) runs in `perf.yml` every two months and by hand: it says whether
+- **Mutation testing** (Stryker.NET, a pinned version) runs in `perf.yml` twice a year and by hand: it says whether
   the tests catch a broken line, not only whether they run it. Its score is reported, and fails the run only under the
   caller's `mutation-break`.
 
 ## Performance
 
 - **Benchmarks in every repository.** A `*.Benchmarks` project with BenchmarkDotNet and `[MemoryDiagnoser]` over the hot
-  paths, and the CSV reports of an accepted run in `baseline/` beside it. `perf.yml` runs them every two months and by
+  paths, and the CSV reports of an accepted run in `baseline/` beside it. `perf.yml` runs them twice a year and by
   hand before a release that touches a hot path. Only a grown allocation fails it (by default past 5 %): allocations do
   not depend on the machine, while time on a shared runner moves by tens of percent between runs, so times are reported
   beside them. A new repository starts with the template's baseline and replaces it with the reports of its first

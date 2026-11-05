@@ -43,7 +43,8 @@ A project on another Microsoft SDK (Razor, Web) keeps it in the attribute and ad
 
 | Property | Value |
 | --- | --- |
-| `SnailSdkVersion` | The release of Snail.Sdk the project builds with, written into the package. The levels reference `Snail.Sdk.Analyzers` and the `Snail.Sdk.Mcp.*` libraries of this same version. |
+| `SnailSdkVersion` | The release of Snail.Sdk the project builds with, written into the package. Snail.Sdk references `Snail.Sdk.Analyzers` of this same version. |
+| `SnailLevelVersion` | The release of Snail.Sdk.Library or Snail.Sdk.Mcp, written into the level's package. The level imports Snail.Sdk and references the `Snail.Sdk.Mcp.*` libraries of this version, and a build whose `SnailSdkVersion` differs stops before restore with both named. |
 
 ### Targets
 
@@ -179,7 +180,7 @@ The install publishes a server into `~/.s3l-mcp/<SnailMcpName>/<date>-<time>.<co
 | `EnableRequestDelegateGenerator` | `true` (default, native, not `Stdio`) | HTTP endpoints bound by generated code too |
 | `ToolPackageRuntimeIdentifiers` | `osx-arm64;linux-x64;linux-arm64;win-x64;any` (default, native) | a tool package per platform and a framework-dependent one, `any`, for the rest; the workflows build exactly these |
 | `PackageReadmeFile` | `README.md` when the repository has one | the README and `.mcp/server.json` are packed |
-| package references | `Snail.Sdk.Mcp.Hosting` (server), `Snail.Sdk.Mcp.Http` (server, not `Stdio`), `Snail.Sdk.Mcp.Testing` and `Snail.Sdk.Mcp.JobClient` (`Tests`), all of `SnailSdkVersion` | the libraries of the same release |
+| package references | `Snail.Sdk.Mcp.Hosting` (server), `Snail.Sdk.Mcp.Http` (server, not `Stdio`), `Snail.Sdk.Mcp.Testing` and `Snail.Sdk.Mcp.JobClient` (`Tests`), all of `SnailLevelVersion` | the libraries of the same release |
 
 ### Targets
 

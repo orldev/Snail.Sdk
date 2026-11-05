@@ -50,10 +50,13 @@
     <None Include="../Docs/site/**" Pack="true" PackagePath="tools/docs/site/" Visible="false" />
   </ItemGroup>
 
-  <!-- The level names the version of Snail.Sdk it stands on — its own, as both are released together. -->
+  <!--
+    The level names its own release, SnailLevelVersion: the Snail.Sdk it stands on and the server libraries it references
+    are of that release. It is not SnailSdkVersion, which Snail.Sdk writes when it is imported and so has the last word.
+  -->
   <Target Name="SnailWriteSdkVersion" BeforeTargets="_GetPackageFiles;GenerateNuspec">
     <WriteLinesToFile File="$(IntermediateOutputPath)Snail.Sdk.Version.props"
-                      Lines="&lt;Project&gt;&lt;PropertyGroup&gt;&lt;SnailSdkVersion&gt;$(PackageVersion)&lt;/SnailSdkVersion&gt;&lt;/PropertyGroup&gt;&lt;/Project&gt;"
+                      Lines="&lt;Project&gt;&lt;PropertyGroup&gt;&lt;SnailLevelVersion&gt;$(PackageVersion)&lt;/SnailLevelVersion&gt;&lt;/PropertyGroup&gt;&lt;/Project&gt;"
                       Overwrite="true" WriteOnlyWhenDifferent="true" />
   </Target>
 

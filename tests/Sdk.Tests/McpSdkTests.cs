@@ -142,6 +142,61 @@ public sealed class McpSdkTests(SdkFeed sdk)
         Assert.Contains("RuntimeIdentifierPackages", new StreamReader(settings.Open()).ReadToEnd(), StringComparison.Ordinal);
     }
 
+    /// <summary>A server whose global.json names Snail.Sdk of another release than Snail.Sdk.Mcp is refused, with both named.</summary>
+    /// <remarks>Dependabot bumps each of global.json's msbuild-sdks in a pull request of its own. On 01.11.2026 it bumped
+    /// Snail.Sdk.Mcp of Snail.MCP.Blender alone, from 0.2.2 to 0.4.1. A build resolves an SDK once: a project of the
+    /// solution on Snail.Sdk itself took 0.2.2 from global.json, the level got that one too, the server libraries were asked
+    /// for at its version, and restore failed on Snail.Sdk.Mcp.JobClient 0.2.2, a package that never existed.</remarks>
+    [Fact]
+    public void Server_OnASnailSdkOfAnotherRelease_IsRefusedWithBothReleasesNamed()
+    {
+        const string released = "0.4.1";
+        var folder = sdk.Project("Snail.Sdk.Mcp", "Snail.MCP.Sample", """
+            <PropertyGroup>
+              <RootNamespace>Server</RootNamespace>
+            </PropertyGroup>
+            <ItemGroup>
+              <PackageReference Include="ModelContextProtocol" Version="2.3.0" />
+            </ItemGroup>
+            """, ("Program.cs", Program), ("EchoTools.cs", Tools));
+
+        File.WriteAllText(Path.Combine(folder, "global.json"), $$"""
+            {
+              "sdk": { "version": "10.0.302", "rollForward": "latestPatch" },
+              "msbuild-sdks": { "Snail.Sdk": "{{released}}", "Snail.Sdk.Mcp": "{{sdk.Version}}" }
+            }
+            """);
+        File.WriteAllText(Path.Combine(folder, "nuget.config"), $"""
+            <configuration>
+              <packageSources>
+                <clear />
+                <add key="snail-sdk" value="{sdk.Feed}" />
+                <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+              </packageSources>
+            </configuration>
+            """);
+
+        Directory.CreateDirectory(Path.Combine(folder, "Helper"));
+        File.WriteAllText(Path.Combine(folder, "Helper", "Helper.csproj"), """
+            <Project Sdk="Snail.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+        File.WriteAllText(Path.Combine(folder, "Sample.slnx"), """
+            <Solution>
+              <Project Path="Helper/Helper.csproj" />
+              <Project Path="Snail.MCP.Sample.csproj" />
+            </Solution>
+            """);
+
+        var (exitCode, output) = SdkFeed.Dotnet(folder, "build", "Sample.slnx", "-m:1");
+
+        Assert.NotEqual(0, exitCode);
+        Assert.True(output.Contains($"global.json names Snail.Sdk {released} and Snail.Sdk.Mcp {sdk.Version}", StringComparison.Ordinal), output);
+    }
+
     private const string WebNative = """
         <Sdk Name="Snail.Sdk.Mcp" />
         <PropertyGroup>

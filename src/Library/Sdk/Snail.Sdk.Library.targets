@@ -72,4 +72,15 @@
 
   <Import Project="$(MSBuildThisFileDirectory)Snail.Sdk.Site.targets" />
 
+  <!--
+    One release for the whole SDK. global.json names Snail.Sdk and Snail.Sdk.Library separately, and each can move alone — a
+    Dependabot pull request bumps one of them — but the level and the Snail.Sdk under it are built and tested together:
+    apart, the build takes the analyzers of one release and the libraries of another, and fails far from the cause.
+    Checked before restore too, which would otherwise fail first on a package of the wrong release.
+  -->
+  <Target Name="SnailCheckOneRelease" BeforeTargets="_GenerateRestoreGraphProjectEntry;_CheckForInvalidConfigurationAndPlatform"
+          Condition="'$(SnailLevelVersion)' != '' and '$(SnailSdkVersion)' != '' and '$(SnailLevelVersion)' != '$(SnailSdkVersion)'">
+    <Error Text="global.json names Snail.Sdk $(SnailSdkVersion) and Snail.Sdk.Library $(SnailLevelVersion): they are released together and build only at one version; name the same release for both." />
+  </Target>
+
 </Project>

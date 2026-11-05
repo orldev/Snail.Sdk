@@ -1,9 +1,9 @@
 name: performance
 
-# Every two months, for a Snail library or server with benchmarks: called from its own perf.yml on a schedule
-# (any time by hand, before a release that touches a hot path).
+# Twice a year, on the first of January and of July, for a Snail library or server with benchmarks: called from its
+# own perf.yml on a schedule (any time by hand, before a release that touches a hot path).
 #
-#   on: { schedule: [{ cron: '0 4 1 */2 *' }], workflow_dispatch: {} }
+#   on: { schedule: [{ cron: '0 4 1 1,7 *' }], workflow_dispatch: {} }
 #   jobs:
 #     perf:
 #       uses: orldev/Snail.Sdk/.github/workflows/perf.yml@v1

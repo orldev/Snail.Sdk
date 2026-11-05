@@ -386,8 +386,8 @@ Pages source is GitHub Actions; the workflows share the concurrency group `pages
 
 ## perf.yml
 
-Benchmarks and mutation testing, on a schedule (every two months) and by hand before a release that touches a hot
-path. The job `benchmarks` runs the benchmark project with `--job short --exporters csv github` and compares the
+Benchmarks and mutation testing, on a schedule (twice a year, on the first of January and of July) and by hand
+before a release that touches a hot path. The job `benchmarks` runs the benchmark project with `--job short --exporters csv github` and compares the
 allocations of each benchmark with the CSV reports kept in `baseline/` beside the project: an allocation that grows past
 `allocation-tolerance` fails the job. Only memory fails it, because time on a shared runner moves by tens of percent
 between runs and allocations do not; times are reported beside it. The job `mutation` runs Stryker.NET, of the version
@@ -398,7 +398,7 @@ template's baseline and replaces it with the reports of its first accepted run.
 name: performance
 on:
   schedule:
-    - cron: '0 4 1 */2 *'
+    - cron: '0 4 1 1,7 *'
   workflow_dispatch:
 permissions:
   contents: read

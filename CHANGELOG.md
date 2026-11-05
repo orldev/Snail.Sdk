@@ -70,6 +70,22 @@ A change that a repository must act on says what to do.
   ten times larger passed). The comparison now reads either separator, and a report it reads nothing from fails the
   job. A baseline written on either kind of machine stays valid. Once `v1` moves, a repository whose allocations did
   grow past the tolerance since its baseline sees the job fail for the first time.
+- A level references the server libraries of its own release, and refuses a Snail.Sdk of another one. A build resolves
+  an SDK once, so when global.json named Snail.Sdk 0.2.2 and Snail.Sdk.Mcp 0.4.1 — Dependabot bumps each in a pull
+  request of its own — every project got Snail.Sdk 0.2.2, the server libraries were asked for at 0.2.2, and restore
+  failed on `Snail.Sdk.Mcp.JobClient` 0.2.2, which never existed (Snail.MCP.Blender, 1 November 2026). Snail.Sdk.Mcp and
+  Snail.Sdk.Library now name their release in `SnailLevelVersion`, and a build whose Snail.Sdk is of another release
+  stops before restore with both versions named. A repository names the same release for every entry of `msbuild-sdks`.
+- S3LC0019 reads a property through the imports of a nested Directory.Build.props, in MSBuild's order. It read the file
+  nearest the project alone, so a repository whose src/Directory.Build.props imports the root's, where
+  `SnailPackageBaseline` is named, was told it names no release (Snail.Toolkit.Web, 1 November 2026).
+
+### Changed
+
+- The templates' `perf.yml` runs twice a year, at 04:00 UTC on the first of January and of July, instead of every two
+  months. A repository made from an earlier template may take the same cron, `'0 4 1 1,7 *'`.
+- The templates' Dependabot brings Snail.Sdk and its levels in one pull request of their own, a major update too, in a
+  group `snail-sdk` ahead of `packages`. A repository made from an earlier template may add the same group.
 
 ## [0.4.1] - 2026-10-29
 

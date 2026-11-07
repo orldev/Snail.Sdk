@@ -130,6 +130,44 @@ A change that a repository must act on says what to do.
   `IProgramCommands` over the catalog (the grant, script and lease checks stay inside `CallAsync` or move to the gate),
   delete `JavaScriptPrograms`, `IProgramRunner`, `ProgramRun`, `ProgramTools`, the program descriptions and the Jint
   reference, and register `.WithPrograms<Catalog>(…)` with the server's own `MaxCalls`.
+- The ways into a server that the fleet spells alike, in `Snail.Sdk.Mcp.Hosting.Discovery`, each one line beside
+  `AddMcpServer` and each over the tools the server registers, so none keeps a catalog of its own:
+  - `.WithToolDiscovery(options => …)` adds `find_tool(task, limit)`, `intent` taken for `task` (Blender's and
+    AfterEffects' logs show clients sending either). It ranks the server's tools with the weights five servers arrived
+    at — 4 for a word of the name or of `DiscoveryOptions.Meanings`, 2.5 for a form of one (four letters shared), 1 for
+    a word of the description, English glue, `Noise` and the words of `Prefix` dropped — and answers
+    `{task, isMatched, note, tools:[{name, command, description, parameters:[{name, type, isRequired, description}]}]}`
+    read from each tool's input schema, every tool with `isMatched` false when nothing matched. A tool the session may
+    not call (`IToolGate`) is not named. `CommandOf` names a tool's command for `run_program`; `Catalog` replaces the
+    registered tools for a server that keeps some outside its collection. `ToolCatalog.Of(typeof(X))` reads one class
+    without a server, for a guard test.
+  - `.WithToolSequences(options => …)` adds `run_tools(steps:[{tool, arguments}])`, `[Forwards]`: each step runs through
+    `ToolForwarding.CallAsync`, so the grant holds and no forwarder is a step; the run stops at the first step that fails
+    and answers its error, hint and type with the steps before it as data; each step's answer is unwrapped from its
+    envelope; past `OutputBudget` (50 000 characters) an answer is left out and its step flagged `isOmitted`; at most
+    `MaxSteps` (20). A step that names no tool is answered with the nearest name.
+  - `.WithArgumentCheck()` refuses, before the tool runs, a call that leaves out a required parameter or sends one the
+    tool does not take — `ToolAnswer.Failed` with `type` `arguments`, the parameter it probably meant (within a third of
+    its length in edits, or a short form: `timeout` → `timeoutSeconds`, `path` → `remotePath`) and what the tool takes
+    as the hint; `run_tools` checks its steps alike. Without it a missing parameter was the MCP SDK's "An error occurred
+    invoking …" and an unknown one was dropped without a word. Register it after `.RefuseWhatWasNotGranted()`.
+  - `.WithSkills(options => …)` with `[Skill(name, description)]` on a tool class: the skill's tools are registered like
+    any other (`.WithTools<MaterialTools>()`) and left out of a session's list until it loads the skill with
+    `<short>_enable_skill` (`<short>_skills` lists, `<short>_disable_skill` unloads; `SkillOptions.Name`, else the
+    server's command). `find_tool` then answers `skill` and `isLoaded` per tool and takes `enable: true` to load the
+    skills of what it found; a direct call of an unloaded skill's tool loads it, a `run_tools` step does not. Each MCP
+    session has its own set, stdio and sessionless clients one; a change is told as `notifications/tools/list_changed`,
+    in the reply before the 2026-07-28 revision and through the client's subscription from it. `IdleTimeout` unloads a
+    skill unused that long. Nothing is built by reflection: the skills are read from `McpServerTool.Metadata`.
+
+  To adopt, a server deletes its `DiscoveryTools`, `ToolIndex`, `Vocabulary`, `ToolEntry`/`ToolArgument` and their
+  guard test of tool classes (Git, FileSystem, Sandbox, CleanUp, Roslyn; Blender's and AfterEffects' `Discovery/ToolIndex`
+  and `Vocabulary`), its `SequenceTools` and `ToolStep` where steps are tools (FileSystem, Roslyn), Blender's
+  `CallArguments` and its place in `TrackActivity`, Figma's `RefuseIncompleteCalls`, and Blender's and AfterEffects'
+  `SkillCatalog`, `SkillExpiry`, `SkillAttribute`, `SkillTools`, `ToolListNotice` and the skill half of `ClientSessions`,
+  moving the words of its `Meanings` table into `DiscoveryOptions.Meanings`. A step of `run_tools` is now `arguments`, not
+  `params`. Git, whose steps are commands rather than tools, keeps its own `run_tools` and takes `find_tool` with
+  `CommandOf`.
 
 ### Changed
 

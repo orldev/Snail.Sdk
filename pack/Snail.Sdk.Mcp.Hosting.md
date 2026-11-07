@@ -24,6 +24,10 @@ What every Snail MCP server starts from:
   server's own, `IToolGate`); `ToolForwarding.CallAsync` is how a `[Forwards]` tool such as `run_tools` calls a step,
   held to the same grant; `SessionRoots` and `RealPath` say whether a path lies in the session's roots with every link
   followed; `WorkspaceCopy.Of` names the task a working copy belongs to.
+- `Snail.Sdk.Mcp.Hosting.Discovery`: the ways in every server spells alike. `.WithToolDiscovery()` adds `find_tool`,
+  the server's tools ranked against a task in words with what each takes; `.WithToolSequences()` adds `run_tools`,
+  several tools in one call under the session's grant; `.WithArgumentCheck()` names a missing or unknown argument and
+  the parameter it meant; `.WithSkills()` with `[Skill]` lists a group of tools to a session only once it loads it.
 
 A server built on [Snail.Sdk.Mcp](https://www.nuget.org/packages/Snail.Sdk.Mcp) references it implicitly.
 

@@ -348,6 +348,14 @@ And for the server project (no kind):
   never to the commands. It is bounded in time, memory (32 MiB), depth (256), statements (a million), commands and the
   size of its result, each stop with words of its own and a `type`. A native server that takes it sets
   `IlcTreatWarningsAsErrors` false: the native compiler reports Jint, which is not annotated for trimming.
+- The ways in, spelled alike by every server (`Snail.Sdk.Mcp.Hosting.Discovery`): `.WithToolDiscovery()` adds
+  `find_tool(task, limit)` — `intent` taken for `task` — which ranks the tools the server registered against a task in
+  words and answers each with its command and parameters, as far as the session may call it; `.WithToolSequences()`
+  adds `run_tools(steps)`, several tools in one call through `ToolForwarding`, stopping at the first that fails, inside
+  an output budget; `.WithArgumentCheck()` refuses a call that leaves out a required parameter or sends an unknown one,
+  naming the parameter it meant; `.WithSkills()` with `[Skill(name, description)]` keeps a group of tools out of a
+  session's list until it loads the skill (`<short>_skills`, `_enable_skill`, `_disable_skill`), tells the client of
+  the change, and unloads a skill left idle. All read the registered tools, so none needs reflection at run time.
 - `-p:SnailReference=true` writes the tool reference ([Documentation and the site](#documentation-and-the-site)).
 - `dotnet publish -c Release -r <rid> -p:SnailMcpInstall=true` installs the server into
   `~/.s3l-mcp/<name>/<date>-<time>.<commit>/` and points `current` at it ([installing](installing.md)).

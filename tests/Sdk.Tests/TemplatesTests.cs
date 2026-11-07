@@ -8,8 +8,8 @@ namespace Snail.Sdk.Sdk.Tests;
 /// <remarks>
 /// Conforming, built, tested, and its reference written again by the build without a difference from the one the template carries.
 /// The servers cover the template's conditional code between them: the default (native, stdio) also published with
-/// Native AOT and answering its contract as that program, HTTP alone, both transports framework-dependent, and the
-/// container with its Dockerfile and image workflow.
+/// Native AOT and answering its contract as that program, HTTP alone, both transports framework-dependent with the
+/// sample job, and the container with its Dockerfile and image workflow.
 /// </remarks>
 [Collection(SdkFeed.Collection)]
 public sealed class TemplatesTests(SdkFeed sdk)
@@ -64,9 +64,10 @@ public sealed class TemplatesTests(SdkFeed sdk)
         Assert.False(File.Exists(Path.Combine(folder, "tests", "StdioContractTests.cs")));
     }
 
+    /// <summary>Both transports, framework-dependent, with the sample job: its contract over stdio and over HTTP, its job awaited and read, its reference written.</summary>
     [Fact]
-    public void Server_FromTheTemplateWithBothTransportsNotNative_PassesTheSharedCi() =>
-        AssertPassesTheSharedCi(sdk.FromTemplate("s3l-mcp", "Snail.MCP.Sample", "--transport", "Both", "--native", "false"));
+    public void Server_FromTheTemplateWithBothTransportsNotNativeWithJobs_PassesTheSharedCi() =>
+        AssertPassesTheSharedCi(sdk.FromTemplate("s3l-mcp", "Snail.MCP.Sample", "--transport", "Both", "--native", "false", "--jobs", "true"));
 
     /// <summary>A container server conforms: its Dockerfile publishes natively for the platform of the image onto runtime-deps, on the SDK band of global.json, and image.yml builds it.</summary>
     [Fact]

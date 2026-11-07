@@ -1,6 +1,6 @@
 # Work
 
-## <code>sample_<wbr>work</code>
+## <code>tmplshort_<wbr>work</code>
 
 Count to a number, a step every tenth of a second, as a job: answers with the count when it ends within the wait, or with the running job to read as a resource.
 

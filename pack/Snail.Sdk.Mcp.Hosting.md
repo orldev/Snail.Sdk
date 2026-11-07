@@ -19,6 +19,11 @@ What every Snail MCP server starts from:
 - `ToolAnswer.Ok(data)`, `ToolAnswer.Failed(error, hint)` and `ToolAnswer.From(answer, data)`: the answer envelope every
   tool gives, `{"ok":true,"data":…}` or `{"ok":false,"error":…,"hint":…}` as one compact text block, a failure flagged
   `isError`; `.ExplainFailures()` answers a tool that threw with it.
+- `Snail.Sdk.Mcp.Hosting.Sessions`: what a session's address (`?tool=`, `?root=`) grants it.
+  `.RefuseWhatWasNotGranted()` refuses and hides a tool the session was not granted (`SessionGrant`, or a gate of the
+  server's own, `IToolGate`); `ToolForwarding.CallAsync` is how a `[Forwards]` tool such as `run_tools` calls a step,
+  held to the same grant; `SessionRoots` and `RealPath` say whether a path lies in the session's roots with every link
+  followed; `WorkspaceCopy.Of` names the task a working copy belongs to.
 
 A server built on [Snail.Sdk.Mcp](https://www.nuget.org/packages/Snail.Sdk.Mcp) references it implicitly.
 

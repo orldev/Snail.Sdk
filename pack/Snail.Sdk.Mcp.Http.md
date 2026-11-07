@@ -8,6 +8,9 @@ One Snail MCP server for every session of the machine, over Streamable HTTP:
 - `WithLocalHttpTransport()`: Streamable HTTP with a session for every client that opens with `initialize`.
 - `MapLocalMcp()`: the endpoint at `/mcp`, behind the refusal of every request that carries an `Origin`, so no web
   page can reach the server.
+- `WithSessionAddress()`: the session's address read from the query of each request — `WithLocalHttpTransport` adds it
+  by itself — and `RefuseSessionsItCannotServe(volumes)`: 400 at the door for a session whose root this machine does
+  not have or the volumes do not hold.
 
 It is kept apart from [Snail.Sdk.Mcp.Hosting](https://www.nuget.org/packages/Snail.Sdk.Mcp.Hosting) so that a stdio
 server never references ASP.NET Core. A server built on [Snail.Sdk.Mcp](https://www.nuget.org/packages/Snail.Sdk.Mcp)

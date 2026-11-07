@@ -1,0 +1,323 @@
+using System.ComponentModel;
+using System.IO.Pipelines;
+using System.Text.Json.Nodes;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
+using Snail.Sdk.Mcp.Hosting.Sessions;
+using Snail.Sdk.Mcp.Testing;
+
+namespace Snail.Sdk.Mcp.Tests;
+
+/// <summary>The tools a session was granted, read from its address and held at the door and in every forwarder.</summary>
+public sealed class SessionGrantTests
+{
+    [Fact]
+    public void Grant_ReadsTheNamedTools_TrimmedEachOnce_BlanksDropped()
+    {
+        var grant = new SessionGrant(new FixedAddress(("tool", " read_note "), ("tool", "READ_NOTE"), ("tool", " "), ("tool", "list_notes"), ("root", "/w/t")));
+
+        Assert.Equal(["read_note", "list_notes"], grant.All);
+    }
+
+    [Fact]
+    public void Grant_AllowsWhatItNames_WhateverTheCase_AndNothingElse()
+    {
+        var grant = new SessionGrant(new FixedAddress(("tool", "read_note")));
+
+        Assert.True(grant.Allows("READ_NOTE"));
+        Assert.False(grant.Allows("write_note"));
+    }
+
+    [Fact]
+    public void Grant_ThatNamesNoTool_AllowsEveryTool()
+    {
+        var grant = new SessionGrant(new FixedAddress());
+
+        Assert.True(grant.Allows("write_note"));
+    }
+
+    [Fact]
+    public void Refusal_SaysWhatWasRefused_AndWhatTheSessionMayUse()
+    {
+        var grant = new SessionGrant(new FixedAddress(("tool", "read_note"), ("tool", "list_notes")));
+
+        Assert.Equal("'write_note' was not granted to this session, which may use read_note, list_notes", grant.Refusal("write_note"));
+    }
+
+    [Fact]
+    public async Task Call_ToAToolNotGranted_IsRefusedAtTheDoor_InTheGrantsWords()
+    {
+        await using var stand = await SessionStand.StartAsync(new FixedAddress(("tool", "read_note")));
+
+        var refused = await stand.Client.CallToolAsync("write_note", new Dictionary<string, object?> { ["text"] = "x" });
+        var granted = await stand.Client.CallToolAsync("read_note");
+
+        Assert.True(refused.IsError);
+        Assert.Equal("'write_note' was not granted to this session, which may use read_note", refused.Text());
+        Assert.Equal(0, stand.Notes.Written);
+        Assert.Equal("the note", granted.Text());
+    }
+
+    [Fact]
+    public async Task List_LeavesOutWhatWasNotGranted()
+    {
+        await using var stand = await SessionStand.StartAsync(new FixedAddress(("tool", "read_note"), ("tool", "run_tools")));
+
+        var listed = await stand.Client.ListToolsAsync();
+
+        Assert.Equal(["read_note", "run_tools"], listed.Select(tool => tool.Name).Order(StringComparer.Ordinal));
+    }
+
+    /// <summary>A server that wants a withheld tool seen, so the model is told why rather than inventing a way round it.</summary>
+    [Fact]
+    public async Task List_WhenWithheldToolsAreShown_KeepsThem_AndTheCallIsStillRefused()
+    {
+        await using var stand = await SessionStand.StartAsync(new FixedAddress(("tool", "read_note")), options => options.HidesWithheldTools = false);
+
+        var listed = await stand.Client.ListToolsAsync();
+        var refused = await stand.Client.CallToolAsync("write_note", new Dictionary<string, object?> { ["text"] = "x" });
+
+        Assert.Contains(listed, tool => tool.Name == "write_note");
+        Assert.True(refused.IsError);
+    }
+
+    [Fact]
+    public async Task Session_ThatNamesNoTool_UsesEveryTool()
+    {
+        await using var stand = await SessionStand.StartAsync(new FixedAddress());
+
+        var written = await stand.Client.CallToolAsync("write_note", new Dictionary<string, object?> { ["text"] = "x" });
+
+        Assert.NotEqual(true, written.IsError);
+        Assert.Equal(1, stand.Notes.Written);
+    }
+
+    [Fact]
+    public async Task Session_ThatNamesNoTool_WhereAGrantIsRequired_IsRefusedEveryTool_AndListedNone()
+    {
+        await using var stand = await SessionStand.StartAsync(new FixedAddress(("root", "/w/t")), options => options.RequiresGrant = true);
+
+        var refused = await stand.Client.CallToolAsync("read_note");
+        var listed = await stand.Client.ListToolsAsync();
+
+        Assert.True(refused.IsError);
+        Assert.StartsWith("'read_note' was not granted to this session, which was granted no tool", refused.Text(), StringComparison.Ordinal);
+        Assert.Empty(listed);
+    }
+
+    /// <summary>A program over stdio has nowhere to name a tool, so a required grant never shuts it out.</summary>
+    [Fact]
+    public async Task Program_WithoutAnAddress_WhereAGrantIsRequired_StillUsesEveryTool()
+    {
+        await using var stand = await SessionStand.StartAsync(null, options => options.RequiresGrant = true);
+
+        var read = await stand.Client.CallToolAsync("read_note");
+
+        Assert.Equal("the note", read.Text());
+    }
+
+    [Fact]
+    public async Task Refusal_ShapedByTheServer_IsTheAnswerOfARefusedCall()
+    {
+        await using var stand = await SessionStand.StartAsync(
+            new FixedAddress(("tool", "read_note")),
+            options => options.Refusal = (tool, words) => new CallToolResult { IsError = true, Content = [new TextContentBlock { Text = $$"""{"ok":false,"tool":"{{tool}}","error":"{{words}}"}""" }] });
+
+        var refused = await stand.Client.CallToolAsync("write_note", new Dictionary<string, object?> { ["text"] = "x" });
+
+        Assert.StartsWith("""{"ok":false,"tool":"write_note","error":"'write_note' was not granted""", refused.Text(), StringComparison.Ordinal);
+    }
+
+    /// <summary>A server with scopes of its own registers its gate, and the door asks it instead of the grant.</summary>
+    [Fact]
+    public async Task Gate_OfTheServersOwn_DecidesInsteadOfTheGrant()
+    {
+        await using var stand = await SessionStand.StartAsync(new FixedAddress(), gate: new ReadOnlyGate());
+
+        var refused = await stand.Client.CallToolAsync("write_note", new Dictionary<string, object?> { ["text"] = "x" });
+
+        Assert.Equal("this session only reads", refused.Text());
+    }
+
+    private sealed class ReadOnlyGate : IToolGate
+    {
+        public string? Refusal(string tool, IServiceProvider services) =>
+            tool.StartsWith("write", StringComparison.Ordinal) ? "this session only reads" : null;
+    }
+}
+
+/// <summary>A forwarder's steps held to the same grant as the door, and no forwarder run by another.</summary>
+public sealed class ToolForwardingTests
+{
+    [Fact]
+    public async Task Forwarder_RunsAGrantedStep_AsTheProtocolWould()
+    {
+        await using var stand = await SessionStand.StartAsync(new FixedAddress(("tool", "read_note"), ("tool", "run_tools")));
+
+        var ran = await stand.Client.CallToolAsync("run_tools", new Dictionary<string, object?> { ["step"] = "read_note" });
+
+        Assert.Equal("the note", ran.Text());
+    }
+
+    /// <summary>A role granted read_note and run_tools wrote through run_tools in three servers of the fleet, until each checked the grant itself.</summary>
+    [Fact]
+    public async Task Forwarder_RefusesAStepNotGranted_AndTheStepNeverRuns()
+    {
+        await using var stand = await SessionStand.StartAsync(new FixedAddress(("tool", "read_note"), ("tool", "run_tools")));
+
+        var refused = await stand.Client.CallToolAsync("run_tools", new Dictionary<string, object?> { ["step"] = "write_note", ["text"] = "x" });
+
+        Assert.True(refused.IsError);
+        Assert.Equal("'write_note' was not granted to this session, which may use read_note, run_tools", refused.Text());
+        Assert.Equal(0, stand.Notes.Written);
+    }
+
+    [Fact]
+    public async Task Forwarder_RefusesAnotherForwarderAsItsStep()
+    {
+        await using var stand = await SessionStand.StartAsync(new FixedAddress());
+
+        var refused = await stand.Client.CallToolAsync("run_tools", new Dictionary<string, object?> { ["step"] = "run_program" });
+
+        Assert.True(refused.IsError);
+        Assert.Equal("'run_program' runs other tools itself, so 'run_tools' does not run it", refused.Text());
+    }
+
+    /// <summary>A step that forwards without saying so is caught at its first call, so a forgotten mark does not open the hole.</summary>
+    [Fact]
+    public async Task Step_ThatForwardsUnmarked_IsRefusedItsOwnStep()
+    {
+        await using var stand = await SessionStand.StartAsync(new FixedAddress());
+
+        var refused = await stand.Client.CallToolAsync("run_tools", new Dictionary<string, object?> { ["step"] = "relay" });
+
+        Assert.Equal("'relay' was itself run by a forwarder, and a step runs no other tool", refused.Text());
+    }
+
+    [Fact]
+    public async Task Forwarder_CalledByTheClient_ForwardsAgain_AfterAStepWasRefused()
+    {
+        await using var stand = await SessionStand.StartAsync(new FixedAddress());
+
+        await stand.Client.CallToolAsync("run_tools", new Dictionary<string, object?> { ["step"] = "relay" });
+        var ran = await stand.Client.CallToolAsync("relay");
+
+        Assert.Equal("the note", ran.Text());
+    }
+
+    [Fact]
+    public async Task Refusal_OfACommandThatIsNoTool_AsksTheSameGate()
+    {
+        await using var stand = await SessionStand.StartAsync(new FixedAddress(("tool", "git_status"), ("tool", "run_commands")));
+
+        var refused = await stand.Client.CallToolAsync("run_commands", new Dictionary<string, object?> { ["command"] = "push" });
+        var allowed = await stand.Client.CallToolAsync("run_commands", new Dictionary<string, object?> { ["command"] = "status" });
+
+        Assert.Equal("'git_push' was not granted to this session, which may use git_status, run_commands", refused.Text());
+        Assert.Equal("ran status", allowed.Text());
+    }
+}
+
+/// <summary>A server of notes over a pair of pipes, its sessions at a fixed address, and the client connected to it.</summary>
+internal sealed class SessionStand : IAsyncDisposable
+{
+    private SessionStand(IHost host, McpClient client, Notes notes)
+    {
+        Host = host;
+        Client = client;
+        Notes = notes;
+    }
+
+    public IHost Host { get; }
+
+    public McpClient Client { get; }
+
+    public Notes Notes { get; }
+
+    /// <summary>A server whose sessions are at <paramref name="address"/>, or have none when it is null — a program over stdio.</summary>
+    public static async Task<SessionStand> StartAsync(ISessionAddress? address, Action<GrantOptions>? configure = null, IToolGate? gate = null)
+    {
+        var toServer = new Pipe();
+        var toClient = new Pipe();
+        var notes = new Notes();
+        var builder = McpHost.CreateBuilder([]);
+
+        builder.Services.AddSingleton(notes);
+
+        if (address is not null)
+            builder.Services.AddSingleton(address);
+
+        if (gate is not null)
+            builder.Services.AddSingleton(gate);
+
+        builder.Services.AddMcpServer()
+            .WithStreamServerTransport(toServer.Reader.AsStream(), toClient.Writer.AsStream())
+            .RefuseWhatWasNotGranted(configure)
+            .WithTools<NoteTools>();
+
+        var host = builder.Build();
+        await host.StartAsync();
+        var client = await McpClient.CreateAsync(new StreamClientTransport(toServer.Writer.AsStream(), toClient.Reader.AsStream()));
+
+        return new SessionStand(host, client, notes);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await Client.DisposeAsync();
+        await Host.StopAsync();
+        Host.Dispose();
+    }
+}
+
+/// <summary>What the sample server's tools changed, for a test to see.</summary>
+internal sealed class Notes
+{
+    private int _written;
+
+    public int Written => _written;
+
+    public void Write() => Interlocked.Increment(ref _written);
+}
+
+[McpServerToolType]
+internal sealed class NoteTools
+{
+    [McpServerTool(Name = "read_note", ReadOnly = true), Description("Reads the note.")]
+    public static string ReadNote() => "the note";
+
+    [McpServerTool(Name = "write_note", Destructive = true), Description("Writes the note.")]
+    public static string WriteNote(Notes notes, [Description("What to write.")] string text)
+    {
+        notes.Write();
+
+        return $"wrote {text}";
+    }
+
+    [McpServerTool(Name = "run_tools", Destructive = true), Description("Runs one tool of this server."), Forwards]
+    public static async Task<CallToolResult> RunTools(RequestContext<CallToolRequestParams> context, [Description("The tool.")] string step, [Description("Its text.")] string? text = null, CancellationToken cancellationToken = default) =>
+        await Forward(context, step, text is null ? null : new JsonObject { ["text"] = text }, cancellationToken);
+
+    [McpServerTool(Name = "run_program", Destructive = true), Description("Runs a program of this server's tools."), Forwards]
+    public static async Task<CallToolResult> RunProgram(RequestContext<CallToolRequestParams> context, CancellationToken cancellationToken = default) =>
+        await Forward(context, "read_note", null, cancellationToken);
+
+    [McpServerTool(Name = "relay", ReadOnly = true), Description("Reads the note through another tool, unmarked.")]
+    public static async Task<CallToolResult> Relay(RequestContext<CallToolRequestParams> context, CancellationToken cancellationToken = default) =>
+        await Forward(context, "read_note", null, cancellationToken);
+
+    [McpServerTool(Name = "run_commands", Destructive = true), Description("Runs a command, granted under its tool's name.")]
+    public static string RunCommands(RequestContext<CallToolRequestParams> context, [Description("The command.")] string command) =>
+        ToolForwarding.Refusal(context, $"git_{command}") ?? $"ran {command}";
+
+    private static async Task<CallToolResult> Forward(RequestContext<CallToolRequestParams> context, string step, JsonObject? arguments, CancellationToken cancellationToken)
+    {
+        if (!context.Server.ServerOptions.ToolCollection!.TryGetPrimitive(step, out var tool))
+            return new CallToolResult { IsError = true, Content = [new TextContentBlock { Text = $"no tool {step}" }] };
+
+        return await ToolForwarding.CallAsync(context, tool, arguments, cancellationToken);
+    }
+}

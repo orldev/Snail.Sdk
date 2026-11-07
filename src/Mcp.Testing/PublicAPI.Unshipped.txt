@@ -21,3 +21,6 @@ static Snail.Sdk.Mcp.Testing.ToolAnswers.Error(this ModelContextProtocol.Protoco
 static Snail.Sdk.Mcp.Testing.ToolAnswers.Hint(this ModelContextProtocol.Protocol.CallToolResult! answer) -> string?
 static Snail.Sdk.Mcp.Testing.ToolAnswers.IsOk(this ModelContextProtocol.Protocol.CallToolResult! answer) -> bool
 static Snail.Sdk.Mcp.Testing.ToolAnswers.Report(this ModelContextProtocol.Protocol.CallToolResult! answer) -> Snail.Sdk.Mcp.Hosting.Jobs.JobReport?
+Snail.Sdk.Mcp.Testing.FixedAddress
+Snail.Sdk.Mcp.Testing.FixedAddress.FixedAddress(params (string! Parameter, string! Value)[]! values) -> void
+Snail.Sdk.Mcp.Testing.FixedAddress.Values(string! parameter) -> System.Collections.Generic.IReadOnlyList<string!>!

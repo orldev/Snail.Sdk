@@ -33,6 +33,14 @@ Ports a test hands to the servers and stand-ins it starts.
 | Member | Summary |
 | --- | --- |
 | `int Free()` | A loopback TCP port nothing listens on at this moment. |
+### class FixedAddress
+
+A session's address fixed for a test: `new FixedAddress(("tool", "read_file"), ("root", "/w/task"))`.
+
+| Member | Summary |
+| --- | --- |
+| `FixedAddress(ValueTuple<string, string>[] values)` | A session's address fixed for a test: `new FixedAddress(("tool", "read_file"), ("root", "/w/task"))`. |
+| `IReadOnlyList<string> Values(string parameter)` | Every value the address gives the parameter, empty when it gives none or there is no address. |
 
 ### static class ServerProgram
 

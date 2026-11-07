@@ -3,3 +3,10 @@ const Snail.Sdk.Mcp.Http.McpHttpHost.DefaultHealthPath = "/healthz" -> string!
 Snail.Sdk.Mcp.Http.McpHttpHost.extension(Microsoft.AspNetCore.Builder.WebApplication!).MapHealth(string! path = "/healthz") -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
 static Snail.Sdk.Mcp.Http.McpHttpHost.CreateBuilder(string![]! args, Snail.Sdk.Mcp.Hosting.McpEndpoint! endpoint) -> Microsoft.AspNetCore.Builder.WebApplicationBuilder!
 static Snail.Sdk.Mcp.Http.McpHttpHost.MapHealth(this Microsoft.AspNetCore.Builder.WebApplication! app, string! path = "/healthz") -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
+Snail.Sdk.Mcp.Http.HttpSessions
+Snail.Sdk.Mcp.Http.HttpSessions.extension(Microsoft.AspNetCore.Builder.WebApplication!)
+Snail.Sdk.Mcp.Http.HttpSessions.extension(Microsoft.AspNetCore.Builder.WebApplication!).RefuseSessionsItCannotServe(System.Func<System.IServiceProvider!, System.Collections.Generic.IReadOnlyList<string!>!>! volumes, string! path = "/mcp") -> Microsoft.AspNetCore.Builder.WebApplication!
+Snail.Sdk.Mcp.Http.HttpSessions.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!)
+Snail.Sdk.Mcp.Http.HttpSessions.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).WithSessionAddress() -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+static Snail.Sdk.Mcp.Http.HttpSessions.RefuseSessionsItCannotServe(this Microsoft.AspNetCore.Builder.WebApplication! app, System.Func<System.IServiceProvider!, System.Collections.Generic.IReadOnlyList<string!>!>! volumes, string! path = "/mcp") -> Microsoft.AspNetCore.Builder.WebApplication!
+static Snail.Sdk.Mcp.Http.HttpSessions.WithSessionAddress(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!

@@ -331,6 +331,14 @@ And for the server project (no kind):
   `.ExplainFailures()` beside `AddMcpServer` answers a tool that threw with the envelope, `type` `internal`, logged once,
   and flags an envelope with `ok` false that a tool returned as a string; a cancelled call stays cancelled. A job
   answered in the envelope is `JobAnswer.Envelope(report, beside)`.
+- What a session's address grants it (`Snail.Sdk.Mcp.Hosting.Sessions`): a server many roles reach is opened at
+  `…/mcp?root=/workspaces/<task>&tool=<name>&tool=…`, a URL the platform writes and the model never can.
+  `.RefuseWhatWasNotGranted()` refuses and hides a tool the address did not name (`SessionGrant`, or the server's own
+  `IToolGate`); a tool that calls other tools carries `[Forwards]` and calls each through `ToolForwarding.CallAsync`, so
+  no forwarder widens a grant and none runs another. `.WithSessionRoots(volumes)` confines paths to the named roots
+  inside the configured volumes, every link followed (`SessionRoots.Reach`, `RealPath`), and over HTTP
+  `app.RefuseSessionsItCannotServe(volumes)` turns away at the door a session whose root the machine does not have or
+  the volumes do not hold. Over stdio there is no address: every tool is granted, and the volumes are the roots.
 - `-p:SnailReference=true` writes the tool reference ([Documentation and the site](#documentation-and-the-site)).
 - `dotnet publish -c Release -r <rid> -p:SnailMcpInstall=true` installs the server into
   `~/.s3l-mcp/<name>/<date>-<time>.<commit>/` and points `current` at it ([installing](installing.md)).

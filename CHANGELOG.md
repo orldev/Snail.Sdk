@@ -74,6 +74,33 @@ A change that a repository must act on says what to do.
   "without overwrite" alone does not guard the race on Unix, where .NET looks for the target and then renames over it.
 - `ServerFolders.Home`, now public, and `ServerFolders.ExpandHome(path)` / `ExpandHome(path, fallback)`: a leading `~`
   or `~/` made the user's home; a missing path is the fallback. The servers kept copies of their own in nine places.
+- What a session's address grants it, for every server — stdio and HTTP alike — in `Snail.Sdk.Mcp.Hosting.Sessions`.
+  Nine servers kept a `SessionGrant` of their own, four a `SessionRoots`, three a `SessionCopy`, and three let a role
+  granted `run_tools` reach every tool they had, because their copies held at the door and nowhere else. A server that
+  keeps one of those deletes it and its `ISessionAddress`, `HttpAddress` and `StdioAddress`, and takes these instead:
+  - `.RefuseWhatWasNotGranted()` beside `AddMcpServer`: a call to a tool the address (`?tool=`) did not name is refused
+    in the fleet's words, and the tool is left out of the list (`GrantOptions.HidesWithheldTools`, true). A server whose
+    answers are an envelope of its own shapes the refusal with `GrantOptions.Refusal`; one that must never serve a session
+    without a grant sets `GrantOptions.RequiresGrant` (HTTP only: a program over stdio names no tool). A server with
+    scopes of its own — Snail.MCP.AfterEffects, Blender — registers an `IToolGate`, which the door asks instead.
+  - A forwarder — `run_tools`, `run_program` — carries `[Forwards]` and calls each step through
+    `ToolForwarding.CallAsync(context, tool, arguments, cancellationToken)`: the step is held to the same gate and run as
+    the protocol would, and a forwarder is never a step of another. A forwarder whose steps are commands rather than tools
+    (Snail.MCP.Git) asks `ToolForwarding.Refusal(context, "git_status")` for each. Its own `Refusal` and `Invoke` go.
+  - `.WithSessionRoots(services => volumes)` registers `SessionRoots`: the roots the address names (`?root=`) inside the
+    configured volumes, or the volumes when it names none, and `Reach(path)`, which answers the path with every link on it
+    followed, or why it may not be used. `RealPath.Of(path)` is the walk alone, and follows a link whose target does not
+    exist yet, which every fleet copy took for the end of the path — a write through such a link landed outside the root.
+  - `WorkspaceCopy.Of(root, workspaces, isTaskId)` is the common core of the three `SessionCopy`: the task a copy under
+    the workspaces folder belongs to, or null.
+- `WithSessionAddress()` of `Snail.Sdk.Mcp.Http` reads the session's address from the query of each request;
+  `WithLocalHttpTransport()` adds it by itself, and a server on the MCP SDK's default transport calls it beside
+  `WithHttpTransport()`. `app.RefuseSessionsItCannotServe(services => volumes)` replaces the `RefuseASessionItCannotServe`
+  of Snail.MCP.FileSystem, Documents, Git and Roslyn, with their words: 400 for a root this machine does not have, a root
+  outside the volumes, or no root where no volume is configured — after a 403 to a request with an `Origin`, whichever of
+  it and `MapLocalMcp` is called first.
+- `FixedAddress` of `Snail.Sdk.Mcp.Testing`: a session's address in a test, `new FixedAddress(("tool", "read_file"))`.
+  The package now references `Snail.Sdk.Mcp.Hosting`.
 
 ### Changed
 

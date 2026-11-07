@@ -1,0 +1,160 @@
+namespace Snail.Sdk.Mcp.Hosting.Sessions;
+
+/// <summary>A path as a session may use it, or why it may not.</summary>
+/// <param name="Path">The path with every link on it followed, when the session may use it.</param>
+/// <param name="Refusal">Why it may not, in words the caller can act on.</param>
+/// <param name="Hint">What to do instead, when there is something.</param>
+public sealed record Reached(string? Path, string? Refusal, string? Hint)
+{
+    /// <summary>Whether the session may use the path; <see cref="Path"/> is then the one to use.</summary>
+    public bool IsAllowed => Path is not null;
+
+    /// <summary>The path, allowed.</summary>
+    public static Reached Yes(string path) => new(path, null, null);
+
+    /// <summary>A refusal, with what the caller can do about it.</summary>
+    public static Reached No(string refusal, string? hint = null) => new(null, refusal, hint);
+}
+
+/// <summary>The folders this session works in, read from the address it was opened at, and whether a path lies in them.</summary>
+/// <remarks>
+/// <para>
+/// A server that touches files is one call away from every file its process can read, so this is the whole of its
+/// isolation. The roots come from the address — <c>…/mcp?root=/workspaces/task</c> — never from a call, which can say
+/// whatever it likes. A session that names none works in the configured volumes, which is how a server started as a
+/// program for one caller is confined; a server with neither reaches nothing rather than the disk.
+/// </para>
+/// <para>
+/// Either the named roots or the volumes, never both. A shared server is configured with the whole volume of working
+/// copies so it can serve any of them; adding it to what a session named would hand every session every other task's
+/// files. And only named roots inside a volume: a session opened at <c>?root=/</c> was served the whole disk of the host
+/// (Snail.MCP.FileSystem). Both sides are compared with their links followed (<see cref="RealPath"/>).
+/// </para>
+/// <para>
+/// Read on every question, from the request being served. A job that outlives its request reads nothing there: it takes
+/// the paths it needs while the request is still being served.
+/// </para>
+/// </remarks>
+/// <param name="address">The address of the session.</param>
+/// <param name="volumes">The folders the server was configured to serve; empty when it serves whatever a session names.</param>
+public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> volumes)
+{
+    /// <summary>What the address calls a root it hands over; repeated for more than one.</summary>
+    public const string Parameter = "root";
+
+    /// <summary>The roots this session works in: the ones it named inside the volumes, or the volumes when it named none.</summary>
+    /// <remarks>Empty when every root it named is outside the volumes: such a session reaches nothing, and is refused at the door.</remarks>
+    public IReadOnlyList<string> All
+    {
+        get
+        {
+            var named = Named;
+            var configured = Paths(volumes);
+
+            return named.Count == 0 ? configured : [.. named.Where(root => IsInside(root, configured))];
+        }
+    }
+
+    /// <summary>The roots the address named, as full paths, each once.</summary>
+    public IReadOnlyList<string> Named => Paths(address.Values(Parameter));
+
+    /// <summary>Of the roots the address named, the ones outside every volume; none when no volume was configured.</summary>
+    public IReadOnlyList<string> Outside
+    {
+        get
+        {
+            var configured = Paths(volumes);
+
+            return configured.Count == 0 ? [] : [.. Named.Where(root => !IsInside(root, configured))];
+        }
+    }
+
+    /// <summary>Of the roots the address named, the ones this machine has no folder for.</summary>
+    /// <remarks>
+    /// A root missing here means the copy is on another host: discovery handed the worker of one machine the server of
+    /// another, and every answer would be about the wrong files — a wrong answer wearing the shape of a right one.
+    /// </remarks>
+    public IReadOnlyList<string> Absent => [.. Named.Where(root => !Directory.Exists(root))];
+
+    /// <summary>Whether the address named a root outside every volume.</summary>
+    public bool IsOutside => Outside.Count > 0;
+
+    /// <summary>Whether the address named a root this machine does not have.</summary>
+    public bool IsAbsent => Absent.Count > 0;
+
+    /// <summary>The path as the session may use it — absolute, or relative to the first root, every link followed — or why it may not.</summary>
+    /// <remarks>
+    /// The resolved path rather than a yes or no: every caller needs it anyway, and resolving twice is how the check and
+    /// the use drift apart — the check passing on one path and the write landing on another. A path that cannot be
+    /// followed, a loop of links among them, is a refusal like any other.
+    /// </remarks>
+    public Reached Reach(string? path)
+    {
+        var roots = All;
+
+        if (roots.Count == 0)
+            return Unrooted();
+
+        if (string.IsNullOrWhiteSpace(path))
+            return Reached.No("name a path", $"paths are absolute or relative to {roots[0]}");
+
+        var asked = path.Trim();
+        var real = RealPath.Of(Path.IsPathRooted(asked) ? asked : Path.Join(roots[0], asked));
+
+        if (real is null)
+        {
+            return Reached.No($"'{asked}' cannot be followed: more than {RealPath.MostLinks} links lead on from it, or one of them may not be read",
+                "a link on the path leads in a circle or somewhere this server may not look; name the path it leads to");
+        }
+
+        return roots.Any(root => RealPath.Of(root) is { } inside && IsUnder(real, inside))
+            ? Reached.Yes(real)
+            : Reached.No($"'{asked}' is outside this session, which works in {string.Join(", ", roots)}");
+    }
+
+    /// <summary>The path as the caller should name it again: relative to the first root when it lies under it, whole otherwise.</summary>
+    /// <remarks>
+    /// The first root, because a relative path is reached from it. Against the root with its links followed, as the path
+    /// was: a root behind a link — <c>/var</c> on macOS among them — made every answer name the host's real path.
+    /// </remarks>
+    public string Relative(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var roots = All;
+
+        if (roots.Count == 0 || RealPath.Of(roots[0]) is not { } first)
+            return path;
+
+        return IsUnder(path, first) ? Path.GetRelativePath(first, path) : path;
+    }
+
+    private Reached Unrooted()
+    {
+        var named = Named;
+
+        if (named.Count > 0)
+            return Reached.No($"this session named {string.Join(", ", named)}, which this server does not serve, so nothing is reachable");
+
+        return Reached.No("this session was given no root, so nothing is reachable",
+            $"open the session at …?{Parameter}=/path/to/the/copy, or configure the server's roots");
+    }
+
+    private static bool IsInside(string root, IReadOnlyList<string> configured) =>
+        configured.Count == 0
+        || (RealPath.Of(root) is { } real && configured.Any(volume => RealPath.Of(volume) is { } inside && IsUnder(real, inside)));
+
+    /// <summary>Whether the path is the root or lies inside it; a sibling whose name only begins like the root's is not.</summary>
+    private static bool IsUnder(string path, string root) =>
+        string.Equals(path, root, StringComparison.Ordinal)
+        || path.StartsWith($"{Path.TrimEndingDirectorySeparator(root)}{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
+
+    /// <summary>The roots as full paths, each once; a blank one, or one no path can be — a NUL in it — left out.</summary>
+    private static IReadOnlyList<string> Paths(IEnumerable<string> roots) =>
+    [
+        .. roots
+            .Where(root => !string.IsNullOrWhiteSpace(root) && !root.Contains('\0', StringComparison.Ordinal))
+            .Select(root => Path.TrimEndingDirectorySeparator(Path.GetFullPath(root.Trim())))
+            .Distinct(StringComparer.Ordinal)
+    ];
+}

@@ -1,1 +1,4 @@
 #nullable enable
+Snail.Sdk.Mcp.Testing.FixedAddress
+Snail.Sdk.Mcp.Testing.FixedAddress.FixedAddress(params (string! Parameter, string! Value)[]! values) -> void
+Snail.Sdk.Mcp.Testing.FixedAddress.Values(string! parameter) -> System.Collections.Generic.IReadOnlyList<string!>!

@@ -1,1 +1,81 @@
 #nullable enable
+Snail.Sdk.Mcp.Hosting.Sessions.ForwardsAttribute
+Snail.Sdk.Mcp.Hosting.Sessions.ForwardsAttribute.ForwardsAttribute() -> void
+Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions
+Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.GrantOptions() -> void
+Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.HidesWithheldTools.get -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.HidesWithheldTools.set -> void
+Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.Refusal.get -> System.Func<string!, string!, ModelContextProtocol.Protocol.CallToolResult!>?
+Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.Refusal.set -> void
+Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.RequiresGrant.get -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.RequiresGrant.set -> void
+Snail.Sdk.Mcp.Hosting.Sessions.ISessionAddress
+Snail.Sdk.Mcp.Hosting.Sessions.ISessionAddress.IsPresent.get -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.ISessionAddress.Values(string! parameter) -> System.Collections.Generic.IReadOnlyList<string!>!
+Snail.Sdk.Mcp.Hosting.Sessions.IToolGate
+Snail.Sdk.Mcp.Hosting.Sessions.IToolGate.Refusal(string! tool, System.IServiceProvider! services) -> string?
+Snail.Sdk.Mcp.Hosting.Sessions.Reached
+Snail.Sdk.Mcp.Hosting.Sessions.Reached.<Clone>$() -> Snail.Sdk.Mcp.Hosting.Sessions.Reached!
+Snail.Sdk.Mcp.Hosting.Sessions.Reached.Deconstruct(out string? Path, out string? Refusal, out string? Hint) -> void
+Snail.Sdk.Mcp.Hosting.Sessions.Reached.Equals(Snail.Sdk.Mcp.Hosting.Sessions.Reached? other) -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.Reached.Hint.get -> string?
+Snail.Sdk.Mcp.Hosting.Sessions.Reached.Hint.init -> void
+Snail.Sdk.Mcp.Hosting.Sessions.Reached.IsAllowed.get -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.Reached.Path.get -> string?
+Snail.Sdk.Mcp.Hosting.Sessions.Reached.Path.init -> void
+Snail.Sdk.Mcp.Hosting.Sessions.Reached.Reached(string? Path, string? Refusal, string? Hint) -> void
+Snail.Sdk.Mcp.Hosting.Sessions.Reached.Refusal.get -> string?
+Snail.Sdk.Mcp.Hosting.Sessions.Reached.Refusal.init -> void
+Snail.Sdk.Mcp.Hosting.Sessions.RealPath
+Snail.Sdk.Mcp.Hosting.Sessions.SessionGrant
+Snail.Sdk.Mcp.Hosting.Sessions.SessionGrant.All.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Snail.Sdk.Mcp.Hosting.Sessions.SessionGrant.Allows(string! tool) -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.SessionGrant.Refusal(string! tool) -> string!
+Snail.Sdk.Mcp.Hosting.Sessions.SessionGrant.SessionGrant(Snail.Sdk.Mcp.Hosting.Sessions.ISessionAddress! address) -> void
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRegistration
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRegistration.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!)
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRegistration.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).RefuseWhatWasNotGranted(System.Action<Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRegistration.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).WithSessionRoots(System.Func<System.IServiceProvider!, System.Collections.Generic.IReadOnlyList<string!>!>! volumes) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Absent.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.All.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.IsAbsent.get -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.IsOutside.get -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Named.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Outside.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Reach(string? path) -> Snail.Sdk.Mcp.Hosting.Sessions.Reached!
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Relative(string! path) -> string!
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.SessionRoots(Snail.Sdk.Mcp.Hosting.Sessions.ISessionAddress! address, System.Collections.Generic.IReadOnlyList<string!>! volumes) -> void
+Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.<Clone>$() -> Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace!
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.Deconstruct(out string! Task, out string! Path) -> void
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.Equals(Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace? other) -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.Path.get -> string!
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.Path.init -> void
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.Task.get -> string!
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.Task.init -> void
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.WorkspacePlace(string! Task, string! Path) -> void
+const Snail.Sdk.Mcp.Hosting.Sessions.RealPath.MostLinks = 40 -> int
+const Snail.Sdk.Mcp.Hosting.Sessions.SessionGrant.Parameter = "tool" -> string!
+const Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Parameter = "root" -> string!
+override Snail.Sdk.Mcp.Hosting.Sessions.Reached.Equals(object? obj) -> bool
+override Snail.Sdk.Mcp.Hosting.Sessions.Reached.GetHashCode() -> int
+override Snail.Sdk.Mcp.Hosting.Sessions.Reached.ToString() -> string!
+override Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.Equals(object? obj) -> bool
+override Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.GetHashCode() -> int
+override Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.ToString() -> string!
+static Snail.Sdk.Mcp.Hosting.Sessions.Reached.No(string! refusal, string? hint = null) -> Snail.Sdk.Mcp.Hosting.Sessions.Reached!
+static Snail.Sdk.Mcp.Hosting.Sessions.Reached.Yes(string! path) -> Snail.Sdk.Mcp.Hosting.Sessions.Reached!
+static Snail.Sdk.Mcp.Hosting.Sessions.Reached.operator !=(Snail.Sdk.Mcp.Hosting.Sessions.Reached? left, Snail.Sdk.Mcp.Hosting.Sessions.Reached? right) -> bool
+static Snail.Sdk.Mcp.Hosting.Sessions.Reached.operator ==(Snail.Sdk.Mcp.Hosting.Sessions.Reached? left, Snail.Sdk.Mcp.Hosting.Sessions.Reached? right) -> bool
+static Snail.Sdk.Mcp.Hosting.Sessions.RealPath.Of(string! path, int maxLinks = 40) -> string?
+static Snail.Sdk.Mcp.Hosting.Sessions.SessionRegistration.RefuseWhatWasNotGranted(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, System.Action<Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+static Snail.Sdk.Mcp.Hosting.Sessions.SessionRegistration.WithSessionRoots(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, System.Func<System.IServiceProvider!, System.Collections.Generic.IReadOnlyList<string!>!>! volumes) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+static Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding.CallAsync(ModelContextProtocol.Server.RequestContext<ModelContextProtocol.Protocol.CallToolRequestParams!>! context, ModelContextProtocol.Server.McpServerTool! tool, System.Text.Json.Nodes.JsonObject? arguments, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<ModelContextProtocol.Protocol.CallToolResult!>
+static Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding.IsForwarder(ModelContextProtocol.Server.McpServerTool! tool) -> bool
+static Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding.Refusal(ModelContextProtocol.Server.RequestContext<ModelContextProtocol.Protocol.CallToolRequestParams!>! context, string! tool) -> string?
+static Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy.Of(string? root, string! workspaces, System.Func<string!, bool>! isTaskId) -> Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace?
+static Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.operator !=(Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace? left, Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace? right) -> bool
+static Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.operator ==(Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace? left, Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace? right) -> bool

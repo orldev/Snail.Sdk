@@ -24,6 +24,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../Mcp.Hosting/Mcp.Hosting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Snail.Sdk.Mcp.Tests" />
   </ItemGroup>
 

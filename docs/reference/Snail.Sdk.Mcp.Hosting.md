@@ -27,7 +27,7 @@ Where a server answers: over stdio, or over HTTP at an address, on loopback or o
 
 | Member | Summary |
 | --- | --- |
-| `McpEndpoint Read(IConfiguration settings, Uri defaultUrl)` | The endpoint a server's settings ask for, in either of the two ways the servers of the fleet say it. |
+| `McpEndpoint Read(IConfiguration settings, Uri defaultUrl, McpTransport defaultTransport = 0)` | The endpoint a server's settings ask for, in either of the two ways the servers of the fleet say it. |
 | `McpEndpoint(McpTransport Transport, Uri Url, bool ListensOnEveryInterface)` | Where a server answers: over stdio, or over HTTP at an address, on loopback or on every interface. |
 | `McpTransport Transport { get; init; }` | Stdio, or HTTP at `Url`. |
 | `Uri Url { get; init; }` | The address HTTP listens on; its port alone counts when the server listens on every interface. |
@@ -176,6 +176,97 @@ How an answer spells an enum value of several words; a server chooses one and ke
 | `const WordCase Camel` | Camel case, the way JSON names a property: `InProgress` is `inProgress`. |
 | `const WordCase Lower` | Every letter lower case, the words run together: `InProgress` is `inprogress`. |
 
+## Snail.Sdk.Mcp.Hosting.Discovery
+
+### class DiscoveryOptions
+
+How `find_tool` reads a server's tools: the words they are known by, the words that say nothing, and what a program calls them.
+
+| Member | Summary |
+| --- | --- |
+| `DiscoveryOptions()` |  |
+| `Func<string, string?>? CommandOf { get; set; }` | What a sequence or a program of the server calls a tool, by the tool's name; null for a tool that is no command. |
+| `IDictionary<string, string> Meanings { get; set; }` | The words each tool is asked for by beyond its name, by the tool's name: `["git_push"] = "publish send upstream share"`. |
+| `IReadOnlyList<ToolEntry>? Catalog { get; set; }` | The tools searched, instead of the tools the server registered (`ToolCatalog`). |
+| `ISet<string> Noise { get; set; }` | Words dropped from every task besides the common English ones, such as `bpy` or `ae`. |
+| `string? Prefix { get; set; }` | The prefix every tool of the server shares, such as `git_`; its words are dropped from names and tasks alike. |
+
+### static class DiscoveryRegistration
+
+The ways in that every server of the fleet spells alike: `find_tool`, `run_tools`, the argument check, and skills.
+
+| Member | Summary |
+| --- | --- |
+| `IMcpServerBuilder WithArgumentCheck(this IMcpServerBuilder builder)` | Refuses a call that leaves out a parameter its tool requires or sends one it does not take, naming it and the parameter it probably meant, before the tool runs. |
+| `IMcpServerBuilder WithSkills(this IMcpServerBuilder builder, Action<SkillOptions>? configure = null)` | Loads skills — the tools of the classes marked `SkillAttribute` — per session on demand: their tools are not listed until the session loads the skill, and `<short>_skills`, `_enable_skill` and `_disable_skill` list, load and unload them. |
+| `IMcpServerBuilder WithToolDiscovery(this IMcpServerBuilder builder, Action<DiscoveryOptions>? configure = null)` | Adds `find_tool(task, limit)`: the tools that answer a task in words, best first, each with what it takes. |
+| `IMcpServerBuilder WithToolSequences(this IMcpServerBuilder builder, Action<SequenceOptions>? configure = null)` | Adds `run_tools(steps)`: several tools of the server in one call, in order, stopping at the first that fails. |
+
+### class SequenceOptions
+
+How much one `run_tools` call may do and bring back.
+
+| Member | Summary |
+| --- | --- |
+| `SequenceOptions()` |  |
+| `int MaxSteps { get; set; }` | The most steps one call runs; twenty unless set. |
+| `int OutputBudget { get; set; }` | The characters of step answers one call brings back; fifty thousand unless set. |
+
+### class SkillAttribute
+
+Puts the tools of a class into a skill: listed to a session only once it loads the skill, found by `find_tool` always.
+
+| Member | Summary |
+| --- | --- |
+| `SkillAttribute(string name, string description)` | Puts the tools of a class into a skill: listed to a session only once it loads the skill, found by `find_tool` always. |
+| `string Description { get; }` | What the skill's tools are for. |
+| `string Name { get; }` | The skill's name, as `enable_skill` takes it. |
+
+### class SkillOptions
+
+How a server's skills are named and how long one stays loaded unused.
+
+| Member | Summary |
+| --- | --- |
+| `SkillOptions()` |  |
+| `TimeSpan IdleTimeout { get; set; }` | How long a skill stays loaded in a session that calls none of its tools; never unloaded when zero, as unless set. |
+| `string? Name { get; set; }` | The server's short name, which names the skill tools: `<name>_skills`, `<name>_enable_skill`, `<name>_disable_skill`. |
+
+### static class ToolCatalog
+
+Tools as entries discovery searches: read from the tools a server registers, never written a second time beside them.
+
+| Member | Summary |
+| --- | --- |
+| `IReadOnlyList<ToolEntry> Of(IEnumerable<McpServerTool> tools, Func<string, string?>? commandOf)` | The entries of the tools, in the order given, each with the command `commandOf` names for it. |
+| `IReadOnlyList<ToolEntry> Of(Type toolType, IServiceProvider? services = null, JsonSerializerOptions? json = null)` | The entries of the tools one class declares, built as the MCP SDK builds them and never invoked. |
+| `string? SkillOf(McpServerTool tool)` | The skill a tool belongs to: the name of the `SkillAttribute` on its class, or null. |
+
+### class ToolEntry
+
+A tool as discovery sees it: the name to call, what it does, the skill it arrives with, the command a program sends for it, and what it takes.
+
+| Member | Summary |
+| --- | --- |
+| `IReadOnlyList<ToolParameter> Parameters { get; init; }` | The parameters, in the order of the tool's input schema. |
+| `ToolEntry(string Name, string Description, string? Skill, string? Command, IReadOnlyList<ToolParameter> Parameters)` | A tool as discovery sees it: the name to call, what it does, the skill it arrives with, the command a program sends for it, and what it takes. |
+| `string Description { get; init; }` | The tool's description; empty when it has none. |
+| `string Name { get; init; }` | The tool's name as the protocol lists it. |
+| `string? Command { get; init; }` | What a sequence or a program of the server calls the tool, or null when it is not one of its commands. |
+| `string? Skill { get; init; }` | The skill that loads the tool, or null for a tool that is always listed. |
+
+### class ToolParameter
+
+One parameter of a tool as a caller fills it: its name, its JSON type, whether it must be sent, and what it means.
+
+| Member | Summary |
+| --- | --- |
+| `ToolParameter(string Name, string Type, bool IsRequired, string? Description)` | One parameter of a tool as a caller fills it: its name, its JSON type, whether it must be sent, and what it means. |
+| `bool IsRequired { get; init; }` | Whether a call without it is refused. |
+| `string Name { get; init; }` | The name the call sends, as the tool's input schema spells it. |
+| `string Type { get; init; }` | The JSON type of the value: `string`, `integer`, `number`, `boolean`, `array` or `object`. |
+| `string? Description { get; init; }` | What the model reads before filling it; null when the schema says nothing. |
+
 ## Snail.Sdk.Mcp.Hosting.Jobs
 
 ### class Job
@@ -284,10 +375,11 @@ How `RefuseWhatWasNotGranted` holds a session to its grant.
 
 | Member | Summary |
 | --- | --- |
-| `Func<string, string, CallToolResult>? Refusal { get; set; }` | The answer a refused call gets, from the tool's name and the words of the refusal; one text block with the words, marked an error, unless set. |
+| `Func<string, string, CallToolResult>? Refusal { get; set; }` | The answer a refused call gets, from the tool's name and the words of the refusal; the envelope of every answer, of type `NotGranted`, unless set. |
 | `GrantOptions()` |  |
 | `bool HidesWithheldTools { get; set; }` | Whether a tool the session may not call is left out of the list it is given; true unless set. |
 | `bool RequiresGrant { get; set; }` | Whether a session whose address names no tool is refused every tool, instead of being granted all of them. |
+| `const string NotGranted` | The type a refusal carries in the envelope. |
 
 ### interface ISessionAddress
 

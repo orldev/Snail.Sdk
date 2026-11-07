@@ -1,0 +1,267 @@
+using System.Collections.Concurrent;
+using System.ComponentModel;
+using System.IO.Pipelines;
+using System.Text.Json.Nodes;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using ModelContextProtocol;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
+using Snail.Sdk.Mcp.Hosting.Answers;
+using Snail.Sdk.Mcp.Testing;
+
+namespace Snail.Sdk.Mcp.Tests;
+
+/// <summary>A tool that throws, or answers a failure without flagging it, reaches the client as the failure envelope, flagged.</summary>
+public sealed class ToolFailuresTests
+{
+    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
+
+    [Fact]
+    public async Task Tool_ThatThrows_IsAnsweredWithTheEnvelope_FlaggedAsAnError()
+    {
+        await using var stand = await Stand.StartAsync();
+
+        var answer = await stand.Client.CallToolAsync("throws");
+
+        Assert.True(answer.IsError);
+        Assert.False(answer.IsOk());
+        Assert.Equal("The disk is full.", answer.Error());
+        Assert.Equal(ToolFailures.Hint, answer.Hint());
+        Assert.Equal("""{"ok":false,"error":"The disk is full.","hint":"The server failed inside, not because of the call; its log has the trace. Try once more, and if it fails the same way, report it instead of retrying.","type":"internal"}""", answer.Text());
+    }
+
+    [Fact]
+    public async Task Tool_ThatThrows_IsLoggedOnce_WithItsTrace()
+    {
+        await using var stand = await Stand.StartAsync();
+
+        await stand.Client.CallToolAsync("throws");
+
+        var logged = Assert.Single(stand.Logs.Entries, entry => entry.Level >= LogLevel.Warning);
+        Assert.Equal(typeof(ToolFailures).FullName, logged.Category);
+        Assert.Equal("throws failed inside the server", logged.Message);
+        Assert.IsType<InvalidOperationException>(logged.Failure);
+    }
+
+    [Fact]
+    public async Task Answer_ThatIsTheFailureEnvelope_ButNoError_IsFlagged()
+    {
+        await using var stand = await Stand.StartAsync();
+
+        var answer = await stand.Client.CallToolAsync("refuses");
+
+        Assert.True(answer.IsError);
+        Assert.Equal("""{"ok":false,"error":"No such file."}""", answer.Text());
+    }
+
+    [Fact]
+    public async Task Answer_ThatIsASuccess_StaysOne()
+    {
+        await using var stand = await Stand.StartAsync();
+
+        var answer = await stand.Client.CallToolAsync("answers");
+
+        Assert.NotEqual(true, answer.IsError);
+        Assert.True(answer.IsOk());
+    }
+
+    /// <summary>A cancellation the client did not ask for — a bridge that timed out — is a failure like any other.</summary>
+    [Fact]
+    public async Task Cancellation_ThatTheClientDidNotAskFor_IsAnswered()
+    {
+        await using var stand = await Stand.StartAsync();
+
+        var answer = await stand.Client.CallToolAsync("times_out");
+
+        Assert.True(answer.IsError);
+        Assert.Equal("The bridge did not answer within 30 s.", answer.Error());
+    }
+
+    /// <summary>
+    /// The call carries an id of the test's own and is cancelled by <c>notifications/cancelled</c> under it: the SDK's
+    /// client numbers a request without writing the number back, so cancelling its token alone tells the server nothing.
+    /// </summary>
+    [Fact]
+    public async Task Cancellation_ByTheClient_PassesThrough_AndIsNoFailure()
+    {
+        await using var stand = await Stand.StartAsync();
+        using var cancelling = new CancellationTokenSource();
+        var request = new JsonRpcRequest
+        {
+            Id = new RequestId($"call-{Guid.NewGuid():N}"),
+            Method = RequestMethods.ToolsCall,
+            Params = new JsonObject { ["name"] = "waits", ["arguments"] = new JsonObject() },
+        };
+
+        var call = stand.Client.SendRequestAsync(request, cancelling.Token);
+        await stand.Waiting.Started.Task.WaitAsync(Patience);
+        await stand.Client.SendNotificationAsync(NotificationMethods.CancelledNotification, new CancelledNotificationParams { RequestId = request.Id }, McpJsonUtilities.DefaultOptions, CancellationToken.None);
+        await cancelling.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => call);
+        await stand.Waiting.Cancelled.Task.WaitAsync(Patience);
+        await Task.Delay(200);
+        Assert.DoesNotContain(stand.Logs.Entries, entry => string.Equals(entry.Category, typeof(ToolFailures).FullName, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ProtocolError_ThatAToolThrows_StaysAProtocolError()
+    {
+        await using var stand = await Stand.StartAsync();
+
+        await Assert.ThrowsAsync<McpProtocolException>(() => stand.Client.CallToolAsync("protocol").AsTask());
+    }
+
+    /// <summary>The filter goes first whenever it is registered, so it sees what a filter registered before it throws.</summary>
+    [Fact]
+    public async Task Filter_RegisteredBeforeIt_ThatThrows_IsExplainedToo()
+    {
+        await using var stand = await Stand.StartAsync(isGuarded: true);
+
+        var answer = await stand.Client.CallToolAsync("answers");
+
+        Assert.True(answer.IsError);
+        Assert.Equal("The guard broke.", answer.Error());
+    }
+
+    [Fact]
+    public void ExplainFailures_CalledTwice_RegistersOnce()
+    {
+        var services = new ServiceCollection();
+        services.AddMcpServer().ExplainFailures().ExplainFailures();
+        using var provider = services.BuildServiceProvider();
+
+        var options = provider.GetRequiredService<IOptions<McpServerOptions>>().Value;
+
+        Assert.Single(options.Filters.Request.CallToolFilters);
+    }
+
+    /// <summary>The sample server: a host with the failing tools over a pair of pipes, its log collected, and the client connected to it.</summary>
+    private sealed class Stand : IAsyncDisposable
+    {
+        private Stand(IHost host, McpClient client)
+        {
+            Host = host;
+            Client = client;
+        }
+
+        public IHost Host { get; }
+
+        public McpClient Client { get; }
+
+        public Collected Logs => Host.Services.GetRequiredService<Collected>();
+
+        public Waiting Waiting => Host.Services.GetRequiredService<Waiting>();
+
+        public static async Task<Stand> StartAsync(bool isGuarded = false)
+        {
+            var toServer = new Pipe();
+            var toClient = new Pipe();
+            var builder = McpHost.CreateBuilder([]);
+            var logs = new Collected();
+
+            builder.Logging.AddProvider(logs);
+            builder.Services.AddSingleton(logs);
+            builder.Services.AddSingleton<Waiting>();
+
+            var server = builder.Services.AddMcpServer().WithStreamServerTransport(toServer.Reader.AsStream(), toClient.Writer.AsStream()).WithTools<FailingTools>();
+
+            if (isGuarded)
+                server.WithRequestFilters(filters => filters.AddCallToolFilter(Guard));
+
+            server.ExplainFailures();
+
+            var host = builder.Build();
+            await host.StartAsync();
+            var client = await McpClient.CreateAsync(new StreamClientTransport(toServer.Writer.AsStream(), toClient.Reader.AsStream()));
+
+            return new Stand(host, client);
+        }
+
+        /// <summary>A filter that breaks on every call.</summary>
+        private static McpRequestHandler<CallToolRequestParams, CallToolResult> Guard(McpRequestHandler<CallToolRequestParams, CallToolResult> _) =>
+            (_, _) => throw new InvalidOperationException("The guard broke.");
+
+        public async ValueTask DisposeAsync()
+        {
+            await Client.DisposeAsync();
+            await Host.StopAsync();
+            Host.Dispose();
+        }
+    }
+
+    /// <summary>Where the waiting tool says it started and that its call was cancelled.</summary>
+    public sealed class Waiting
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Cancelled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    /// <summary>Tools that fail every way a tool can.</summary>
+    [McpServerToolType]
+    public sealed class FailingTools(Waiting waiting)
+    {
+        [McpServerTool(Name = "throws"), Description("Throws.")]
+        public static string Throws() => throw new InvalidOperationException("The disk is full.");
+
+        [McpServerTool(Name = "refuses"), Description("Answers the failure envelope as a string.")]
+        public static string Refuses() => """{"ok":false,"error":"No such file."}""";
+
+        [McpServerTool(Name = "answers"), Description("Answers the success envelope as a string.")]
+        public static string Answers() => """{"ok":true,"data":1}""";
+
+        [McpServerTool(Name = "times_out"), Description("Throws a cancellation nobody asked for.")]
+        public static string TimesOut() => throw new TaskCanceledException("The bridge did not answer within 30 s.");
+
+        [McpServerTool(Name = "protocol"), Description("Throws a protocol error.")]
+        public static string Protocol() => throw new McpProtocolException("Bad argument.", McpErrorCode.InvalidParams);
+
+        [McpServerTool(Name = "waits"), Description("Waits until cancelled.")]
+        public async Task<string> WaitsAsync(CancellationToken cancellationToken)
+        {
+            waiting.Started.TrySetResult();
+
+            try
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                waiting.Cancelled.TrySetResult();
+                throw;
+            }
+
+            return "never";
+        }
+    }
+
+    /// <summary>One line of the server's log.</summary>
+    public sealed record Entry(string Category, LogLevel Level, string Message, Exception? Failure);
+
+    /// <summary>The server's log, kept for a test to read.</summary>
+    public sealed class Collected : ILoggerProvider
+    {
+        public ConcurrentQueue<Entry> Entries { get; } = new();
+
+        public ILogger CreateLogger(string categoryName) => new Collector(this, categoryName);
+
+        public void Dispose()
+        {
+        }
+
+        private sealed class Collector(Collected owner, string category) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+                owner.Entries.Enqueue(new Entry(category, logLevel, formatter(state, exception), exception));
+        }
+    }
+}

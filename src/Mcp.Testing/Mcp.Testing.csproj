@@ -23,6 +23,11 @@
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
   </ItemGroup>
 
+  <!-- JobReport is the server's: a test reads the job a tool answers with in the shape the server writes it. -->
+  <ItemGroup>
+    <ProjectReference Include="../Mcp.Hosting/Mcp.Hosting.csproj" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Snail.Sdk.Mcp.Tests" />
   </ItemGroup>

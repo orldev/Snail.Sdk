@@ -104,6 +104,12 @@ A change that a repository must act on says what to do.
 
 ### Changed
 
+- `dotnet new s3l-mcp` is written on the 0.5.0 API: its tools answer through `ToolAnswer` (the job through
+  `JobAnswer.Envelope`) beside `.ExplainFailures()`; over HTTP the host is `McpHttpHost.CreateBuilder(args,
+  McpEndpoint.Read(…))` — the container builder chosen by the endpoint, no longer by the template — with `MapHealth()`
+  and `.RefuseWhatWasNotGranted()` answering a refusal in the envelope; its HTTP contract waits for `/healthz` and
+  checks a session's `?tool=` grant, and its tests read answers with `IsOk`/`Data`/`Error`/`Report`. The Sdk tests
+  now build and test the sample job too (both transports, framework-dependent).
 - The folders are moved from the snail names by reading the settings: `AddServerSettings(name)` — and with it
   `ServerSettings.Read(name)`, `McpHost.CreateBuilder` and both HTTP builders of a program built on Snail.Sdk.Mcp —
   calls `ServerFolders.MoveFromSnailNames(name)` first, so a settings file left under the snail name is read by the

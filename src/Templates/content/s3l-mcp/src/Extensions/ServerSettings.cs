@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using Snail.Sdk.Mcp.Hosting;
 using Hosting = Snail.Sdk.Mcp.Hosting;
 
 namespace Snail.MCP.Template.Extensions;
@@ -13,13 +14,22 @@ public static class ServerSettings
     /// <summary>The server's short name: its command is s3l-mcp-tmplshort, its variables SNAIL_MCP_TMPLSHORT_.</summary>
     public const string Name = "tmplshort";
 
+    /// <summary>Where the HTTP endpoint listens unless Url (SNAIL_MCP_TMPLSHORT_URL) or Port says otherwise.</summary>
+    private static readonly Uri DefaultUrl = new("http://127.0.0.1:9300/");
+
     private static readonly IConfigurationRoot Read = Hosting.ServerSettings.Read(Name);
 
 #if (IsBoth)
-    /// <summary>Whether Transport (SNAIL_MCP_TMPLSHORT_TRANSPORT) asks for HTTP rather than stdio.</summary>
-    public static bool IsHttp => string.Equals(Read["Transport"], "http", StringComparison.OrdinalIgnoreCase);
-
+    /// <summary>
+    /// Where clients reach the server: stdio, or HTTP when Transport (SNAIL_MCP_TMPLSHORT_TRANSPORT) says Http or a
+    /// Port is set — on loopback, or on every interface inside a container (McpEndpoint.Read).
+    /// </summary>
+    public static McpEndpoint Endpoint => McpEndpoint.Read(Read, DefaultUrl);
+#else
+    /// <summary>
+    /// Where clients reach the server, which is always HTTP: Url (SNAIL_MCP_TMPLSHORT_URL) or a Port, on loopback, or on
+    /// every interface inside a container (McpEndpoint.Read).
+    /// </summary>
+    public static McpEndpoint Endpoint => McpEndpoint.Read(Read, DefaultUrl) with { Transport = McpTransport.Http };
 #endif
-    /// <summary>Where the HTTP endpoint listens: Url (SNAIL_MCP_TMPLSHORT_URL), a loopback address.</summary>
-    public static Uri Url => new(Read["Url"] ?? "http://127.0.0.1:9300/");
 }

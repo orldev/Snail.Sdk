@@ -13,5 +13,36 @@
       "readOnlyHint": true
     },
     "skill": null
+//#if (jobs)
+  },
+  {
+    "name": "tmplshort_work",
+    "description": "Count to a number, a step every tenth of a second, as a job: answers with the count when it ends within the wait, or with the running job to read as a resource.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "upTo": {
+          "description": "The number to count to, 1 to 600.",
+          "type": "integer"
+        },
+        "wait": {
+          "description": "Seconds to wait for the count before answering with the job in flight; 0 answers at once.",
+          "type": "integer",
+          "default": 60
+        }
+      },
+      "required": [
+        "upTo"
+      ]
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "skill": null
   }
+//#else
+  }
+//#endif
 ]

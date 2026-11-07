@@ -243,6 +243,29 @@
         }
       ]
     },
+    "**/docs/reference/schemas/tools.json": {
+      "operations": [
+        {
+          "type": "conditional",
+          "configuration": {
+            "actionableIf": [
+              "//#if"
+            ],
+            "actionableElse": [
+              "//#else"
+            ],
+            "actionableElseif": [
+              "//#elseif"
+            ],
+            "endif": [
+              "//#endif"
+            ],
+            "trim": "true",
+            "wholeLine": "true"
+          }
+        }
+      ]
+    },
     "**/docs/tools.json": {
       "operations": [
         {

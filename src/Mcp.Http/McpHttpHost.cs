@@ -87,9 +87,10 @@ public static class McpHttpHost
         /// server refuses it (-32022) rather than serving it without a session. Served that way, every window of Claude
         /// Code was one client called claude-code, and no server could learn a window's folder.
         /// </para>
+        /// <para>The session's address is read from each request (<c>WithSessionAddress</c>).</para>
         /// </remarks>
         public IMcpServerBuilder WithLocalHttpTransport() =>
-            builder.WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateful);
+            builder.WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateful).WithSessionAddress();
     }
 
     extension(WebApplication app)

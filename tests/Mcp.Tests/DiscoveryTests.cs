@@ -1,0 +1,669 @@
+using System.ComponentModel;
+using System.IO.Pipelines;
+using System.Text.Json.Nodes;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
+using Snail.Sdk.Mcp.Hosting.Answers;
+using Snail.Sdk.Mcp.Hosting.Discovery;
+using Snail.Sdk.Mcp.Hosting.Sessions;
+using Snail.Sdk.Mcp.Testing;
+
+namespace Snail.Sdk.Mcp.Tests;
+
+/// <summary>The catalog of a server's tools, read from the tools themselves.</summary>
+public sealed class ToolCatalogTests
+{
+    [Fact]
+    public void Catalog_OfAClass_HasEveryToolWithTheParametersOfItsSchema()
+    {
+        var entries = ToolCatalog.Of(typeof(FileSample));
+        var read = entries.Single(entry => entry.Name == "read_file");
+
+        Assert.Equal(["list_files", "read_file", "write_file", "fail_always", "big_answer"], entries.Select(entry => entry.Name));
+        Assert.Equal("Reads the text of a file.", read.Description);
+        Assert.Equal(new ToolParameter("path", "string", true, "The file's path."), read.Parameters[0]);
+        Assert.Equal(("timeoutSeconds", "integer", false), (read.Parameters[1].Name, read.Parameters[1].Type, read.Parameters[1].IsRequired));
+    }
+
+    [Fact]
+    public void Catalog_OfASkillsClass_NamesTheSkillOfEachTool()
+    {
+        var entries = ToolCatalog.Of(typeof(RenderSample));
+
+        Assert.All(entries, entry => Assert.Equal("render", entry.Skill));
+    }
+
+    /// <summary>A parameter the services fill is the SDK's, not the caller's, and stays out as it does on the wire.</summary>
+    [Fact]
+    public void Catalog_GivenTheServices_LeavesOutTheParametersTheyFill()
+    {
+        var services = new ServiceCollection().AddSingleton(new Writes()).BuildServiceProvider();
+
+        var write = ToolCatalog.Of(typeof(FileSample), services).Single(entry => entry.Name == "write_file");
+
+        Assert.Equal(["path", "text"], write.Parameters.Select(parameter => parameter.Name));
+    }
+
+    [Fact]
+    public void Catalog_OfRegisteredTools_NamesTheCommandTheServerGivesEach()
+    {
+        var services = new ServiceCollection().AddSingleton(new Writes()).BuildServiceProvider();
+        var declared = typeof(FileSample).GetMethods().Where(method => method.IsDefined(typeof(McpServerToolAttribute), false));
+        var tools = declared.Select(method => McpServerTool.Create(method, target: null, new McpServerToolCreateOptions { Services = services }));
+
+        var entries = ToolCatalog.Of(tools, name => name == "read_file" ? "read" : null);
+
+        Assert.Equal(["read"], entries.Select(entry => entry.Command).OfType<string>());
+    }
+}
+
+/// <summary>find_tool: which tools answer a task, ranked as the fleet ranks them, as far as the session may call them.</summary>
+public sealed class FindToolTests
+{
+    [Fact]
+    public async Task Task_InTheWordsOfATool_FindsItFirst()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var found = await stand.FindAsync(new() { ["task"] = "write a whole file" });
+
+        Assert.True(found["isMatched"]!.GetValue<bool>());
+        Assert.Equal("write_file", Names(found)[0]);
+        Assert.Null(found["note"]);
+    }
+
+    [Fact]
+    public async Task Answer_CarriesWhatEachToolTakes()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var found = await stand.FindAsync(new() { ["task"] = "read the text of a file" });
+        var path = found["tools"]![0]!["parameters"]![0]!;
+
+        Assert.Equal("read_file", Names(found)[0]);
+        Assert.Equal("""{"name":"path","type":"string","isRequired":true,"description":"The file's path."}""", path.ToJsonString(ToolAnswer.Wire));
+    }
+
+    [Fact]
+    public async Task Meanings_AreWordsAToolIsFoundBy_AsIfInItsName()
+    {
+        await using var stand = await DiscoveryStand.StartAsync(discovery: options => options.Meanings["write_file"] = "save store");
+
+        var found = await stand.FindAsync(new() { ["task"] = "save it" });
+
+        Assert.Equal("write_file", Names(found)[0]);
+    }
+
+    [Fact]
+    public async Task Noise_IsDroppedFromTheTask()
+    {
+        await using var heard = await DiscoveryStand.StartAsync();
+        await using var deaf = await DiscoveryStand.StartAsync(discovery: options => options.Noise.Add("scene"));
+
+        var matched = await heard.FindAsync(new() { ["task"] = "scene" });
+        var dropped = await deaf.FindAsync(new() { ["task"] = "scene" });
+
+        Assert.True(matched["isMatched"]!.GetValue<bool>());
+        Assert.False(dropped["isMatched"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void Prefix_IsDroppedFromTasksAndNames()
+    {
+        var vocabulary = new Vocabulary([], "git_");
+
+        Assert.Equal(["push"], vocabulary.Asked("git push"));
+        Assert.Equal(4.0, vocabulary.Score(["push"], "git_push", null, null));
+    }
+
+    [Fact]
+    public void Forms_OfAWord_ScoreBelowTheWordAndAboveTheDescription()
+    {
+        var vocabulary = new Vocabulary([], null);
+
+        Assert.Equal(2.5, vocabulary.Score(["staging"], "git_stage", null, null));
+        Assert.Equal(1.0, vocabulary.Score(["index"], "git_stage", null, "Adds paths to the index."));
+        Assert.Equal(0.0, vocabulary.Score(vocabulary.Asked("the"), "git_stage", null, "the"));
+    }
+
+    [Fact]
+    public async Task Task_ThatMatchesNothing_IsAnsweredWithEveryTool_AndANote()
+    {
+        await using var stand = await DiscoveryStand.StartAsync(skills: false);
+
+        var found = await stand.FindAsync(new() { ["task"] = "teleport a cat" });
+
+        Assert.False(found["isMatched"]!.GetValue<bool>());
+        Assert.Contains("nothing in this server's words matches", found["note"]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.Equal(stand.Listed.Count, Names(found).Count);
+    }
+
+    /// <summary>Blender's and AfterEffects' find_tool took intent, and their logs show clients sending task: either spelling is answered.</summary>
+    [Fact]
+    public async Task Intent_IsTakenForTask()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var found = await stand.FindAsync(new() { ["intent"] = "read the text of a file" });
+
+        Assert.Equal("read the text of a file", found["task"]!.GetValue<string>());
+        Assert.Equal("read_file", Names(found)[0]);
+    }
+
+    [Fact]
+    public async Task Tools_TheSessionMayNotCall_AreNotNamed()
+    {
+        await using var stand = await DiscoveryStand.StartAsync(new FixedAddress(("tool", "find_tool"), ("tool", "read_file")));
+
+        var found = await stand.FindAsync(new() { ["task"] = "teleport a cat" });
+
+        Assert.Equal(["find_tool", "read_file"], Names(found).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task Tool_OfASkill_IsFoundUnloaded_WithItsSkill()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var found = await stand.FindAsync(new() { ["task"] = "render a picture" });
+        var render = found["tools"]![0]!;
+
+        Assert.Equal("render_image", render["name"]!.GetValue<string>());
+        Assert.Equal("render", render["skill"]!.GetValue<string>());
+        Assert.False(render["isLoaded"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public async Task Enable_LoadsTheSkillsOfTheToolsFound_AndTheyAreListed()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var found = await stand.FindAsync(new() { ["task"] = "render a picture", ["enable"] = true });
+        var listed = await stand.Client.ListToolsAsync();
+
+        Assert.Equal(["render"], found["enabledSkills"]!.AsArray().Select(skill => skill!.GetValue<string>()));
+        Assert.True(found["tools"]![0]!["isLoaded"]!.GetValue<bool>());
+        Assert.Contains(listed, tool => tool.Name == "render_image");
+    }
+
+    [Fact]
+    public async Task Server_WithoutSkills_OffersNoEnable_AndAnswersNoSkillFields()
+    {
+        await using var stand = await DiscoveryStand.StartAsync(skills: false);
+
+        var find = (await stand.Client.ListToolsAsync()).Single(tool => tool.Name == "find_tool");
+        var found = await stand.FindAsync(new() { ["task"] = "read a file" });
+
+        Assert.False(find.ProtocolTool.InputSchema.GetProperty("properties").TryGetProperty("enable", out _));
+        Assert.Null(found["tools"]![0]!["isLoaded"]);
+    }
+
+    private static List<string> Names(JsonNode found) => [.. found["tools"]!.AsArray().Select(tool => tool!["name"]!.GetValue<string>())];
+}
+
+/// <summary>run_tools: several tools in one call, held to the grant through ToolForwarding, inside a budget.</summary>
+public sealed class RunToolsTests
+{
+    [Fact]
+    public async Task Steps_RunInOrder_EachAnswerUnwrappedFromItsEnvelope()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var ran = await stand.RunAsync(Step("list_files"), Step("read_file", new JsonObject { ["path"] = "a.txt" }));
+        var data = ran.Data()!;
+
+        Assert.True(ran.IsOk());
+        Assert.Equal(2, data["ran"]!.GetValue<int>());
+        Assert.Equal("""{"tool":"list_files","ok":true,"data":{"files":["a.txt","b.txt"]}}""", data["steps"]![0]!.ToJsonString());
+        Assert.Equal("text of a.txt", data["steps"]![1]!["data"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Run_StopsAtTheFirstStepThatFails_WithItsErrorAndHint()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var ran = await stand.RunAsync(Step("list_files"), Step("fail_always"), Step("write_file", new JsonObject { ["path"] = "a", ["text"] = "x" }));
+
+        Assert.True(ran.IsError);
+        Assert.Equal("step 2 of 3 (fail_always) failed: it always fails", ran.Error());
+        Assert.Equal("do not call it", ran.Hint());
+        Assert.Equal(2, ran.Data()!["ran"]!.GetValue<int>());
+        Assert.Equal(0, stand.Writes.Count);
+    }
+
+    /// <summary>A role granted run_tools reached every tool of three servers through it; the step is held to the grant by ToolForwarding.</summary>
+    [Fact]
+    public async Task Step_TheSessionWasNotGranted_IsRefused_AndNeverRuns()
+    {
+        await using var stand = await DiscoveryStand.StartAsync(new FixedAddress(("tool", "run_tools"), ("tool", "list_files")));
+
+        var ran = await stand.RunAsync(Step("write_file", new JsonObject { ["path"] = "a", ["text"] = "x" }));
+
+        Assert.True(ran.IsError);
+        Assert.Contains("'write_file' was not granted to this session", ran.Error(), StringComparison.Ordinal);
+        Assert.Equal(0, stand.Writes.Count);
+    }
+
+    [Fact]
+    public async Task Step_ThatRunsOtherTools_IsRefused()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var ran = await stand.RunAsync(Step("run_tools", new JsonObject { ["steps"] = new JsonArray() }));
+
+        Assert.True(ran.IsError);
+        Assert.Contains("'run_tools' runs other tools itself", ran.Error(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Answer_PastTheBudget_IsLeftOut_AndItsStepFlagged()
+    {
+        await using var stand = await DiscoveryStand.StartAsync(sequences: options => options.OutputBudget = 100);
+
+        var ran = await stand.RunAsync(Step("big_answer"), Step("list_files"));
+        var data = ran.Data()!;
+
+        Assert.True(ran.IsOk());
+        Assert.True(data["steps"]![0]!["isOmitted"]!.GetValue<bool>());
+        Assert.NotNull(data["steps"]![1]!["data"]);
+        Assert.Equal(1, data["omitted"]!.GetValue<int>());
+        Assert.Contains("call those tools on their own", data["note"]!.GetValue<string>(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Run_LongerThanTheLimit_IsRefused()
+    {
+        await using var stand = await DiscoveryStand.StartAsync(sequences: options => options.MaxSteps = 1);
+
+        var ran = await stand.RunAsync(Step("list_files"), Step("list_files"));
+
+        Assert.Equal("a run takes at most 1 steps, not 2", ran.Error());
+    }
+
+    [Fact]
+    public async Task Step_NamingNoTool_IsRefused_WithTheNearestName()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var ran = await stand.RunAsync(Step("read_fil"));
+
+        Assert.Equal("step 1 of 1 (read_fil) failed: this server has no tool 'read_fil'", ran.Error());
+        Assert.StartsWith("did you mean 'read_file'", ran.Hint(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Step_WithAnArgumentItsToolDoesNotTake_IsRefused_AsADirectCallWouldBe()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var ran = await stand.RunAsync(Step("read_file", new JsonObject { ["pth"] = "a" }));
+
+        Assert.Contains("takes no 'pth' (did you mean 'path'?)", ran.Error(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Step_OfASkillNotLoaded_RunsWithoutLoadingIt()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var ran = await stand.RunAsync(Step("render_image"));
+        var listed = await stand.Client.ListToolsAsync();
+
+        Assert.True(ran.IsOk());
+        Assert.DoesNotContain(listed, tool => tool.Name == "render_image");
+    }
+
+    private static JsonObject Step(string tool, JsonObject? arguments = null) =>
+        arguments is null ? new JsonObject { ["tool"] = tool } : new JsonObject { ["tool"] = tool, ["arguments"] = arguments };
+}
+
+/// <summary>The argument check: a call that does not fit its tool's schema is refused, naming what it meant.</summary>
+/// <remarks>The cases are the ones Snail.MCP.Blender's logs held: each was answered with "An error occurred invoking" and cost a round trip.</remarks>
+public sealed class ArgumentCheckTests
+{
+    [Fact]
+    public async Task ShortFormOfAParameter_IsRefused_WithTheParameterAsTheGuess()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var refused = await stand.Client.CallToolAsync("read_file", new Dictionary<string, object?> { ["path"] = "a", ["timeout"] = 5 });
+
+        Assert.True(refused.IsError);
+        Assert.Equal("'read_file' takes no 'timeout' (did you mean 'timeoutSeconds'?).", refused.Error());
+        Assert.Equal("'read_file' takes path (required), timeoutSeconds.", refused.Hint());
+        Assert.Contains("\"type\":\"arguments\"", refused.Text(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task MissingRequiredParameter_IsNamed()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var refused = await stand.Client.CallToolAsync("write_file", new Dictionary<string, object?> { ["text"] = "x" });
+
+        Assert.Equal("'write_file' needs 'path', which this call did not send.", refused.Error());
+        Assert.Equal(0, stand.Writes.Count);
+    }
+
+    [Fact]
+    public async Task WordLikeNothingTheToolTakes_IsRefused_WithoutAGuess()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var refused = await stand.Client.CallToolAsync("read_file", new Dictionary<string, object?> { ["path"] = "a", ["wildfire"] = 1 });
+
+        Assert.Equal("'read_file' takes no 'wildfire'.", refused.Error());
+    }
+
+    [Fact]
+    public async Task CallThatFitsTheSchema_PassesThrough()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var read = await stand.Client.CallToolAsync("read_file", new Dictionary<string, object?> { ["path"] = "a", ["timeoutSeconds"] = 5 });
+
+        Assert.True(read.IsOk());
+    }
+
+    [Theory]
+    [InlineData("path", "remotePath")]
+    [InlineData("timeout", "timeoutSeconds")]
+    [InlineData("colour", "color")]
+    [InlineData("tsak", "task")]
+    public void Nearest_FindsWhatAMistakenNameMeant(string sent, string meant)
+    {
+        Assert.Equal(meant, ArgumentCheck.Nearest(sent, ["remotePath", "timeoutSeconds", "color", "task", "limit"]).First());
+    }
+
+    [Fact]
+    public void Nearest_OfAnUnrelatedWord_IsNothing()
+    {
+        Assert.Empty(ArgumentCheck.Nearest("wildfire", ["intent", "limit", "enable"]));
+    }
+}
+
+/// <summary>Skills: loaded per session on demand, unloaded when idle.</summary>
+public sealed class SkillsTests
+{
+    [Fact]
+    public async Task List_LeavesOutTheToolsOfASkillNotLoaded()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var listed = await stand.Client.ListToolsAsync();
+
+        Assert.DoesNotContain(listed, tool => tool.Name is "render_image" or "bake_texture");
+        Assert.Contains(listed, tool => tool.Name == "sample_skills");
+        Assert.Contains(listed, tool => tool.Name == "sample_enable_skill");
+        Assert.Contains(listed, tool => tool.Name == "sample_disable_skill");
+    }
+
+    [Fact]
+    public async Task Enable_ListsTheSkillsTools_AndTellsTheClient_Disable_TakesThemAway()
+    {
+        await using var stand = await DiscoveryStand.StartAsync(protocolVersion: "2025-11-25");
+
+        var enabled = await stand.Client.CallToolAsync("sample_enable_skill", new Dictionary<string, object?> { ["name"] = "Render" });
+        await stand.Changed.WaitAsync(DiscoveryStand.Patience);
+        var withSkill = await stand.Client.ListToolsAsync();
+        await stand.Client.CallToolAsync("sample_disable_skill", new Dictionary<string, object?> { ["name"] = "render" });
+        var without = await stand.Client.ListToolsAsync();
+
+        Assert.True(enabled.Data()!["isLoaded"]!.GetValue<bool>());
+        Assert.Equal(["render_image", "bake_texture"], enabled.Data()!["tools"]!.AsArray().Select(tool => tool!.GetValue<string>()));
+        Assert.Contains(withSkill, tool => tool.Name == "render_image");
+        Assert.DoesNotContain(without, tool => tool.Name == "render_image");
+    }
+
+    [Fact]
+    public async Task Skills_AreListedWithWhetherEachIsLoaded()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var before = await stand.Client.CallToolAsync("sample_skills");
+        await stand.Client.CallToolAsync("sample_enable_skill", new Dictionary<string, object?> { ["name"] = "render" });
+        var after = await stand.Client.CallToolAsync("sample_skills");
+
+        Assert.Equal("""{"skills":[{"name":"render","description":"Rendering pictures of the scene.","isLoaded":false,"tools":["render_image","bake_texture"]}]}""", before.Data()!.ToJsonString());
+        Assert.True(after.Data()!["skills"]![0]!["isLoaded"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public async Task UnknownSkill_IsRefused_NamingTheSkillsThereAre()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var refused = await stand.Client.CallToolAsync("sample_enable_skill", new Dictionary<string, object?> { ["name"] = "physics" });
+
+        Assert.True(refused.IsError);
+        Assert.Equal("this server has no skill 'physics'", refused.Error());
+        Assert.Equal("its skills are render", refused.Hint());
+    }
+
+    [Fact]
+    public async Task Call_ToAToolOfASkillNotLoaded_LoadsIt()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var rendered = await stand.Client.CallToolAsync("render_image");
+        var listed = await stand.Client.ListToolsAsync();
+
+        Assert.True(rendered.IsOk());
+        Assert.Contains(listed, tool => tool.Name == "render_image");
+    }
+
+    [Fact]
+    public async Task Skill_UnusedForTheIdleTimeout_IsUnloaded_AndTheClientTold()
+    {
+        await using var stand = await DiscoveryStand.StartAsync(idle: TimeSpan.FromMinutes(10), protocolVersion: "2025-11-25");
+
+        await stand.Client.CallToolAsync("sample_enable_skill", new Dictionary<string, object?> { ["name"] = "render" });
+        await stand.Changed.WaitAsync(DiscoveryStand.Patience);
+        stand.ForgetChanges();
+        stand.Clock.Advance(TimeSpan.FromMinutes(11));
+        stand.Expiry.Sweep();
+        await stand.Changed.WaitAsync(DiscoveryStand.Patience);
+        var listed = await stand.Client.ListToolsAsync();
+
+        Assert.DoesNotContain(listed, tool => tool.Name == "render_image");
+    }
+
+    [Fact]
+    public async Task Skill_InUse_StaysLoadedPastTheIdleTimeout()
+    {
+        await using var stand = await DiscoveryStand.StartAsync(idle: TimeSpan.FromMinutes(10));
+
+        await stand.Client.CallToolAsync("sample_enable_skill", new Dictionary<string, object?> { ["name"] = "render" });
+        stand.Clock.Advance(TimeSpan.FromMinutes(6));
+        await stand.Client.CallToolAsync("render_image");
+        stand.Clock.Advance(TimeSpan.FromMinutes(6));
+        stand.Expiry.Sweep();
+        var listed = await stand.Client.ListToolsAsync();
+
+        Assert.Contains(listed, tool => tool.Name == "render_image");
+    }
+
+    [Fact]
+    public async Task Server_SaysItTellsOfAChangeToItsTools()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        Assert.True(stand.Client.ServerCapabilities.Tools?.ListChanged);
+    }
+
+    [Fact]
+    public async Task ToolsDiscoveryAdds_KeepTheGuardRules()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+        string[] added = ["find_tool", "run_tools", "sample_skills", "sample_enable_skill", "sample_disable_skill"];
+
+        var listed = await stand.Client.ListToolsAsync();
+
+        Assert.Empty(ToolGuards.Problems(listed.Where(tool => added.Contains(tool.Name)).Select(tool => tool.ProtocolTool)));
+    }
+}
+
+/// <summary>A server of sample tools with discovery, sequences, the argument check and skills, over a pair of pipes.</summary>
+internal sealed class DiscoveryStand : IAsyncDisposable
+{
+    public static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
+
+    private readonly IAsyncDisposable _listening;
+
+    private TaskCompletionSource _changed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    private DiscoveryStand(IHost host, McpClient client, Writes writes, ManualClock clock, IList<McpClientTool> listed)
+    {
+        Host = host;
+        Client = client;
+        Writes = writes;
+        Clock = clock;
+        Listed = listed;
+        _listening = client.RegisterNotificationHandler(NotificationMethods.ToolListChangedNotification, (_, _) =>
+        {
+            _changed.TrySetResult();
+
+            return ValueTask.CompletedTask;
+        });
+    }
+
+    public IHost Host { get; }
+
+    public McpClient Client { get; }
+
+    public Writes Writes { get; }
+
+    public ManualClock Clock { get; }
+
+    /// <summary>The tools listed when the client connected.</summary>
+    public IList<McpClientTool> Listed { get; }
+
+    /// <summary>Completes when the client is told its tool list changed.</summary>
+    public Task Changed => _changed.Task;
+
+    internal SkillExpiry Expiry => Host.Services.GetServices<IHostedService>().OfType<SkillExpiry>().Single();
+
+    public static async Task<DiscoveryStand> StartAsync(
+        ISessionAddress? address = null,
+        bool skills = true,
+        Action<DiscoveryOptions>? discovery = null,
+        Action<SequenceOptions>? sequences = null,
+        TimeSpan idle = default,
+        string? protocolVersion = null)
+    {
+        var toServer = new Pipe();
+        var toClient = new Pipe();
+        var writes = new Writes();
+        var clock = new ManualClock();
+        var builder = McpHost.CreateBuilder([]);
+
+        builder.Services.AddSingleton(writes);
+        builder.Services.AddSingleton<TimeProvider>(clock);
+
+        if (address is not null)
+            builder.Services.AddSingleton(address);
+
+        var server = builder.Services.AddMcpServer()
+            .WithStreamServerTransport(toServer.Reader.AsStream(), toClient.Writer.AsStream())
+            .RefuseWhatWasNotGranted()
+            .WithArgumentCheck()
+            .WithToolDiscovery(discovery)
+            .WithToolSequences(sequences)
+            .WithTools<FileSample>()
+            .WithTools<RenderSample>();
+
+        if (skills)
+            server.WithSkills(options => (options.Name, options.IdleTimeout) = ("sample", idle));
+
+        var host = builder.Build();
+        await host.StartAsync();
+        var client = await McpClient.CreateAsync(new StreamClientTransport(toServer.Writer.AsStream(), toClient.Reader.AsStream()), new McpClientOptions { ProtocolVersion = protocolVersion });
+        var listed = await client.ListToolsAsync();
+
+        return new DiscoveryStand(host, client, writes, clock, listed);
+    }
+
+    /// <summary>The data of find_tool's answer to these arguments.</summary>
+    public async Task<JsonNode> FindAsync(Dictionary<string, object?> arguments)
+    {
+        var found = await Client.CallToolAsync("find_tool", arguments);
+
+        Assert.True(found.IsOk(), found.Text());
+
+        return found.Data()!;
+    }
+
+    public async Task<CallToolResult> RunAsync(params JsonObject[] steps) =>
+        await Client.CallToolAsync("run_tools", new Dictionary<string, object?> { ["steps"] = new JsonArray([.. steps]) });
+
+    /// <summary>Waits for the next change rather than one already told.</summary>
+    public void ForgetChanges() => _changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public async ValueTask DisposeAsync()
+    {
+        await _listening.DisposeAsync();
+        await Client.DisposeAsync();
+        await Host.StopAsync();
+        Host.Dispose();
+    }
+}
+
+/// <summary>A clock a test moves by hand.</summary>
+internal sealed class ManualClock : TimeProvider
+{
+    private DateTimeOffset _now = new(2026, 11, 8, 12, 0, 0, TimeSpan.Zero);
+
+    public override DateTimeOffset GetUtcNow() => _now;
+
+    public void Advance(TimeSpan by) => _now += by;
+}
+
+/// <summary>What the sample tools wrote, for a test to see.</summary>
+internal sealed class Writes
+{
+    private int _count;
+
+    public int Count => _count;
+
+    public void Add() => Interlocked.Increment(ref _count);
+}
+
+[McpServerToolType]
+internal sealed class FileSample
+{
+    [McpServerTool(Name = "list_files", ReadOnly = true), Description("Lists the files of the folder.")]
+    public static CallToolResult ListFiles() => ToolAnswer.Ok(new JsonObject { ["files"] = new JsonArray("a.txt", "b.txt") });
+
+    [McpServerTool(Name = "read_file", ReadOnly = true), Description("Reads the text of a file.")]
+    public static CallToolResult ReadFile([Description("The file's path.")] string path, [Description("How long to wait.")] int timeoutSeconds = 30) =>
+        ToolAnswer.Ok(JsonValue.Create($"text of {path}"));
+
+    [McpServerTool(Name = "write_file", Destructive = true), Description("Writes a whole file.")]
+    public static CallToolResult WriteFile(Writes writes, [Description("The file's path.")] string path, [Description("What to write.")] string text)
+    {
+        writes.Add();
+
+        return ToolAnswer.Ok(new JsonObject { ["written"] = path });
+    }
+
+    [McpServerTool(Name = "fail_always", ReadOnly = true), Description("Fails.")]
+    public static CallToolResult FailAlways() => ToolAnswer.Failed("it always fails", "do not call it");
+
+    [McpServerTool(Name = "big_answer", ReadOnly = true), Description("Answers at length.")]
+    public static CallToolResult BigAnswer() => ToolAnswer.Ok(JsonValue.Create(new string('x', 500)));
+}
+
+[McpServerToolType]
+[Skill("render", "Rendering pictures of the scene.")]
+internal sealed class RenderSample
+{
+    [McpServerTool(Name = "render_image", ReadOnly = true), Description("Renders a picture of the scene.")]
+    public static CallToolResult RenderImage([Description("Width in pixels.")] int width = 640) => ToolAnswer.Ok(new JsonObject { ["width"] = width });
+
+    [McpServerTool(Name = "bake_texture", Destructive = false), Description("Bakes the texture of a material.")]
+    public static CallToolResult BakeTexture() => ToolAnswer.Ok(new JsonObject { ["baked"] = true });
+}

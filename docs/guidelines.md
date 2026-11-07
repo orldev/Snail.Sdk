@@ -147,6 +147,11 @@ strictly as code.
   something else stands is named in `SnailStatusToolsBecause` with its reason — and no description that
   says "poll" or "call again": a model made a timer spends a turn on every look. Progress within the call stays
   `IProgress<ProgressNotificationValue>`. (S3LC0032; `ToolGuards` names a description that tells the model to poll)
+- **The ways in come from the SDK.** `find_tool`, `run_tools`, the argument check and skills are
+  `.WithToolDiscovery()`, `.WithToolSequences()`, `.WithArgumentCheck()` and `.WithSkills()` of `Snail.Sdk.Mcp.Hosting`;
+  a server keeps no tool index, vocabulary, step runner or skill catalog of its own, and gives its words to
+  `DiscoveryOptions.Meanings`. A server whose steps are commands rather than tools (Snail.MCP.Git) keeps its runner and
+  asks `ToolForwarding.Refusal` for each step.
 - **Settings** come from the server's settings file and then its own prefixed variables, `SNAIL_MCP_<SHORT>_…`, which
   win — `ServerSettings.Read(name)` before a host exists, the same sources in every host `McpHost` and `McpHttpHost`
   build; no server keeps a lookup chain of its own. A secret goes into the file, never into a job or a registration.

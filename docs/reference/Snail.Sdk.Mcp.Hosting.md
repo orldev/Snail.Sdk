@@ -164,3 +164,130 @@ Puts a server's jobs on the protocol: a resource per job, subscriptions to it, a
 | --- | --- |
 | `IMcpServerBuilder WithJobs(this IMcpServerBuilder builder, string server)` | The jobs of the server named `server`: `Jobs` for its tools to start work on, each job readable at `job://<server>/<kind>/<id>`, every change sent to the sessions subscribed to it, and the server's running jobs cancelled when the host stops. |
 | `IMcpServerBuilder WithJobs(this IMcpServerBuilder builder, string server, Func<IServiceProvider, string?>? ownerOf)` | The jobs of the server named `server`, each read and watched only by a client of its owner: `ownerOf` names the owner of a request from the services it is served with, and a job started with an owner (`Start1`) is unknown to a request of another one. |
+
+## Snail.Sdk.Mcp.Hosting.Sessions
+
+### class ForwardsAttribute
+
+Marks a tool that calls other tools of its server — `run_tools`, `run_program` — so that no forwarder runs it.
+
+| Member | Summary |
+| --- | --- |
+| `ForwardsAttribute()` |  |
+
+### class GrantOptions
+
+How `RefuseWhatWasNotGranted` holds a session to its grant.
+
+| Member | Summary |
+| --- | --- |
+| `Func<string, string, CallToolResult>? Refusal { get; set; }` | The answer a refused call gets, from the tool's name and the words of the refusal; one text block with the words, marked an error, unless set. |
+| `GrantOptions()` |  |
+| `bool HidesWithheldTools { get; set; }` | Whether a tool the session may not call is left out of the list it is given; true unless set. |
+| `bool RequiresGrant { get; set; }` | Whether a session whose address names no tool is refused every tool, instead of being granted all of them. |
+
+### interface ISessionAddress
+
+What the address the session was opened at says: `…/mcp?root=/workspaces/task&tool=read_file`.
+
+| Member | Summary |
+| --- | --- |
+| `IReadOnlyList<string> Values(string parameter)` | Every value the address gives the parameter, empty when it gives none or there is no address. |
+| `bool IsPresent { get; }` | Whether the session was opened at an address at all: false for a server started as a program. |
+
+### interface IToolGate
+
+Whether a session may call a tool: the one question the door and every forwarder ask.
+
+| Member | Summary |
+| --- | --- |
+| `string? Refusal(string tool, IServiceProvider services)` | Why the session served with `services` may not call the tool, or null when it may. |
+
+### class Reached
+
+A path as a session may use it, or why it may not.
+
+| Member | Summary |
+| --- | --- |
+| `Reached No(string refusal, string? hint = null)` | A refusal, with what the caller can do about it. |
+| `Reached Yes(string path)` | The path, allowed. |
+| `Reached(string? Path, string? Refusal, string? Hint)` | A path as a session may use it, or why it may not. |
+| `bool IsAllowed { get; }` | Whether the session may use the path; `Path` is then the one to use. |
+| `string? Hint { get; init; }` | What to do instead, when there is something. |
+| `string? Path { get; init; }` | The path with every link on it followed, when the session may use it. |
+| `string? Refusal { get; init; }` | Why it may not, in words the caller can act on. |
+
+### static class RealPath
+
+Where a path really leads, every link on the way followed.
+
+| Member | Summary |
+| --- | --- |
+| `const int MostLinks` | How many links a walk follows before it gives up: Linux's own limit, `MAXSYMLINKS`. |
+| `string? Of(string path, int maxLinks = 40)` | The path with every link on it followed, or null when it cannot be: more than `maxLinks` links, or one that may not be read. |
+
+### class SessionGrant
+
+Which tools this session may use, read from the address it was opened at.
+
+| Member | Summary |
+| --- | --- |
+| `IReadOnlyList<string> All { get; }` | The tools this session named, trimmed and each once; empty when it named none. |
+| `SessionGrant(ISessionAddress address)` | Which tools this session may use, read from the address it was opened at. |
+| `bool Allows(string tool)` | Whether this session may call the tool: every tool when it named none. |
+| `const string Parameter` | What the address calls a tool it grants; repeated for each one. |
+| `string Refusal(string tool)` | The refusal, in the words a caller needs to stop asking. |
+
+### static class SessionRegistration
+
+Puts a session's address to work: the tools it was granted held at the door, and the roots it works in.
+
+| Member | Summary |
+| --- | --- |
+| `IMcpServerBuilder RefuseWhatWasNotGranted(this IMcpServerBuilder builder, Action<GrantOptions>? configure = null)` | Refuses a call to a tool the session may not use (`IToolGate`, by default `SessionGrant`), and leaves such a tool out of the list the session is given. |
+| `IMcpServerBuilder WithSessionRoots(this IMcpServerBuilder builder, Func<IServiceProvider, IReadOnlyList<string>> volumes)` | `SessionRoots` for the tools: the roots the session's address names inside the `volumes` the server was configured with, or those volumes when it names none. |
+
+### class SessionRoots
+
+The folders this session works in, read from the address it was opened at, and whether a path lies in them.
+
+| Member | Summary |
+| --- | --- |
+| `IReadOnlyList<string> Absent { get; }` | Of the roots the address named, the ones this machine has no folder for. |
+| `IReadOnlyList<string> All { get; }` | The roots this session works in: the ones it named inside the volumes, or the volumes when it named none. |
+| `IReadOnlyList<string> Named { get; }` | The roots the address named, as full paths, each once. |
+| `IReadOnlyList<string> Outside { get; }` | Of the roots the address named, the ones outside every volume; none when no volume was configured. |
+| `Reached Reach(string? path)` | The path as the session may use it — absolute, or relative to the first root, every link followed — or why it may not. |
+| `SessionRoots(ISessionAddress address, IReadOnlyList<string> volumes)` | The folders this session works in, read from the address it was opened at, and whether a path lies in them. |
+| `bool IsAbsent { get; }` | Whether the address named a root this machine does not have. |
+| `bool IsOutside { get; }` | Whether the address named a root outside every volume. |
+| `const string Parameter` | What the address calls a root it hands over; repeated for more than one. |
+| `string Relative(string path)` | The path as the caller should name it again: relative to the first root when it lies under it, whole otherwise. |
+
+### static class ToolForwarding
+
+The one way a tool calls another tool of its server: held to the session's grant, and never one forwarder inside another.
+
+| Member | Summary |
+| --- | --- |
+| `ValueTask<CallToolResult> CallAsync(RequestContext<CallToolRequestParams> context, McpServerTool tool, JsonObject? arguments, CancellationToken cancellationToken)` | Runs `tool` as the protocol would — the same request, its services and session, the arguments bound by the tool's own schema — when the session may call it; the refusal, in the server's shape, otherwise. |
+| `bool IsForwarder(McpServerTool tool)` | Whether the tool calls other tools itself: it carries `ForwardsAttribute`. |
+| `string? Refusal(RequestContext<CallToolRequestParams> context, string tool)` | Why the session of `context` may not call `tool`, or null when it may. |
+
+### static class WorkspaceCopy
+
+The task a session's working copy belongs to, read from where the copy lies under the workspaces folder.
+
+| Member | Summary |
+| --- | --- |
+| `WorkspacePlace? Of(string? root, string workspaces, Func<string, bool> isTaskId)` | The copy `root` names strictly under `workspaces`, or null when it names none there. |
+
+### class WorkspacePlace
+
+A working copy under the workspaces folder, and the task it belongs to.
+
+| Member | Summary |
+| --- | --- |
+| `WorkspacePlace(string Task, string Path)` | A working copy under the workspaces folder, and the task it belongs to. |
+| `string Path { get; init; }` | The copy itself: `/workspaces/<task>/step-3`. |
+| `string Task { get; init; }` | The task, as the copy's first folder under the workspaces folder names it. |

@@ -13,6 +13,7 @@ Contract tests of a Snail MCP server, over stdio, against the build a client run
   process with that id and start runs, so a cleaner removes it without guessing. Tests take their temporary folders
   from it rather than from `Directory.CreateTempSubdirectory()` or a random name under `Path.GetTempPath()`.
 - `answer.Text()`: the text of a tool's answer.
+- `FixedAddress`: a session's address for a test, `new FixedAddress(("tool", "read_file"), ("root", "/w/task"))`.
 - `ToolGuards.Problems(tools)`: every guard rule the listed tools break — snake-case unique names, descriptions in
   English for the tool and every parameter, the effect stated, every allowed value named.
 

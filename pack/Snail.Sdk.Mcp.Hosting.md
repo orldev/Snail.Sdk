@@ -16,6 +16,11 @@ What every Snail MCP server starts from:
   `~/.config/s3l-mcp-<name>`.
 - `ServerIdentity.Of(assembly)`: the name and version the server announces in `initialize`.
 - `Invocation.Stable(path)`: the path of the running program that outlives an update of it.
+- `Snail.Sdk.Mcp.Hosting.Sessions`: what a session's address (`?tool=`, `?root=`) grants it.
+  `.RefuseWhatWasNotGranted()` refuses and hides a tool the session was not granted (`SessionGrant`, or a gate of the
+  server's own, `IToolGate`); `ToolForwarding.CallAsync` is how a `[Forwards]` tool such as `run_tools` calls a step,
+  held to the same grant; `SessionRoots` and `RealPath` say whether a path lies in the session's roots with every link
+  followed; `WorkspaceCopy.Of` names the task a working copy belongs to.
 
 A server built on [Snail.Sdk.Mcp](https://www.nuget.org/packages/Snail.Sdk.Mcp) references it implicitly.
 

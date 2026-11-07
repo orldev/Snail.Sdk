@@ -290,6 +290,24 @@ And for the server project (no kind):
   garbage in generation 2, which an idle server never collects: Snail.MCP.CleanUp sat at 244 MB after a census, 72 MB
   with the trim, for a pause of about 50 ms. `SNAIL_MCP_IDLE_TRIM` sets the period in seconds and 0 turns it off
   ([installing](installing.md#the-idle-trim)).
+- An orphaned stdio process ended, when the server asks for it: `AddIdleShutdown(after, isBusy)` stops a server that
+  has heard no MCP message for `after` — a client that died without closing the server's stdin leaves it waiting for
+  ever otherwise — unless `isBusy` says it is at work no message shows (a plugin's bridge connected). Any MCP message
+  counts, as for the trim; a server shared over HTTP is never stopped. The period is the server's own setting, and
+  `TimeSpan.Zero` turns the shutdown off ([installing](installing.md#the-idle-shutdown)).
+- Where a server answers, read in one call: `McpEndpoint.Read(settings, defaultUrl)` takes either of the two ways the
+  servers say it — `Transport` with `Url`, or a `Port` alone — and opens the port on every interface inside a container
+  (`DOTNET_RUNNING_IN_CONTAINER`) or when told to, loopback anywhere else; `McpHttpHost.CreateBuilder(args, endpoint)`
+  builds the host it names ([installing](installing.md#where-a-server-answers)). `MapHealth()` maps `/healthz`, 200
+  with no body, for a container's healthcheck.
+- A secret of the server's own — a signing key, a token its plugin presents — through `ServerSecret.ReadOrCreate(file)`
+  (`ReadOrCreateHex` for one read as text): made once, readable by its owner alone from its first byte, appearing only
+  whole, the same for every process that starts at once, and never replaced — a file of another length is refused, not
+  written over. `ServerSecret.Matches` compares in constant time.
+- The folders moved from the snail names by reading the settings: `AddServerSettings(name)`, and with it
+  `ServerSettings.Read`, `McpHost.CreateBuilder` and the HTTP builders, calls `ServerFolders.MoveFromSnailNames` first,
+  so a server no longer calls it in its `Program.cs`. A path in a setting goes through `ServerFolders.ExpandHome`,
+  which makes a leading `~` the user's home.
 - A publication carries the program, not its debug symbols or XML docs.
 - `Snail.Sdk.Mcp.Hosting` implicitly, `Snail.Sdk.Mcp.Http` with HTTP; a test project on `Snail.Sdk.Mcp` gets
   `Snail.Sdk.Mcp.Testing` and `Snail.Sdk.Mcp.JobClient` instead.

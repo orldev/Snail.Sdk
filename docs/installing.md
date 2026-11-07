@@ -152,6 +152,34 @@ restarting; set in the shell, it applies to every server started from it. Each t
 and after and the pause at debug level, which the stderr lines of `UseStderr`, from information up, leave out: it shows
 in a logger that writes debug.
 
+## The idle shutdown
+
+A server started over stdio lives as long as its client — unless the client dies without closing the server's stdin,
+when the server would wait for a message that never comes. A server built with `AddIdleShutdown` stops once it has
+heard no MCP message for a period of its own choosing, unless it says it is busy: Snail.MCP.Figma stays while its
+plugin is connected. Any MCP message counts — a call, a listing, a ping — and a server shared over HTTP is never
+stopped, whatever the period. The period is the server's setting, named in its README: Snail.MCP.Figma and Snail.MCP.Memory
+stop after 60 minutes, Snail.MCP.Blender and Snail.MCP.AfterEffects only when theirs is set, and `0` turns it off. The
+stop is one line on stderr, at information.
+
+## Where a server answers
+
+A server of both transports reads where it answers from its own settings (`McpEndpoint` of `Snail.Sdk.Mcp.Hosting`),
+in either of two ways:
+
+| Setting | Variable | Means |
+| --- | --- | --- |
+| `Transport` | `SNAIL_MCP_<SHORT>_TRANSPORT` | `Stdio` (the default) or `Http` |
+| `Url` | `SNAIL_MCP_<SHORT>_URL` (or `_HTTP__URL`) | where HTTP listens; the server's default address when not set |
+| `Port` | `SNAIL_MCP_<SHORT>_PORT` | above zero: HTTP on that port, even without `Transport`; it replaces the port of the URL |
+| `ListensOnEveryInterface` | `SNAIL_MCP_<SHORT>_LISTENS_ON_EVERY_INTERFACE` | `true` opens the port on every interface rather than loopback |
+
+A `Transport` that is set decides, even beside a `Port`. The port is opened on every interface when the flag says so,
+when the URL names `0.0.0.0` or `[::]`, and inside a container — the .NET images set `DOTNET_RUNNING_IN_CONTAINER=true` —
+since a container's published port does not reach its loopback; anywhere else it stays on loopback, because the endpoint
+asks for no key. A value a setting cannot mean — `Transport=Htpp`, a port that is not a number — stops the server at
+its start with a line that names it.
+
 ## Checking an installed server
 
 The contract tests start the server through `Snail.Sdk.Mcp.Testing`: the dll beside the tests by default, or the program

@@ -1,1 +1,5 @@
 #nullable enable
+const Snail.Sdk.Mcp.Http.McpHttpHost.DefaultHealthPath = "/healthz" -> string!
+Snail.Sdk.Mcp.Http.McpHttpHost.extension(Microsoft.AspNetCore.Builder.WebApplication!).MapHealth(string! path = "/healthz") -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
+static Snail.Sdk.Mcp.Http.McpHttpHost.CreateBuilder(string![]! args, Snail.Sdk.Mcp.Hosting.McpEndpoint! endpoint) -> Microsoft.AspNetCore.Builder.WebApplicationBuilder!
+static Snail.Sdk.Mcp.Http.McpHttpHost.MapHealth(this Microsoft.AspNetCore.Builder.WebApplication! app, string! path = "/healthz") -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!

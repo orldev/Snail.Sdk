@@ -26,6 +26,7 @@ public sealed class McpHttpHostTests : IAsyncLifetime
 
         _app = builder.Build();
         _app.MapLocalMcp();
+        _app.MapHealth();
 
         await _app.StartAsync();
     }
@@ -50,6 +51,19 @@ public sealed class McpHttpHostTests : IAsyncLifetime
         using var response = await http.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>A container's healthcheck asks without an <c>Origin</c>, and hears 200 with nothing more to read.</summary>
+    [Fact]
+    public async Task TheHealthCheck_Answers200WithNoBody()
+    {
+        using var http = new HttpClient();
+
+        using var response = await http.GetAsync(new Uri(_url, McpHttpHost.DefaultHealthPath));
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty(body);
     }
 
     /// <summary>The sessionless revision is refused in the way that makes a client of two revisions fall back to initialize, and with it to a session.</summary>

@@ -52,6 +52,36 @@ A change that a repository must act on says what to do.
 - `Snail.Sdk.Mcp.Testing` reads the envelope: `answer.IsOk()`, `Data()`, `Error()`, `Hint()` and `Report()` (the job's
   report in the structured content), failing with the text when it is not the envelope. A test that parsed the text
   itself (`ReportOf`, its own `Ok`/`Data` readers) uses these. The package now depends on `Snail.Sdk.Mcp.Hosting`.
+- `AddIdleShutdown(after, isBusy)` of `Snail.Sdk.Mcp.Hosting`: a stdio server that has heard no MCP message for
+  `after` stops, unless `isBusy` says it is at work no message shows. For the process a client started and then lost
+  without closing its stdin, which waited for ever. Any MCP message counts, over the filter the idle trim counts with —
+  the watchers Snail.MCP.Blender, AfterEffects, Figma and Memory kept of their own counted `tools/call` alone, so a
+  client that only pings now keeps the server up. A server served over HTTP is never stopped, so a program of both
+  transports registers it alike. `TimeSpan.Zero` turns it off; the period and its default stay the server's setting.
+  A server drops its `IdleShutdownWatcher`, `IActivityTracker` and their registration for one call.
+- `McpEndpoint.Read(settings, defaultUrl)` and `McpTransport`: where a server answers, from either of the two ways the
+  fleet says it — `Transport` with `Url` (or `Http:Url`), or a `Port` alone — on every interface inside a container
+  (`DOTNET_RUNNING_IN_CONTAINER=true`), with `ListensOnEveryInterface`, or at `0.0.0.0`, on loopback anywhere else. A
+  value a key cannot mean is refused at the start, naming it. `McpHttpHost.CreateBuilder(args, endpoint)` builds the
+  host it names, loopback or the container's. A server drops its `McpServerHost` choice and its `Transport` enum.
+- `McpHttpHost.MapHealth(path = "/healthz")`: 200 with no body, for a container's healthcheck, which the servers in
+  images mapped by hand.
+- `ServerSecret` of `Snail.Sdk.Mcp.Hosting`: `ReadOrCreate(file, length)` keeps a secret in the server's data folder —
+  readable by its owner alone from its first byte, written to a draft and moved into place whole, made by one process
+  at a time under a lock beside it so every server starting at once agrees on one, and never replaced: a file of
+  another length is refused with its name. `ReadOrCreateHex` keeps it as hex text, for a token another program reads
+  (Snail.MCP.Figma's `bridge.token`, Snail.MCP.AfterEffects' bridge). `Matches` compares in constant time. A move
+  "without overwrite" alone does not guard the race on Unix, where .NET looks for the target and then renames over it.
+- `ServerFolders.Home`, now public, and `ServerFolders.ExpandHome(path)` / `ExpandHome(path, fallback)`: a leading `~`
+  or `~/` made the user's home; a missing path is the fallback. The servers kept copies of their own in nine places.
+
+### Changed
+
+- The folders are moved from the snail names by reading the settings: `AddServerSettings(name)` — and with it
+  `ServerSettings.Read(name)`, `McpHost.CreateBuilder` and both HTTP builders of a program built on Snail.Sdk.Mcp —
+  calls `ServerFolders.MoveFromSnailNames(name)` first, so a settings file left under the snail name is read by the
+  start that moves it. A server may drop its own `ServerFolders.MoveFromSnailNames` call from `Program.cs`; one that
+  keeps it moves nothing more.
 
 ## [0.4.2] - 2026-11-06
 

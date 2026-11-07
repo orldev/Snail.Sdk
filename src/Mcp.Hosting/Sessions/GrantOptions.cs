@@ -1,4 +1,5 @@
 using ModelContextProtocol.Protocol;
+using Snail.Sdk.Mcp.Hosting.Answers;
 
 namespace Snail.Sdk.Mcp.Hosting.Sessions;
 
@@ -21,15 +22,24 @@ public sealed class GrantOptions
     /// </remarks>
     public bool RequiresGrant { get; set; }
 
-    /// <summary>The answer a refused call gets, from the tool's name and the words of the refusal; one text block with the words, marked an error, unless set.</summary>
-    /// <remarks>The default is the shape eight of nine fleet copies answered with; a server whose every answer is an envelope of its own shapes its refusal the same way.</remarks>
+    /// <summary>The type a refusal carries in the envelope.</summary>
+    public const string NotGranted = "notGranted";
+
+    /// <summary>The answer a refused call gets, from the tool's name and the words of the refusal; the envelope of every answer, of type <see cref="NotGranted"/>, unless set.</summary>
+    /// <remarks>
+    /// Eight of nine fleet copies answered with the words alone; the first server written on 0.5.0 — the s3l-mcp template
+    /// — wrote the same lambda to put them in the envelope its every other answer is, and so would every server after it.
+    /// A server whose answers have another shape sets its own.
+    /// </remarks>
     public Func<string, string, CallToolResult>? Refusal { get; set; }
 
     /// <summary>The refusal of a call to <paramref name="tool"/>, shaped as the server asked.</summary>
     internal CallToolResult Refused(string tool, string words) =>
-        Refusal?.Invoke(tool, words) ?? Plain(words);
+        Refusal?.Invoke(tool, words) ?? Envelope(words);
 
-    /// <summary>One text block with the words, marked an error.</summary>
-    internal static CallToolResult Plain(string words) =>
-        new() { IsError = true, Content = [new TextContentBlock { Text = words }] };
+    /// <summary>The words in the envelope, marked an error.</summary>
+    internal static CallToolResult Envelope(string words) =>
+        ToolAnswer.Failed(words, GrantHint, NotGranted);
+
+    private const string GrantHint = "Use a tool this session was granted; a tool beyond them comes with a role the platform grants it to.";
 }

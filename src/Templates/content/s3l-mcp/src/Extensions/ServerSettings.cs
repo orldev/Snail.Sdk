@@ -30,6 +30,6 @@ public static class ServerSettings
     /// Where clients reach the server, which is always HTTP: Url (SNAIL_MCP_TMPLSHORT_URL) or a Port, on loopback, or on
     /// every interface inside a container (McpEndpoint.Read).
     /// </summary>
-    public static McpEndpoint Endpoint => McpEndpoint.Read(Read, DefaultUrl) with { Transport = McpTransport.Http };
+    public static McpEndpoint Endpoint => McpEndpoint.Read(Read, DefaultUrl, McpTransport.Http);
 #endif
 }

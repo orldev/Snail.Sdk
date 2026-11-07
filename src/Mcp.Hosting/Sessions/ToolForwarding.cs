@@ -49,7 +49,7 @@ public static class ToolForwarding
         var refusal = Nested(context, tool) ?? Refusal(context, name);
 
         if (refusal is not null)
-            return SessionRegistration.ServicesOf(context)?.GetService<GrantOptions>()?.Refused(name, refusal) ?? GrantOptions.Plain(refusal);
+            return SessionRegistration.ServicesOf(context)?.GetService<GrantOptions>()?.Refused(name, refusal) ?? GrantOptions.Envelope(refusal);
 
         Forwarded.Value = name;
 

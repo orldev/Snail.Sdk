@@ -48,7 +48,9 @@ A change that a repository must act on says what to do.
   (Snail.MCP.Documents' `ExplainFailures`, Snail.MCP.Figma's `FlagFailures`) calls this instead.
 - `JobAnswer.Envelope(report, beside)`: a job in the envelope — the report as the text's data, with the fields of
   `beside` added there, and the report alone as the structured content a client of `Snail.Sdk.Mcp.JobClient` reads.
-  Replaces `ToolResponse.Job(report)` of Snail.MCP.Security, BuildBridge, AfterEffects and Blender.
+  Replaces `ToolResponse.Job(report)` of Snail.MCP.Security, BuildBridge, AfterEffects and Blender. A job that failed or
+  was cancelled within the wait answers as a failure (`ok` false, type `failed` or `cancelled`, flagged an error) and
+  still carries its report, so a model does not read a failed job as work done.
 - `Snail.Sdk.Mcp.Testing` reads the envelope: `answer.IsOk()`, `Data()`, `Error()`, `Hint()` and `Report()` (the job's
   report in the structured content), failing with the text when it is not the envelope. A test that parsed the text
   itself (`ReportOf`, its own `Ok`/`Data` readers) uses these. The package now depends on `Snail.Sdk.Mcp.Hosting`.
@@ -59,11 +61,13 @@ A change that a repository must act on says what to do.
   client that only pings now keeps the server up. A server served over HTTP is never stopped, so a program of both
   transports registers it alike. `TimeSpan.Zero` turns it off; the period and its default stay the server's setting.
   A server drops its `IdleShutdownWatcher`, `IActivityTracker` and their registration for one call.
-- `McpEndpoint.Read(settings, defaultUrl)` and `McpTransport`: where a server answers, from either of the two ways the
+- `McpEndpoint.Read(settings, defaultUrl, defaultTransport)` and `McpTransport`: where a server answers, from either of the two ways the
   fleet says it — `Transport` with `Url` (or `Http:Url`), or a `Port` alone — on every interface inside a container
   (`DOTNET_RUNNING_IN_CONTAINER=true`), with `ListensOnEveryInterface`, or at `0.0.0.0`, on loopback anywhere else. A
   value a key cannot mean is refused at the start, naming it. `McpHttpHost.CreateBuilder(args, endpoint)` builds the
-  host it names, loopback or the container's. A server drops its `McpServerHost` choice and its `Transport` enum.
+  host it names, loopback or the container's. A server drops its `McpServerHost` choice and its `Transport` enum. A
+  server that answers only over HTTP passes `McpTransport.Http` as the default, which settings naming no transport and
+  no port get.
 - `McpHttpHost.MapHealth(path = "/healthz")`: 200 with no body, for a container's healthcheck, which the servers in
   images mapped by hand.
 - `ServerSecret` of `Snail.Sdk.Mcp.Hosting`: `ReadOrCreate(file, length)` keeps a secret in the server's data folder —
@@ -79,8 +83,9 @@ A change that a repository must act on says what to do.
   granted `run_tools` reach every tool they had, because their copies held at the door and nowhere else. A server that
   keeps one of those deletes it and its `ISessionAddress`, `HttpAddress` and `StdioAddress`, and takes these instead:
   - `.RefuseWhatWasNotGranted()` beside `AddMcpServer`: a call to a tool the address (`?tool=`) did not name is refused
-    in the fleet's words, and the tool is left out of the list (`GrantOptions.HidesWithheldTools`, true). A server whose
-    answers are an envelope of its own shapes the refusal with `GrantOptions.Refusal`; one that must never serve a session
+    in the fleet's words — in the answer envelope, type `notGranted` (`GrantOptions.NotGranted`) — and the tool is left
+    out of the list (`GrantOptions.HidesWithheldTools`, true). A server whose answers have another shape sets
+    `GrantOptions.Refusal`; one that must never serve a session
     without a grant sets `GrantOptions.RequiresGrant` (HTTP only: a program over stdio names no tool). A server with
     scopes of its own — Snail.MCP.AfterEffects, Blender — registers an `IToolGate`, which the door asks instead.
   - A forwarder — `run_tools`, `run_program` — carries `[Forwards]` and calls each step through

@@ -213,6 +213,24 @@ public sealed class ToolAnswerTests
         Assert.Equal(report, answer.Report());
     }
 
+    /// <summary>A job that failed within the wait used to answer ok, which a model reads as the work done.</summary>
+    [Theory]
+    [InlineData(JobState.Failed, "disk full", "disk full", "failed")]
+    [InlineData(JobState.Failed, null, "The job failed.", "failed")]
+    [InlineData(JobState.Cancelled, "step 3", "The job was cancelled before it ended.", "cancelled")]
+    public void Envelope_OfAJobThatDidNotSucceed_IsAFailure_ThatStillCarriesTheReport(JobState state, string? message, string error, string type)
+    {
+        var report = new JobReport("job://sample/echo/1", state, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, null, message, null);
+
+        var answer = JobAnswer.Envelope(report);
+
+        Assert.True(answer.IsError);
+        Assert.False(answer.IsOk());
+        Assert.Equal(error, answer.Error());
+        Assert.Contains($"\"type\":\"{type}\"", answer.Text(), StringComparison.Ordinal);
+        Assert.Equal(report, answer.Report());
+    }
+
     public enum Stage
     {
         Queued,

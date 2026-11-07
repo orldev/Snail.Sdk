@@ -32,8 +32,17 @@ public static class JobAnswer
     /// <param name="report">The job as it stands: ended within the wait, or still running.</param>
     /// <param name="beside">Fields the tool adds to the data of the text — a note, where to look next; a field of the report's own name replaces it there.</param>
     /// <remarks>
+    /// <para>
     /// The structured content stays the report alone, whatever goes beside it, since that is what a client of
     /// <c>Snail.Sdk.Mcp.JobClient</c> reads. Snail.MCP.Security, BuildBridge, AfterEffects and Blender each wrote this by hand.
+    /// </para>
+    /// <para>
+    /// A job that failed or was cancelled within the wait answers as a failure — <c>ok</c> false, its message as the
+    /// error, <c>failed</c> or <c>cancelled</c> as the type, the report still the data — and flagged an error. It answered
+    /// <c>ok</c> true at first, and a model reads that as the work having been done (the s3l-mcp template, 0.5.0). Unlike
+    /// other failures it keeps the report as its structured content: a job's tool has no output schema to break, and
+    /// the job client finds the report nowhere else. A running job is no failure: it answers as a success with its URI.
+    /// </para>
     /// </remarks>
     public static CallToolResult Envelope(JobReport report, JsonObject? beside = null)
     {
@@ -44,9 +53,19 @@ public static class JobAnswer
         foreach (var (name, value) in beside ?? [])
             data[name] = value?.DeepClone();
 
-        var answer = ToolAnswer.Ok(data, AnswerShape.None);
+        var answer = report.State switch
+        {
+            JobState.Failed => ToolAnswer.Failed(report.Message ?? JobFailed, type: "failed", data: data),
+            JobState.Cancelled => ToolAnswer.Failed(JobCancelled, type: "cancelled", data: data),
+            _ => ToolAnswer.Ok(data, AnswerShape.None)
+        };
+
         answer.StructuredContent = JsonSerializer.SerializeToElement(report, JobJson.Default.JobReport);
 
         return answer;
     }
+
+    private const string JobFailed = "The job failed.";
+
+    private const string JobCancelled = "The job was cancelled before it ended.";
 }

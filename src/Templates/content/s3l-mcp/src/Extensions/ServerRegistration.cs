@@ -2,14 +2,8 @@ using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Server;
 using Snail.MCP.Template.Tools;
 using Snail.Sdk.Mcp.Hosting;
-#if (UsesHttp)
-using Snail.Sdk.Mcp.Hosting.Answers;
-#endif
 #if (jobs)
 using Snail.Sdk.Mcp.Hosting.Jobs;
-#endif
-#if (UsesHttp)
-using Snail.Sdk.Mcp.Hosting.Sessions;
 #endif
 
 namespace Snail.MCP.Template.Extensions;
@@ -26,12 +20,6 @@ public static class ServerRegistration
         server.ServerInfo = ServerIdentity.Of(typeof(ServerRegistration).Assembly);
         server.ServerInstructions = Instructions;
     }
-#if (UsesHttp)
-
-    /// <summary>A call to a tool the session's address did not grant is refused in the envelope every answer of the server is.</summary>
-    public static void Grant(GrantOptions grant) =>
-        grant.Refusal = (_, words) => ToolAnswer.Failed(words, "Use the tools this session lists; another needs a session opened with it granted.", "not_granted");
-#endif
 
     extension(IMcpServerBuilder builder)
     {

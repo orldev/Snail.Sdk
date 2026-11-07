@@ -56,7 +56,7 @@ public sealed class SessionGrantTests
         var granted = await stand.Client.CallToolAsync("read_note");
 
         Assert.True(refused.IsError);
-        Assert.Equal("'write_note' was not granted to this session, which may use read_note", refused.Text());
+        Assert.Equal("'write_note' was not granted to this session, which may use read_note", refused.Error());
         Assert.Equal(0, stand.Notes.Written);
         Assert.Equal("the note", granted.Text());
     }
@@ -104,7 +104,7 @@ public sealed class SessionGrantTests
         var listed = await stand.Client.ListToolsAsync();
 
         Assert.True(refused.IsError);
-        Assert.StartsWith("'read_note' was not granted to this session, which was granted no tool", refused.Text(), StringComparison.Ordinal);
+        Assert.StartsWith("'read_note' was not granted to this session, which was granted no tool", refused.Error(), StringComparison.Ordinal);
         Assert.Empty(listed);
     }
 
@@ -139,7 +139,7 @@ public sealed class SessionGrantTests
 
         var refused = await stand.Client.CallToolAsync("write_note", new Dictionary<string, object?> { ["text"] = "x" });
 
-        Assert.Equal("this session only reads", refused.Text());
+        Assert.Equal("this session only reads", refused.Error());
     }
 
     private sealed class ReadOnlyGate : IToolGate
@@ -171,7 +171,7 @@ public sealed class ToolForwardingTests
         var refused = await stand.Client.CallToolAsync("run_tools", new Dictionary<string, object?> { ["step"] = "write_note", ["text"] = "x" });
 
         Assert.True(refused.IsError);
-        Assert.Equal("'write_note' was not granted to this session, which may use read_note, run_tools", refused.Text());
+        Assert.Equal("'write_note' was not granted to this session, which may use read_note, run_tools", refused.Error());
         Assert.Equal(0, stand.Notes.Written);
     }
 
@@ -183,7 +183,7 @@ public sealed class ToolForwardingTests
         var refused = await stand.Client.CallToolAsync("run_tools", new Dictionary<string, object?> { ["step"] = "run_program" });
 
         Assert.True(refused.IsError);
-        Assert.Equal("'run_program' runs other tools itself, so 'run_tools' does not run it", refused.Text());
+        Assert.Equal("'run_program' runs other tools itself, so 'run_tools' does not run it", refused.Error());
     }
 
     /// <summary>A step that forwards without saying so is caught at its first call, so a forgotten mark does not open the hole.</summary>
@@ -194,7 +194,7 @@ public sealed class ToolForwardingTests
 
         var refused = await stand.Client.CallToolAsync("run_tools", new Dictionary<string, object?> { ["step"] = "relay" });
 
-        Assert.Equal("'relay' was itself run by a forwarder, and a step runs no other tool", refused.Text());
+        Assert.Equal("'relay' was itself run by a forwarder, and a step runs no other tool", refused.Error());
     }
 
     [Fact]

@@ -25,7 +25,7 @@ public static class HttpServerHost
         builder.Services.AddMcpServer(ServerRegistration.Describe)
             .ExplainFailures()
             .WithLocalHttpTransport()
-            .RefuseWhatWasNotGranted(ServerRegistration.Grant)
+            .RefuseWhatWasNotGranted()
             .WithServerTools();
 
         var app = builder.Build();

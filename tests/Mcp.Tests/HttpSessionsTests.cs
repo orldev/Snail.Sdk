@@ -37,7 +37,7 @@ public sealed class HttpSessionsTests
         var refused = await client.CallToolAsync("read_note");
 
         Assert.Equal(["address"], listed.Select(tool => tool.Name));
-        Assert.Equal("'read_note' was not granted to this session, which may use address", refused.Text());
+        Assert.Equal("'read_note' was not granted to this session, which may use address", refused.Error());
     }
 
     [Fact]

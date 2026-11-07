@@ -362,10 +362,12 @@ never the moving `sdk:10.0`, which would one day bring a band the build refuses.
 AOT — `clang` and `zlib1g-dev` in the build stage — for the platform the image is built for, `linux-x64` or
 `linux-arm64` from buildx's `TARGETARCH`, since ahead-of-time compilation does not cross architectures in the SDK image,
 onto `mcr.microsoft.com/dotnet/runtime-deps:10.0`: no .NET runtime in the image, a smaller image and a faster start. Any other server publishes framework-dependent onto
-`mcr.microsoft.com/dotnet/aspnet:10.0`. Both run as the image's `app` user. `McpHttpHost.CreateBuilder` listens on loopback only,
-which a container's published port does not reach, so a server that serves HTTP from an image builds its host with
-`McpHttpHost.CreateContainerBuilder(args, port)`: the port on every interface, the published port the boundary, and
-everything else the same — the settings, stderr, the idle trim, the refusal of a browser's request by `MapLocalMcp`. A
+`mcr.microsoft.com/dotnet/aspnet:10.0`. Both run as the image's `app` user. Loopback, where a server listens elsewhere,
+is out of reach of a container's published port, so a server builds its host from where its settings say it answers —
+`McpHttpHost.CreateBuilder(args, McpEndpoint.Read(settings, defaultUrl))` — and inside an image (the .NET images set
+`DOTNET_RUNNING_IN_CONTAINER`) the endpoint opens its port on every interface, the published port the boundary;
+`McpHttpHost.CreateContainerBuilder(args, port)` is the same host asked for directly. Everything else stays the same —
+the settings, stderr, the idle trim, the refusal of a browser's request by `MapLocalMcp`. A
 host of the server's own loses that refusal (Snail.MCP.Documents, 2026-10-16: a request with `Origin` was answered 200).
 
 Images go to GitHub's registry only, `ghcr.io/<owner>/s3l-<short>-mcp`: the run's own token signs in, the image sits

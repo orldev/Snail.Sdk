@@ -99,6 +99,20 @@ public sealed class McpEndpointTests
         Assert.Equal(listensOnEveryInterface, endpoint.ListensOnEveryInterface);
     }
 
+    /// <summary>A server that answers only over HTTP says so once, and a transport or a port in its settings still decides.</summary>
+    [Theory]
+    [InlineData(null, null, McpTransport.Http)]
+    [InlineData("Stdio", null, McpTransport.Stdio)]
+    [InlineData(null, "9400", McpTransport.Http)]
+    public void Read_SettingsThatNameNoTransport_TakeTheDefaultTransport(string? transport, string? port, McpTransport expected)
+    {
+        var settings = Settings(new() { ["Transport"] = transport, ["Port"] = port });
+
+        var endpoint = McpEndpoint.Read(settings, Default, containerVariable: null, McpTransport.Http);
+
+        Assert.Equal(expected, endpoint.Transport);
+    }
+
     [Theory]
     [InlineData("Transport", "carrier pigeon")]
     [InlineData("Transport", "2")]

@@ -29,13 +29,18 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// (<c>DOTNET_RUNNING_IN_CONTAINER=true</c>): a container's published port does not reach its loopback, and the
     /// published port is the boundary. Anywhere else it stays on loopback, since the endpoint asks for no key.
     /// </para>
+    /// <para>
+    /// Settings that name neither a transport nor a port get <paramref name="defaultTransport"/>: stdio for a server that
+    /// answers both ways, HTTP for one that answers only over HTTP — which, without it, came out a stdio endpoint no HTTP
+    /// builder could take, and had to say <c>with { Transport = McpTransport.Http }</c> (the s3l-mcp template, 0.5.0).
+    /// </para>
     /// </remarks>
     /// <exception cref="InvalidOperationException">A key holds what it cannot mean: a transport not named above, a URL that is not an absolute http one, a port or a flag that is not one.</exception>
-    public static McpEndpoint Read(IConfiguration settings, Uri defaultUrl) =>
-        Read(settings, defaultUrl, Environment.GetEnvironmentVariable(ContainerVariable));
+    public static McpEndpoint Read(IConfiguration settings, Uri defaultUrl, McpTransport defaultTransport = McpTransport.Stdio) =>
+        Read(settings, defaultUrl, Environment.GetEnvironmentVariable(ContainerVariable), defaultTransport);
 
     /// <summary>The endpoint the settings ask for, with the container variable as given.</summary>
-    internal static McpEndpoint Read(IConfiguration settings, Uri defaultUrl, string? containerVariable)
+    internal static McpEndpoint Read(IConfiguration settings, Uri defaultUrl, string? containerVariable, McpTransport defaultTransport = McpTransport.Stdio)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(defaultUrl);
@@ -47,11 +52,11 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
         if (port > 0)
             url = new UriBuilder(url) { Port = port }.Uri;
 
-        var isHttp = transport is McpTransport.Http || (transport is null && port > 0);
+        var chosen = transport ?? (port > 0 ? McpTransport.Http : defaultTransport);
         var isInContainer = string.Equals(containerVariable?.Trim(), "true", StringComparison.OrdinalIgnoreCase);
         var listensOnEveryInterface = IsTrue(settings["ListensOnEveryInterface"]) || isInContainer || IsUnspecified(url);
 
-        return new McpEndpoint(isHttp ? McpTransport.Http : McpTransport.Stdio, url, listensOnEveryInterface);
+        return new McpEndpoint(chosen, url, listensOnEveryInterface);
     }
 
     private static McpTransport? TransportOf(string? value)

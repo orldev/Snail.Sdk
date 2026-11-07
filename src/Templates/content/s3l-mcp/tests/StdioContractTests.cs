@@ -39,7 +39,8 @@ public sealed class StdioContractTests
 
         var answer = await client.CallToolAsync("tmplshort_diagnose", new Dictionary<string, object?>());
 
-        Assert.Contains(Assembly, answer.Text(), StringComparison.Ordinal);
+        Assert.True(answer.IsOk(), answer.Text());
+        Assert.Equal(Assembly, answer.Data()!["server"]!.GetValue<string>());
     }
 #if (jobs)
 
@@ -62,9 +63,11 @@ public sealed class StdioContractTests
         await using var client = await ServerProgram.StartAsync(Assembly, Variable);
 
         var started = await client.CallToolAsync("tmplshort_work", new Dictionary<string, object?> { ["upTo"] = 5, ["wait"] = 0 });
-        var running = JobReport.FromJson(started.Text());
+        var running = started.Report();
         var read = await client.ReadJobAsync(running!.Uri);
 
+        Assert.True(started.IsOk(), started.Text());
+        Assert.Equal(running.Uri, started.Data()!["uri"]!.GetValue<string>());
         Assert.StartsWith("job://tmplshort/work/", running.Uri, StringComparison.Ordinal);
         Assert.Equal(running.Uri, read.Uri);
     }

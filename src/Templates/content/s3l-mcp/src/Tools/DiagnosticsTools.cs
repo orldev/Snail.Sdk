@@ -2,10 +2,16 @@ using System.ComponentModel;
 using System.Text.Json.Nodes;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using Snail.Sdk.Mcp.Hosting.Answers;
 
 namespace Snail.MCP.Template.Tools;
 
 /// <summary>The state of the server: the sample tool a new server starts from.</summary>
+/// <remarks>
+/// Every tool answers through ToolAnswer: <c>{"ok":true,"data":…}</c>, or <c>{"ok":false,"error":…,"hint":…}</c> flagged
+/// isError. A failure the tool foresees is <c>ToolAnswer.Failed</c>; one it does not is an exception, which
+/// <c>ExplainFailures</c> answers in the same envelope.
+/// </remarks>
 [McpServerToolType]
 public sealed class DiagnosticsTools
 {
@@ -17,12 +23,11 @@ public sealed class DiagnosticsTools
         var assembly = typeof(DiagnosticsTools).Assembly.GetName();
         var state = new JsonObject
         {
-            ["ok"] = true,
             ["server"] = assembly.Name,
             ["version"] = assembly.Version?.ToString(3),
             ["runtime"] = Environment.Version.ToString()
         };
 
-        return new CallToolResult { Content = [new TextContentBlock { Text = state.ToJsonString() }] };
+        return ToolAnswer.Ok(state);
     }
 }

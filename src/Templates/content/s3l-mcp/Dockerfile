@@ -15,8 +15,10 @@
 #   docker build -t s3l-tmplshort-mcp:local --build-arg VERSION=0.0.0-local.$(git rev-parse --short HEAD) .
 #
 #if (UsesHttp)
-# Over HTTP the server listens on every interface of the container (McpHttpHost.CreateContainerBuilder, on the port of
-# SNAIL_MCP_TMPLSHORT_URL): the published port is the boundary, and a browser's request is still refused.
+# Over HTTP the server listens on every interface of the container, on the port of SNAIL_MCP_TMPLSHORT_URL (or
+# SNAIL_MCP_TMPLSHORT_PORT): McpEndpoint.Read reads DOTNET_RUNNING_IN_CONTAINER, which the .NET images set. The published
+# port is the boundary, and a browser's request is still refused. GET /healthz answers 200 for an orchestrator's
+# healthcheck.
 #
 #endif
 # The SDK is pinned to the band global.json asks for: on the floating sdk:10.0 a newer feature band would one day

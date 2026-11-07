@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>
+      run_program for a Snail MCP server: a small JavaScript program, run on Jint beside the server, that calls the
+      server's commands itself with loops, conditions and the results in hand — bounded in time, memory, depth,
+      statements and commands, held to the session's grant before every command, and answered in the envelope.
+    </Description>
+    <PackageTags>mcp;mcp-server;modelcontextprotocol;javascript;jint;programs</PackageTags>
+  </PropertyGroup>
+
+  <!--
+    A library of the servers: its public API written down in PublicAPI.*.txt, the package checked against the last
+    release (PackageValidationBaselineVersion, set from the first release on), and its symbols in a .snupkg beside it.
+  -->
+  <PropertyGroup>
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <IncludeSymbols>true</IncludeSymbols>
+  </PropertyGroup>
+
+  <!--
+    IsAotCompatible stays true, as for every library here: the trim and AOT analyzers hold this assembly's own code to no
+    warning, and it reaches Jint only through JS values — no CLR access, no type of the host handed to the engine, every
+    value over as JSON text. Jint itself is not annotated: the native compiler reports it (IL2104, IL3053, and IL2026 at
+    its bridge to .NET types, which a program never crosses), so a native server that references this package sets
+    IlcTreatWarningsAsErrors false, as Snail.MCP.Git has shipped since it took Jint.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Jint" />
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- The envelope, the gate and the forwarding are the server's: a program's commands pass the same door a tool does. -->
+  <ItemGroup>
+    <ProjectReference Include="../Mcp.Hosting/Mcp.Hosting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Snail.Sdk.Mcp.Programs.Tests" />
+  </ItemGroup>
+
+</Project>

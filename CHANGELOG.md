@@ -101,6 +101,30 @@ A change that a repository must act on says what to do.
   it and `MapLocalMcp` is called first.
 - `FixedAddress` of `Snail.Sdk.Mcp.Testing`: a session's address in a test, `new FixedAddress(("tool", "read_file"))`.
   The package now references `Snail.Sdk.Mcp.Hosting`.
+- `Snail.Sdk.Mcp.Programs`, a new package: `run_program` for any server in one line,
+  `.WithPrograms<TCommands>(options => options.Global = "git")` beside `AddMcpServer`. A program is JavaScript run on
+  Jint 4.17.0 beside the server, whose global object holds the server's commands — `git.status()`,
+  `blender.add_primitive({ … })` — so work that decides as it goes costs one call. `TCommands` is an `IProgramCommands`
+  (`Names`, `ToolOf(command)`, `CallAsync`, answering a `ProgramAnswer`), or `ToolCommands`, every tool of the server
+  but the forwarders, `notes_read` called as `notes.read()`, through `ToolForwarding.CallAsync`. The tool is marked
+  `[Forwards]`; before every command the session's gate is asked for the command's tool, and a refusal, like any failed
+  command, reaches the program as `{ error, message, hint, type, details }`, which it may catch. A command the server
+  does not have stops the program with the names nearest to it (`no command 'stauts'; the nearest: status`) instead of
+  "is not a function"; `log(…)` is a global of the program only, so a command named `log` still runs (Snail.MCP.Git's
+  collision). `ProgramOptions` bound a program — `Timeout` 120 s and `MaxTimeout` 600 s, `MemoryBytes` 32 MiB,
+  `MaxRecursion` 256, `MaxStatements` 1 000 000, `MaxCalls` 200, `LogLines` 200 of `LogLineLength` 1000, `ResultBytes`
+  128 KiB — and each stop says which bound in its own words with a `type`: `timeout` (also when the time runs out inside
+  a slow command, which is given up on at the deadline), `programTooLarge`, `tooManyCalls`, `syntax` and `runtime` with
+  the line of the program, `noSuchCommand`, `refused`, `cancelled`, `invalid`. The answer is the envelope:
+  `{"result":…,"log":[…],"calls":[{"command","ok","milliseconds"}]}`, a result past the budget left out with
+  `isOmitted` and a note, and on a stop the same data beside `error`, `hint` and `type`. `ProgramRunner` runs a program
+  without the tool. A server opts in with `<PackageReference Include="Snail.Sdk.Mcp.Programs" />`, no version: the
+  `Snail.Sdk.Mcp` level gives it its own release. A native server sets `IlcTreatWarningsAsErrors` false, as
+  Snail.MCP.Git does: the native compiler reports Jint, which is not annotated for trimming; this package's own code is
+  held to no trim or AOT warning. To adopt in Snail.MCP.Git, Snail.MCP.Blender and Snail.MCP.AfterEffects: implement
+  `IProgramCommands` over the catalog (the grant, script and lease checks stay inside `CallAsync` or move to the gate),
+  delete `JavaScriptPrograms`, `IProgramRunner`, `ProgramRun`, `ProgramTools`, the program descriptions and the Jint
+  reference, and register `.WithPrograms<Catalog>(…)` with the server's own `MaxCalls`.
 
 ### Changed
 

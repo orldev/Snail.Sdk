@@ -22,4 +22,5 @@ project with a version bump instead of a copy.
   [analyzer rules](rules/index.md), and the API of [Snail.Sdk.Mcp.Hosting](reference/Snail.Sdk.Mcp.Hosting.md),
   [Snail.Sdk.Mcp.Http](reference/Snail.Sdk.Mcp.Http.md), [Snail.Sdk.Mcp.Testing](reference/Snail.Sdk.Mcp.Testing.md)
   and [Snail.Sdk.Mcp.JobClient](reference/Snail.Sdk.Mcp.JobClient.md).
+  A server opts into `run_program` with [Snail.Sdk.Mcp.Programs](reference/Snail.Sdk.Mcp.Programs.md).
 - [Contributing](contributing.md): working on Snail.Sdk itself.

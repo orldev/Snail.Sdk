@@ -339,6 +339,15 @@ And for the server project (no kind):
   inside the configured volumes, every link followed (`SessionRoots.Reach`, `RealPath`), and over HTTP
   `app.RefuseSessionsItCannotServe(volumes)` turns away at the door a session whose root the machine does not have or
   the volumes do not hold. Over stdio there is no address: every tool is granted, and the volumes are the roots.
+- A program instead of a call per step, when the server opts in (`Snail.Sdk.Mcp.Programs`, referenced without a
+  version): `.WithPrograms<TCommands>(options => options.Global = "<short>")` registers `run_program(code, input,
+  timeoutSeconds)`, a JavaScript program on Jint whose global object holds the server's commands — its own catalog
+  (`IProgramCommands`: the names, the tool each stands for, the call) or its tools (`ToolCommands`). The engine reaches
+  no type of the host; the session's gate is asked before every command, and a refusal, like a failed command, is an
+  exception the program may catch; an unknown command stops it with the nearest names; `log(…)` belongs to the program,
+  never to the commands. It is bounded in time, memory (32 MiB), depth (256), statements (a million), commands and the
+  size of its result, each stop with words of its own and a `type`. A native server that takes it sets
+  `IlcTreatWarningsAsErrors` false: the native compiler reports Jint, which is not annotated for trimming.
 - `-p:SnailReference=true` writes the tool reference ([Documentation and the site](#documentation-and-the-site)).
 - `dotnet publish -c Release -r <rid> -p:SnailMcpInstall=true` installs the server into
   `~/.s3l-mcp/<name>/<date>-<time>.<commit>/` and points `current` at it ([installing](installing.md)).

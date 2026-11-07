@@ -72,6 +72,15 @@
   </ItemGroup>
 
   <!--
+    The libraries a server opts into, named without a version: <PackageReference Include="Snail.Sdk.Mcp.Programs" />. The
+    level gives each the release it is itself, as it gives the implicit ones, so no Directory.Packages.props of a server
+    carries a version that can drift from the SDK's, and the build of a server never takes libraries of two releases.
+  -->
+  <ItemGroup Condition="'$(SnailLevelVersion)' != ''">
+    <PackageReference Update="Snail.Sdk.Mcp.Programs" Version="$(SnailLevelVersion)" IsImplicitlyDefined="true" />
+  </ItemGroup>
+
+  <!--
     The tool reference, on request: build with -p:SnailReference=true and docs/reference/ beside the repository's
     global.json gets tools/index.md, a page per family and schemas/tools.json. The server's own copy of the MCP SDK
     describes each tool from the assembly just built, so the pages are what a client receives in tools/list; no tool runs.

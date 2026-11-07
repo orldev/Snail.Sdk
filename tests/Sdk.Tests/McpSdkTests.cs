@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace Snail.Sdk.Sdk.Tests;
 
 /// <summary>What a server built on Snail.Sdk.Mcp gets from three properties, and what its test project gets.</summary>
@@ -433,6 +435,37 @@ public sealed class McpSdkTests(SdkFeed sdk)
 
         Assert.Contains("packageType name=\"DotnetTool\"", manifest, StringComparison.Ordinal);
         Assert.Contains("packageType name=\"McpServer\"", manifest, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A library a server opts into is named without a version and restores at the level's own release, under central
+    /// package management as the fleet keeps it, with no line of its own in Directory.Packages.props.
+    /// </summary>
+    [Fact]
+    public void OptInLibrary_NamedWithoutAVersion_RestoresAtTheLevelsRelease()
+    {
+        var folder = sdk.Project("Snail.Sdk.Mcp", "Snail.MCP.Sample", """
+            <ItemGroup>
+              <PackageReference Include="ModelContextProtocol" />
+              <PackageReference Include="Snail.Sdk.Mcp.Programs" />
+            </ItemGroup>
+            """,
+            ("Directory.Packages.props", """
+                <Project>
+                  <PropertyGroup>
+                    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <PackageVersion Include="ModelContextProtocol" Version="2.3.0" />
+                  </ItemGroup>
+                </Project>
+                """));
+
+        var (exitCode, output) = SdkFeed.Dotnet(folder, "restore");
+        var (_, references) = SdkFeed.Dotnet(folder, "msbuild", "-getItem:PackageReference");
+
+        Assert.True(exitCode == 0, output);
+        Assert.Matches($"\"Identity\": \"Snail.Sdk.Mcp.Programs\",[^}}]*\"Version\": \"{Regex.Escape(sdk.Version)}\"", references);
     }
 
     [Fact]

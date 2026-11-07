@@ -74,6 +74,72 @@ The JSON options a server's tools are registered with: the MCP SDK's own, with t
 | --- | --- |
 | `JsonSerializerOptions Options(IJsonTypeInfoResolver context)` | The SDK's options with this resolver — a server's generated context — consulted first, and the job report of this library known too, so a tool that answers with a job needs no line for it. |
 
+## Snail.Sdk.Mcp.Hosting.Answers
+
+### static class Answer
+
+Makes answers.
+
+| Member | Summary |
+| --- | --- |
+| `Answer<T> Failed<T>(string error, string? hint = null, string? type = null)` | No value, and why. |
+| `Answer<T> Ok<T>(T value)` | An answer carrying its value. |
+
+### class Answer<T>
+
+A value, or why there is none in words a caller can act on.
+
+| Member | Summary |
+| --- | --- |
+| `Answer(T? Value, string? Error, string? Hint, string? Type = null)` | A value, or why there is none in words a caller can act on. |
+| `T? Value { get; init; }` | What was asked for, when it was had. |
+| `bool IsSuccess { get; }` | Whether the value was had; `Error` says why not otherwise. |
+| `string? Error { get; init; }` | Why it was not, in words the model can act on; null on success. |
+| `string? Hint { get; init; }` | What to do about it, when there is something to do. |
+| `string? Type { get; init; }` | The kind of failure, a word a program can branch on, such as `timeout`. |
+
+### enum AnswerShape
+
+What a successful answer carries as its structured content beside the text.
+
+| Member | Summary |
+| --- | --- |
+| `const AnswerShape Data` | The data alone, without the envelope: what a client reads typed, and what most servers of the fleet send. |
+| `const AnswerShape Envelope` | The whole envelope, `{"ok":true,"data":…}`, the same object as the text: for a server whose tools state it as their output schema. |
+| `const AnswerShape None` | No structured content: the text alone. |
+
+### static class ToolAnswer
+
+A tool's answer as every Snail server gives it: one text block holding the envelope, with an ok flag, and the structured content beside it.
+
+| Member | Summary |
+| --- | --- |
+| `CallToolResult Failed(string error, string? hint = null, string? type = null, JsonNode? data = null)` | A failed answer: why, what to do, the kind of failure and what there is to report, flagged as an error, as text alone. |
+| `CallToolResult From<T>(Answer<T> answer, Func<T, JsonNode> data, AnswerShape shape = 0)` | An answer as a tool result: its value through `data`, or its failure. |
+| `CallToolResult Ok(JsonNode data, AnswerShape shape = 0)` | A successful answer: the data in the envelope as the text, and the structured content `shape` names. |
+| `JsonSerializerOptions Wire { get; }` | The options answers are written with: compact, nothing escaped that JSON does not require, the JSON nodes generated. |
+| `JsonTypeInfo<JsonObject> ObjectInfo { get; }` | The generated type information of a JsonObject, written as answers are: the result type of a job whose work ends with an answer's data. |
+| `bool IsFailure(CallToolResult result)` | Whether a result is the failure envelope: one text block whose top-level `ok` is false. |
+| `string Moment(DateTimeOffset at)` | A moment as the answer spells it: round-trip ISO 8601 with its offset, the same on every machine. |
+| `string Word<TEnum>(TEnum value, WordCase casing = 0)` | An enum value as the answer spells it, in the casing the server chose. |
+
+### static class ToolFailures
+
+A failure of a tool told as the envelope every answer is, and flagged as one by the protocol.
+
+| Member | Summary |
+| --- | --- |
+| `IMcpServerBuilder ExplainFailures(this IMcpServerBuilder builder)` | Answers a tool that threw with the failure envelope — its message, a hint and the type `internal` — logged once with its trace, and flags an answer that is the failure envelope but not an error as one. |
+
+### enum WordCase
+
+How an answer spells an enum value of several words; a server chooses one and keeps it in every answer.
+
+| Member | Summary |
+| --- | --- |
+| `const WordCase Camel` | Camel case, the way JSON names a property: `InProgress` is `inProgress`. |
+| `const WordCase Lower` | Every letter lower case, the words run together: `InProgress` is `inprogress`. |
+
 ## Snail.Sdk.Mcp.Hosting.Jobs
 
 ### class Job
@@ -95,6 +161,7 @@ A job as the answer of a tool that speaks in words of its own: its text, with th
 
 | Member | Summary |
 | --- | --- |
+| `CallToolResult Envelope(JobReport report, JsonObject? beside = null)` | The job as the envelope every answer is: the report as the data of the text, and as the structured content. |
 | `CallToolResult Of(JobReport report, Func<JobReport, CallToolResult> said)` | The tool result `said` makes of the report, with the report itself as its structured content. |
 
 ### struct JobProgress

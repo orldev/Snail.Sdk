@@ -11,3 +11,13 @@ Snail.Sdk.Mcp.Testing.Ports
 static Snail.Sdk.Mcp.Testing.HttpGuards.ProblemsAsync(System.Uri! endpoint, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>!>!
 static Snail.Sdk.Mcp.Testing.HttpServerProgram.StartAsync(string! assemblyName, string! overrideVariable, System.Collections.Generic.IDictionary<string!, string?>? environment = null, string? addressVariable = null, string? readiness = "/healthz", System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Testing.HttpServerProgram!>!
 static Snail.Sdk.Mcp.Testing.Ports.Free() -> int
+Snail.Sdk.Mcp.Testing.ToolAnswers.extension(ModelContextProtocol.Protocol.CallToolResult!).Data() -> System.Text.Json.Nodes.JsonNode?
+Snail.Sdk.Mcp.Testing.ToolAnswers.extension(ModelContextProtocol.Protocol.CallToolResult!).Error() -> string?
+Snail.Sdk.Mcp.Testing.ToolAnswers.extension(ModelContextProtocol.Protocol.CallToolResult!).Hint() -> string?
+Snail.Sdk.Mcp.Testing.ToolAnswers.extension(ModelContextProtocol.Protocol.CallToolResult!).IsOk() -> bool
+Snail.Sdk.Mcp.Testing.ToolAnswers.extension(ModelContextProtocol.Protocol.CallToolResult!).Report() -> Snail.Sdk.Mcp.Hosting.Jobs.JobReport?
+static Snail.Sdk.Mcp.Testing.ToolAnswers.Data(this ModelContextProtocol.Protocol.CallToolResult! answer) -> System.Text.Json.Nodes.JsonNode?
+static Snail.Sdk.Mcp.Testing.ToolAnswers.Error(this ModelContextProtocol.Protocol.CallToolResult! answer) -> string?
+static Snail.Sdk.Mcp.Testing.ToolAnswers.Hint(this ModelContextProtocol.Protocol.CallToolResult! answer) -> string?
+static Snail.Sdk.Mcp.Testing.ToolAnswers.IsOk(this ModelContextProtocol.Protocol.CallToolResult! answer) -> bool
+static Snail.Sdk.Mcp.Testing.ToolAnswers.Report(this ModelContextProtocol.Protocol.CallToolResult! answer) -> Snail.Sdk.Mcp.Hosting.Jobs.JobReport?

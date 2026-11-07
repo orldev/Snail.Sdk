@@ -1,5 +1,7 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using ModelContextProtocol.Protocol;
+using Snail.Sdk.Mcp.Hosting.Answers;
 
 namespace Snail.Sdk.Mcp.Hosting.Jobs;
 
@@ -21,6 +23,28 @@ public static class JobAnswer
         ArgumentNullException.ThrowIfNull(said);
 
         var answer = said(report);
+        answer.StructuredContent = JsonSerializer.SerializeToElement(report, JobJson.Default.JobReport);
+
+        return answer;
+    }
+
+    /// <summary>The job as the envelope every answer is: the report as the data of the text, and as the structured content.</summary>
+    /// <param name="report">The job as it stands: ended within the wait, or still running.</param>
+    /// <param name="beside">Fields the tool adds to the data of the text — a note, where to look next; a field of the report's own name replaces it there.</param>
+    /// <remarks>
+    /// The structured content stays the report alone, whatever goes beside it, since that is what a client of
+    /// <c>Snail.Sdk.Mcp.JobClient</c> reads. Snail.MCP.Security, BuildBridge, AfterEffects and Blender each wrote this by hand.
+    /// </remarks>
+    public static CallToolResult Envelope(JobReport report, JsonObject? beside = null)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+
+        var data = JsonSerializer.SerializeToNode(report, JobJson.Default.JobReport)!.AsObject();
+
+        foreach (var (name, value) in beside ?? [])
+            data[name] = value?.DeepClone();
+
+        var answer = ToolAnswer.Ok(data, AnswerShape.None);
         answer.StructuredContent = JsonSerializer.SerializeToElement(report, JobJson.Default.JobReport);
 
         return answer;

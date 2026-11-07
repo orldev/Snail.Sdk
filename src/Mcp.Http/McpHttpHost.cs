@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.AspNetCore;
+using Microsoft.AspNetCore.Routing;
 using Snail.Sdk.Mcp.Hosting;
 
 namespace Snail.Sdk.Mcp.Http;
@@ -27,6 +28,11 @@ public static class McpHttpHost
     /// <summary>Where clients connect unless a server says otherwise.</summary>
     public const string DefaultPath = "/mcp";
 
+    /// <summary>Where a health check answers unless a server says otherwise.</summary>
+    public const string DefaultHealthPath = "/healthz";
+
+    private static readonly RequestDelegate Healthy = _ => Task.CompletedTask;
+
     /// <summary>An empty web host listening on <paramref name="url"/>, log lines on stderr, a request a line only on warnings, the heap trimmed when idle.</summary>
     /// <exception cref="ArgumentException">The address is not a loopback one.</exception>
     public static WebApplicationBuilder CreateBuilder(string[] args, Uri url)
@@ -45,7 +51,7 @@ public static class McpHttpHost
     /// </summary>
     /// <remarks>
     /// The boundary is the port the container publishes, which the machine running it decides; everything else is the
-    /// same as <see cref="CreateBuilder"/> — the settings, stderr, the idle trim — and <c>MapLocalMcp</c> still refuses a
+    /// same as <see cref="CreateBuilder(string[], Uri)"/> — the settings, stderr, the idle trim — and <c>MapLocalMcp</c> still refuses a
     /// browser's request. A server that built a host of its own for the image lost that refusal (Snail.MCP.Documents,
     /// 2026-10-16: a request with <c>Origin</c> was answered 200).
     /// </remarks>
@@ -56,6 +62,25 @@ public static class McpHttpHost
         ArgumentOutOfRangeException.ThrowIfGreaterThan(port, ushort.MaxValue);
 
         return Builder(args, $"http://*:{port}");
+    }
+
+    /// <summary>The host of the endpoint a server's settings ask for: on loopback at its URL, or on every interface at its port.</summary>
+    /// <remarks>
+    /// The one call for a server that reads where it answers with <see cref="McpEndpoint.Read(Microsoft.Extensions.Configuration.IConfiguration, Uri)"/>: inside a container, or
+    /// told to listen on every interface, it is <see cref="CreateContainerBuilder"/> on the URL's port; anywhere else
+    /// <see cref="CreateBuilder(string[], Uri)"/> on the URL itself, which refuses an address beyond loopback.
+    /// </remarks>
+    /// <exception cref="ArgumentException">The endpoint is a stdio one, or a loopback one whose address is not loopback.</exception>
+    public static WebApplicationBuilder CreateBuilder(string[] args, McpEndpoint endpoint)
+    {
+        ArgumentNullException.ThrowIfNull(endpoint);
+
+        if (endpoint.Transport is not McpTransport.Http)
+            throw new ArgumentException("The endpoint is a stdio one: it is served by McpHost, not by a web host.", nameof(endpoint));
+
+        return endpoint.ListensOnEveryInterface
+            ? CreateContainerBuilder(args, endpoint.Url.Port)
+            : CreateBuilder(args, endpoint.Url);
     }
 
     private static WebApplicationBuilder Builder(string[] args, string url)
@@ -101,6 +126,15 @@ public static class McpHttpHost
 
             return app.MapMcp(path);
         }
+
+        /// <summary>Maps a health check that answers 200 with no body, for a container's healthcheck and an orchestrator.</summary>
+        /// <remarks>
+        /// It says the process answers HTTP, nothing more: no state of the server, so it costs nothing and tells a caller
+        /// nothing it could use. A request that carries an <c>Origin</c> is refused here too when the endpoint is mapped
+        /// with <c>MapLocalMcp</c>, whose refusal is the whole host's; a healthcheck — <c>curl</c>, <c>wget</c>, Docker's —
+        /// sends none.
+        /// </remarks>
+        public IEndpointConventionBuilder MapHealth(string path = DefaultHealthPath) => app.MapGet(path, Healthy);
     }
 
     internal static Task RefuseBrowsers(HttpContext context, RequestDelegate next)

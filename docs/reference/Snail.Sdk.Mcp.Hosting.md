@@ -21,6 +21,18 @@ The name of the running program that outlives an update of it, for what it write
 | --- | --- |
 | `string Stable(string path)` | A file of this program named the way that outlives an update: through `current` when it runs from the publication `current` points at, through the tool's command when it runs from a dotnet tool's store. |
 
+### class McpEndpoint
+
+Where a server answers: over stdio, or over HTTP at an address, on loopback or on every interface.
+
+| Member | Summary |
+| --- | --- |
+| `McpEndpoint Read(IConfiguration settings, Uri defaultUrl)` | The endpoint a server's settings ask for, in either of the two ways the servers of the fleet say it. |
+| `McpEndpoint(McpTransport Transport, Uri Url, bool ListensOnEveryInterface)` | Where a server answers: over stdio, or over HTTP at an address, on loopback or on every interface. |
+| `McpTransport Transport { get; init; }` | Stdio, or HTTP at `Url`. |
+| `Uri Url { get; init; }` | The address HTTP listens on; its port alone counts when the server listens on every interface. |
+| `bool ListensOnEveryInterface { get; init; }` | Whether the port is opened on every interface rather than on loopback alone. |
+
 ### static class McpHost
 
 The host a stdio MCP server runs in.
@@ -29,7 +41,17 @@ The host a stdio MCP server runs in.
 | --- | --- |
 | `HostApplicationBuilder CreateBuilder(string[] args)` | An empty host builder that logs from information up to stderr and trims the heap when the server is idle. |
 | `ILoggingBuilder UseStderr(this ILoggingBuilder logging)` | Clears every logger and writes a line to stderr from information up. |
+| `IServiceCollection AddIdleShutdown(this IServiceCollection services, TimeSpan after, Func<IServiceProvider, bool>? isBusy = null)` | Stops a stdio server that has heard no MCP message for `after`, unless `isBusy` says it is busy. |
 | `IServiceCollection AddIdleTrim(this IServiceCollection services)` | Compacts the heap once the server has heard no MCP message for five minutes; both hosts call it already. |
+
+### enum McpTransport
+
+How clients reach a server.
+
+| Member | Summary |
+| --- | --- |
+| `const McpTransport Http` | One process every client shares, over Streamable HTTP at an address. |
+| `const McpTransport Stdio` | One process per client, started by it, over its stdin and stdout; the server lives as long as the client. |
 
 ### static class ServerFolders
 
@@ -39,6 +61,9 @@ The folders a server keeps in the user's home under its s3l name: its data and i
 | --- | --- |
 | `string ConfigDirectory(string name)` | `~/.config/s3l-mcp-<name>`, where the server's settings file lives. |
 | `string DataDirectory(string name)` | `~/.s3l-mcp-<name>`, where the server keeps its data; `name` is its short name, such as figma. |
+| `string ExpandHome(string path)` | The path with a leading `~` or `~/` made the user's home; any other path as it is, trimmed. |
+| `string ExpandHome(string? path, string fallback)` | The path with a leading `~` or `~/` made the user's home, or `fallback` when the path is missing or blank. |
+| `string Home { get; }` | The user's home, resolved without touching the disk. |
 | `void MoveFromSnailNames(string name)` | The compatibility move from the snail names: renames the server's folders from the snail name to the s3l name and leaves a link at the snail name, when the program is an installed one. It goes in the next major version. |
 
 ### static class ServerIdentity
@@ -50,6 +75,17 @@ The name and version a server announces in `initialize`, read from its assembly 
 | `Implementation Of(Assembly server)` | The name and version of the server built into this assembly. |
 | `string NameOf(Assembly server)` | The server's command, `s3l-mcp-<name>`; the assembly's name for a server built otherwise. |
 | `string VersionOf(Assembly server)` | The version of the build that is running, without the commit a build may append. |
+
+### static class ServerSecret
+
+A secret the server keeps in a file of its own — a key it signs with, a token its plugin presents — made once and never replaced.
+
+| Member | Summary |
+| --- | --- |
+| `bool Matches(ReadOnlySpan<byte> expected, ReadOnlySpan<byte> presented)` | Whether the presented secret is the expected one, compared in constant time. |
+| `bool Matches(string expected, string? presented)` | Whether the presented text is the expected secret, compared in constant time; nothing presented matches nothing. |
+| `byte[] ReadOrCreate(string file, int length = 32)` | The secret of `length` random bytes kept in `file`, made the first time it is asked for. |
+| `string ReadOrCreateHex(string file, int length = 32)` | The same secret written as lower-case hex digits, for a file another program reads as text. |
 
 ### static class ServerSettings
 

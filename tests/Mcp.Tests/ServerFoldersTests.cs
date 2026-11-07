@@ -159,6 +159,61 @@ public sealed class ServerFoldersTests : IDisposable
         return (former, current, warnings.ToString());
     }
 
+    [Theory]
+    [InlineData("~", "")]
+    [InlineData("~/notes", "notes")]
+    [InlineData(@"~\notes", "notes")]
+    [InlineData("  ~/notes/today.md  ", "notes/today.md")]
+    public void ExpandHome_ALeadingTilde_IsTheHome(string path, string underHome) =>
+        Assert.Equal(Path.Combine(_home, underHome), ServerFolders.WithHome(path, _home));
+
+    [Theory]
+    [InlineData("/var/data", "/var/data")]
+    [InlineData(" relative/data ", "relative/data")]
+    [InlineData("~other/data", "~other/data")]
+    [InlineData("data/~/x", "data/~/x")]
+    public void ExpandHome_AnyOtherPath_IsLeftAsItIs(string path, string expanded) =>
+        Assert.Equal(expanded, ServerFolders.WithHome(path, _home));
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ExpandHome_NoPath_IsTheFallback(string? path) =>
+        Assert.Equal("/fallback", ServerFolders.ExpandHome(path, fallback: "/fallback"));
+
+    [Fact]
+    public void ExpandHome_WithoutAFallback_RefusesNoPath() =>
+        Assert.Throws<ArgumentException>(() => ServerFolders.ExpandHome(" "));
+
+    [Fact]
+    public void ExpandHome_ATildePath_IsUnderTheRealHome() =>
+        Assert.Equal(Path.Combine(ServerFolders.Home, "notes"), ServerFolders.ExpandHome("~/notes"));
+
+    /// <summary>The move every settings read makes first is made for an installed program only, and moves the folders of the server it names.</summary>
+    [Fact]
+    public void MoveFromSnailNames_ForAnInstalledProgram_MovesTheFolders()
+    {
+        Directory.CreateDirectory(Path.Combine(_home, ".snail-mcp-demo"));
+        var installed = Path.Combine(_home, ".s3l-mcp", "Snail.MCP.Demo", "2026-11-08-1200.abc1234");
+
+        ServerFolders.MoveFromSnailNames("demo", installed, _home, _warnings);
+
+        Assert.NotNull(new DirectoryInfo(Path.Combine(_home, ".snail-mcp-demo")).LinkTarget);
+        Assert.True(Directory.Exists(Path.Combine(_home, ".s3l-mcp-demo")));
+    }
+
+    [Fact]
+    public void MoveFromSnailNames_ForAProgramRunFromItsBuild_MovesNothing()
+    {
+        var former = Directory.CreateDirectory(Path.Combine(_home, ".snail-mcp-demo")).FullName;
+
+        ServerFolders.MoveFromSnailNames("demo", AppContext.BaseDirectory, _home, _warnings);
+
+        Assert.Null(new DirectoryInfo(former).LinkTarget);
+        Assert.False(Directory.Exists(Path.Combine(_home, ".s3l-mcp-demo")));
+    }
+
     public void Dispose()
     {
         _warnings.Dispose();

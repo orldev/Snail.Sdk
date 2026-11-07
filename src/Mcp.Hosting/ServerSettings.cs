@@ -20,7 +20,7 @@ namespace Snail.Sdk.Mcp.Hosting;
 /// </para>
 /// <para>
 /// The settings are read before a host exists, since a server decides between stdio and HTTP from them, and
-/// <see cref="McpHost.CreateBuilder"/> adds the same sources to the host it builds when the program names its server.
+/// <see cref="McpHost.CreateBuilder(string[])"/> adds the same sources to the host it builds when the program names its server.
 /// </para>
 /// </remarks>
 public static class ServerSettings
@@ -47,7 +47,7 @@ public static class ServerSettings
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
         if (!string.IsNullOrWhiteSpace(named))
-            return [ExpandHome(named.Trim(), home)];
+            return [ServerFolders.WithHome(named, home)];
 
         return
         [
@@ -80,8 +80,17 @@ public static class ServerSettings
     {
         /// <summary>Adds the server's settings file, when it has one, and then its variables, which win over the file.</summary>
         /// <param name="name">The server's short name, such as figma.</param>
-        public IConfigurationBuilder AddServerSettings(string name) =>
-            configuration.AddServerSettings(name, FileOf(name), Environment.GetEnvironmentVariables());
+        /// <remarks>
+        /// The server's folders are moved from the snail names first (<see cref="ServerFolders.MoveFromSnailNames(string)"/>),
+        /// when the program is an installed one: a settings file left at <c>~/.config/snail-mcp-&lt;name&gt;/</c> is then
+        /// read by the start that moves it, not by the next one.
+        /// </remarks>
+        public IConfigurationBuilder AddServerSettings(string name)
+        {
+            ServerFolders.MoveFromSnailNames(name);
+
+            return configuration.AddServerSettings(name, FileOf(name), Environment.GetEnvironmentVariables());
+        }
 
         /// <summary>Adds the given settings file, when there is one, and then the server's variables among <paramref name="variables"/>.</summary>
         public IConfigurationBuilder AddServerSettings(string name, string? file, IDictionary variables)
@@ -94,9 +103,4 @@ public static class ServerSettings
             return configuration.AddInMemoryCollection(EnvironmentSettings.Read(PrefixOf(name), variables));
         }
     }
-
-    private static string ExpandHome(string path, string home) =>
-        path == "~" ? home
-        : path.StartsWith("~/", StringComparison.Ordinal) ? Path.Combine(home, path[2..])
-        : path;
 }

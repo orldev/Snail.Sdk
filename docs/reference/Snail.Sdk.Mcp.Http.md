@@ -10,8 +10,11 @@ The host of a server every session of the machine shares, over Streamable HTTP o
 
 | Member | Summary |
 | --- | --- |
+| `IEndpointConventionBuilder MapHealth(this WebApplication app, string path = "/healthz")` | Maps a health check that answers 200 with no body, for a container's healthcheck and an orchestrator. |
 | `IEndpointConventionBuilder MapLocalMcp(this WebApplication app, string path = "/mcp")` | Maps the MCP endpoint behind the refusal of every request a browser makes. |
 | `IMcpServerBuilder WithLocalHttpTransport(this IMcpServerBuilder builder)` | Streamable HTTP with a session for every client. |
+| `WebApplicationBuilder CreateBuilder(string[] args, McpEndpoint endpoint)` | The host of the endpoint a server's settings ask for: on loopback at its URL, or on every interface at its port. |
 | `WebApplicationBuilder CreateBuilder(string[] args, Uri url)` | An empty web host listening on `url`, log lines on stderr, a request a line only on warnings, the heap trimmed when idle. |
 | `WebApplicationBuilder CreateContainerBuilder(string[] args, int port)` | The same host for a server that runs in a container image: listening on `port` on every interface, since a container's published port does not reach its loopback. |
+| `const string DefaultHealthPath` | Where a health check answers unless a server says otherwise. |
 | `const string DefaultPath` | Where clients connect unless a server says otherwise. |

@@ -12,7 +12,41 @@ namespace Snail.Sdk.Mcp.Hosting;
 public static class ServerFolders
 {
     /// <summary>The user's home, resolved without touching the disk.</summary>
-    internal static string Home => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile, Environment.SpecialFolderOption.DoNotVerify);
+    public static string Home => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile, Environment.SpecialFolderOption.DoNotVerify);
+
+    /// <summary>The path with a leading <c>~</c> or <c>~/</c> made the user's home; any other path as it is, trimmed.</summary>
+    /// <remarks>
+    /// A path in a setting is written by a person, and a person writes <c>~/notes</c>; no shell expands it on the way to
+    /// a launchd job, a client's registration or a settings file. <c>~\</c> counts as <c>~/</c>, and <c>~other</c> — another
+    /// user's home — is left as it is. A relative path stays relative: <c>Path.GetFullPath</c> after this makes it
+    /// absolute against the server's working directory, when that is what the setting means.
+    /// </remarks>
+    /// <exception cref="ArgumentException">The path is empty or blank: a setting that may be left out takes the overload with a fallback.</exception>
+    public static string ExpandHome(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        return WithHome(path, Home);
+    }
+
+    /// <summary>The path with a leading <c>~</c> or <c>~/</c> made the user's home, or <paramref name="fallback"/> when the path is missing or blank.</summary>
+    /// <remarks>The overload for a setting that may be left out, such as a data folder that defaults to <see cref="DataDirectory(string)"/>.</remarks>
+    public static string ExpandHome(string? path, string fallback) =>
+        string.IsNullOrWhiteSpace(path) ? fallback : WithHome(path, Home);
+
+    /// <summary>The trimmed path with a leading <c>~</c> or <c>~/</c> made <paramref name="home"/>.</summary>
+    internal static string WithHome(string path, string home)
+    {
+        var trimmed = path.Trim();
+
+        if (trimmed == "~")
+            return home;
+
+        if (trimmed.StartsWith("~/", StringComparison.Ordinal) || trimmed.StartsWith(@"~\", StringComparison.Ordinal))
+            return Path.Combine(home, trimmed[2..]);
+
+        return trimmed;
+    }
 
     /// <summary><c>~/.s3l-mcp-&lt;name&gt;</c>, where the server keeps its data; <paramref name="name"/> is its short name, such as figma.</summary>
     public static string DataDirectory(string name) => DataDirectory(name, Home);
@@ -42,8 +76,11 @@ public static class ServerFolders
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Called as the server's program starts. Installed means published into <c>~/.s3l-mcp</c> or installed as a dotnet
-    /// tool; a server run from a build's output — by its tests, or by <c>dotnet run</c> — moves nothing.
+    /// Called as the server's program starts: reading the server's settings calls it first
+    /// (<see cref="ServerSettings.Read(string)"/>, <c>AddServerSettings(name)</c>, and with them <c>McpHost.CreateBuilder</c>
+    /// and the HTTP builders of a program built on Snail.Sdk.Mcp), so a server need not call it, and a call of its own
+    /// moves nothing more. Installed means published into <c>~/.s3l-mcp</c> or installed as a dotnet tool; a server run
+    /// from a build's output — by its tests, or by <c>dotnet run</c> — moves nothing.
     /// </para>
     /// <para>
     /// A program that still reads the snail name finds the same files through the link. A refused move (the old folder
@@ -54,10 +91,13 @@ public static class ServerFolders
     /// </para>
     /// </remarks>
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public static void MoveFromSnailNames(string name)
+    public static void MoveFromSnailNames(string name) => MoveFromSnailNames(name, AppContext.BaseDirectory, Home, Console.Error);
+
+    /// <summary>The move for a program in <paramref name="programFolder"/>, made only when that program is an installed one.</summary>
+    internal static void MoveFromSnailNames(string name, string programFolder, string home, TextWriter warnings)
     {
-        if (IsInstalled(AppContext.BaseDirectory, Home))
-            MoveFromSnailNames(name, Home, Console.Error);
+        if (IsInstalled(programFolder, home))
+            MoveFromSnailNames(name, home, warnings);
     }
 
     /// <summary>Moves <c>.snail-mcp-&lt;name&gt;</c> and <c>.config/snail-mcp-&lt;name&gt;</c> under the home to their s3l names, leaving links behind.</summary>

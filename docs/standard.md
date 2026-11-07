@@ -303,6 +303,16 @@ And for the server project (no kind):
   description (S3LC0032). A job's URI ends in a random id; a server many clients share gives its jobs an owner
   (`Jobs.Start(kind, owner, …)`, `.WithJobs("<short>", ownerOf)`), and a job of another owner is unknown to a client. A
   tool that answers in words of its own returns `JobAnswer.Of(report, said)`: its text, with the report beside it.
+- One answer envelope (`Snail.Sdk.Mcp.Hosting.Answers`): a tool's text is one block of compact JSON with nothing escaped
+  that JSON allows, `{"ok":true,"data":…}` or `{"ok":false,"error":"…","hint":"…","type":"…","data":…}` with a field
+  that has no value left out, written by `ToolAnswer.Ok(data, shape)`, `ToolAnswer.Failed(error, hint, type, data)` or
+  `ToolAnswer.From(answer, data)` from an `Answer<T>` (success is its error being null). A failure is always `isError`
+  and text alone; a success carries its data as the structured content, or the whole envelope (`AnswerShape.Envelope`,
+  for tools with an output schema), or none. `ToolAnswer.Word` spells an enum value in the casing the server chose,
+  `ToolAnswer.Moment` a moment; `ToolAnswer.ObjectInfo` is the generated `JsonObject` a job's result needs.
+  `.ExplainFailures()` beside `AddMcpServer` answers a tool that threw with the envelope, `type` `internal`, logged once,
+  and flags an envelope with `ok` false that a tool returned as a string; a cancelled call stays cancelled. A job
+  answered in the envelope is `JobAnswer.Envelope(report, beside)`.
 - `-p:SnailReference=true` writes the tool reference ([Documentation and the site](#documentation-and-the-site)).
 - `dotnet publish -c Release -r <rid> -p:SnailMcpInstall=true` installs the server into
   `~/.s3l-mcp/<name>/<date>-<time>.<commit>/` and points `current` at it ([installing](installing.md)).
@@ -438,6 +448,8 @@ every push. Beyond what a test of the code itself asserts:
     - **the guard rules** — `ToolGuards.Problems(tools)` on the list a client receives: snake-case names listed once,
       the tool and every parameter described, read-only or destructive stated, every allowed value named as a word of
       its own, English;
+    - **the answers** — `answer.IsOk()`, `Data()`, `Error()`, `Hint()` and `Report()` of `ToolAnswers` read the envelope
+      and the job's report, so no test parses a tool's text itself;
     - **the HTTP contract** for a server with HTTP: the endpoint, its tools, the refusal of a browser's request.
 - **Temporary folders a cleaner can prove are leftovers.** A test takes its temporary folder from
   `TestFolder.Create()` of `Snail.Sdk.Mcp.Testing`, never from `Directory.CreateTempSubdirectory()` or

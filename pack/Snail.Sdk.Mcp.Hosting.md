@@ -16,6 +16,9 @@ What every Snail MCP server starts from:
   `~/.config/s3l-mcp-<name>`.
 - `ServerIdentity.Of(assembly)`: the name and version the server announces in `initialize`.
 - `Invocation.Stable(path)`: the path of the running program that outlives an update of it.
+- `ToolAnswer.Ok(data)`, `ToolAnswer.Failed(error, hint)` and `ToolAnswer.From(answer, data)`: the answer envelope every
+  tool gives, `{"ok":true,"data":…}` or `{"ok":false,"error":…,"hint":…}` as one compact text block, a failure flagged
+  `isError`; `.ExplainFailures()` answers a tool that threw with it.
 
 A server built on [Snail.Sdk.Mcp](https://www.nuget.org/packages/Snail.Sdk.Mcp) references it implicitly.
 

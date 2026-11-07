@@ -6,6 +6,39 @@ A change that a repository must act on says what to do.
 
 ## [Unreleased]
 
+### Added
+
+- One answer envelope for every tool, in `Snail.Sdk.Mcp.Hosting.Answers`. `ToolAnswer.Ok(data, shape)`,
+  `ToolAnswer.Failed(error, hint, type, data)` and `ToolAnswer.From(answer, data, shape)` write the text every server
+  of the fleet writes by hand — one block of compact JSON with nothing escaped that JSON allows, `{"ok":true,"data":…}`
+  or `{"ok":false,"error":…,"hint":…,"type":…,"data":…}` — with these rules: `ok` first; a field without a value left
+  out (the servers wrote `"hint":null`); a failure always `isError` and text alone, with no structured content, since a
+  client of the TypeScript SDK validates the structured content of an error against the tool's output schema; a
+  success's structured content is its data (`AnswerShape.Data`, the default), the whole envelope
+  (`AnswerShape.Envelope`, for tools with an output schema) or none (`AnswerShape.None`). `Answer<T>` with
+  `Answer.Ok(value)` and `Answer.Failed<T>(error, hint, type)` is the value-or-why a server's application layer returns;
+  success is `IsSuccess`, its error being null, never its value being set — `Value is { }` holds for a failed
+  `Answer<bool>` too. `ToolAnswer.IsFailure(result)` tells the failure envelope by its top-level `ok`;
+  `ToolAnswer.Word(value, WordCase.Lower | WordCase.Camel)` spells an enum value (`inprogress`, `inProgress`);
+  `ToolAnswer.Moment(at)` a moment, round-trip and invariant; `ToolAnswer.Wire` are the options and
+  `ToolAnswer.ObjectInfo` the generated `JsonObject`, AOT-safe. To adopt: delete the server's `ToolResponse` envelope
+  methods, `Answer` record and the `JsonSerializerContext` it kept only for `JsonObject` (`AnswerJson`, `E2EJson`,
+  `ConnectorJson`), call `ToolAnswer` instead, pass `ToolAnswer.ObjectInfo` to `Jobs.Start` for a `JsonObject` result,
+  and expect `"hint":null` to be gone from the text. A server whose bridge errors carried `data.type` (AfterEffects,
+  Blender) passes `type:` and says `type` instead of `data.type` in its instructions.
+- `.ExplainFailures()` on `IMcpServerBuilder`: a tool that throws is answered with the failure envelope — its message, a
+  hint, `type` `internal` — and logged once with its trace, instead of the MCP SDK's bare "An error occurred invoking
+  …"; and a result whose text is the envelope with `ok` false but no `isError` — a tool that returns the envelope as a
+  string — is flagged. It goes first among the call filters wherever it is called; a call its client cancelled stays
+  cancelled, and an `McpProtocolException` stays a protocol error. A server with a filter of its own for either
+  (Snail.MCP.Documents' `ExplainFailures`, Snail.MCP.Figma's `FlagFailures`) calls this instead.
+- `JobAnswer.Envelope(report, beside)`: a job in the envelope — the report as the text's data, with the fields of
+  `beside` added there, and the report alone as the structured content a client of `Snail.Sdk.Mcp.JobClient` reads.
+  Replaces `ToolResponse.Job(report)` of Snail.MCP.Security, BuildBridge, AfterEffects and Blender.
+- `Snail.Sdk.Mcp.Testing` reads the envelope: `answer.IsOk()`, `Data()`, `Error()`, `Hint()` and `Report()` (the job's
+  report in the structured content), failing with the text when it is not the envelope. A test that parsed the text
+  itself (`ReportOf`, its own `Ok`/`Data` readers) uses these. The package now depends on `Snail.Sdk.Mcp.Hosting`.
+
 ## [0.4.2] - 2026-11-06
 
 ### Added

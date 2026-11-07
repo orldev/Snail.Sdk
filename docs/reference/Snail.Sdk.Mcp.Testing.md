@@ -30,7 +30,12 @@ What a test reads from a tool's answer.
 
 | Member | Summary |
 | --- | --- |
+| `JobReport? Report(this CallToolResult answer)` | The job's report the answer carries as its structured content, or null when it carries none. |
+| `JsonNode? Data(this CallToolResult answer)` | The data of the envelope: what a success answers, or what a failure reports all the same; null when it has none. |
+| `bool IsOk(this CallToolResult answer)` | Whether the envelope says the call went through. |
 | `string Text(this CallToolResult answer)` | The text of a tool's answer, which is one text block in every Snail server. |
+| `string? Error(this CallToolResult answer)` | Why the call did not go through; null on success. |
+| `string? Hint(this CallToolResult answer)` | What the failure says to do about it; null when it says nothing. |
 
 ### static class ToolGuards
 

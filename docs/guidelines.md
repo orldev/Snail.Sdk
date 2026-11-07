@@ -135,6 +135,11 @@ strictly as code.
 - **Compile-time constants**: attributes take `const string`, so a tool's description is static.
 - **Every type a tool takes or gives** beyond the primitives goes into a source-generated `JsonSerializerContext` of the
   server, passed through `ToolJson.Options` of `Snail.Sdk.Mcp.Hosting`: a native build cannot look a type up at run time.
+- **One answer envelope.** A tool answers with `ToolAnswer` of `Snail.Sdk.Mcp.Hosting`: one text block,
+  `{"ok":true,"data":…}` or `{"ok":false,"error":"…","hint":"…"}`, a failure flagged `isError` as well, since a model
+  reads the shape it was given last and a refusal shaped otherwise is one it misreads as an answer. What a caller can act
+  on comes back as an `Answer<T>`, never as an exception; `.ExplainFailures()` answers what nobody foresaw. No server
+  writes the envelope itself, nor keeps a `JsonSerializerContext` only for a `JsonObject` (`ToolAnswer.ObjectInfo`).
 - **A long operation is a job, never a poll.** Work that outlasts a call — a render, an index pass, a test run — runs
   through `Jobs.Start` of `Snail.Sdk.Mcp.Hosting`: the tool takes `int wait = 60`, answers within it with the result
   (`job.ForAsync`) or with the job's `job://` resource, and the client that can wait is told of the end by its

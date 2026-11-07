@@ -6,6 +6,23 @@ A change that a repository must act on says what to do.
 
 ## [Unreleased]
 
+### Added
+
+- `HttpServerProgram` of `Snail.Sdk.Mcp.Testing`, the HTTP twin of `ServerProgram`: the build beside the tests or the
+  publication the override variable names — a native program among them — started on a free loopback port with its
+  own home and no settings file, and handed back once `GET /healthz` answers with success. The address goes into
+  `SNAIL_MCP_<SHORT>_URL` unless `addressVariable` names another (given the port alone when its name ends in `_PORT`);
+  `readiness: null` waits for the MCP endpoint of a server that maps no readiness path. A server that exits at start
+  fails the test at once with its exit code and its stderr, rather than after the minute of a loop; `Log` is its
+  stderr so far, `SessionAsync(query)` a session on `/mcp?<query>`, and disposing it kills it with every process it
+  started. `Ports.Free()` is a free loopback port, and `HttpGuards.ProblemsAsync(endpoint)` the refusal of a browser
+  checked of the running server — a request with `Origin` (a page's, and `null`) answered 403, and one without it
+  not, since an endpoint that refuses everyone proves nothing. A server's HTTP or process contract test may replace
+  its own start, `/healthz` loop, kill, `SessionAsync` and `FreePort()` with
+  `await HttpServerProgram.StartAsync("Snail.MCP.<Name>", "SNAIL_<SHORT>_SERVER", environment)` in `InitializeAsync`
+  and `await server.DisposeAsync()`, and its browser test with
+  `Assert.Empty(await HttpGuards.ProblemsAsync(server.Endpoint))`; `dotnet new s3l-mcp`'s `HttpContractTests` does.
+
 ## [0.4.2] - 2026-11-06
 
 ### Added

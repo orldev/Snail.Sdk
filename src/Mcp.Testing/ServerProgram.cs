@@ -104,7 +104,7 @@ public static class ServerProgram
     }
 
     /// <summary><c>Snail.MCP.CodeContext</c> is <c>codecontext</c>: the rule every server's command, job and variables share.</summary>
-    private static string? ShortNameOf(string assemblyName) =>
+    internal static string? ShortNameOf(string assemblyName) =>
         assemblyName.StartsWith(ServerPrefix, StringComparison.OrdinalIgnoreCase) && assemblyName.Length > ServerPrefix.Length
             ? assemblyName[ServerPrefix.Length..].Replace(".", string.Empty, StringComparison.Ordinal).ToLowerInvariant()
             : null;

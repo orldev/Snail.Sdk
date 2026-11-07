@@ -12,6 +12,11 @@ Contract tests of a Snail MCP server, over stdio, against the build a client run
   deleted when the test process exits. A run that crashes leaves it behind, and its name proves it a leftover once no
   process with that id and start runs, so a cleaner removes it without guessing. Tests take their temporary folders
   from it rather than from `Directory.CreateTempSubdirectory()` or a random name under `Path.GetTempPath()`.
+- `HttpServerProgram.StartAsync(assembly, variable)`: the same server started over HTTP on a free loopback port
+  (`Ports.Free()`), told through `SNAIL_MCP_<SHORT>_URL`, and handed back once `GET /healthz` answers; a server that
+  exits at start fails at once with its stderr, and disposing it kills it with its child processes.
+  `SessionAsync(query)` opens a session on `/mcp`, and `HttpGuards.ProblemsAsync(server.Endpoint)` checks that a
+  browser's request (one with `Origin`) is refused and an agent's is not.
 - `answer.Text()`: the text of a tool's answer.
 - `ToolGuards.Problems(tools)`: every guard rule the listed tools break — snake-case unique names, descriptions in
   English for the tool and every parameter, the effect stated, every allowed value named.

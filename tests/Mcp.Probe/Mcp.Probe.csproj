@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A tiny HTTP server for the tests of HttpServerProgram: started as a program from beside the tests, the way a server's
+    own tests start it. Named as a server is, so the address and settings variables it reads are derived as a server's
+    are: SNAIL_MCP_PROBE_URL (or SNAIL_MCP_PROBE_PORT), SNAIL_MCP_PROBE_CONFIG.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>Snail.MCP.Probe</AssemblyName>
+    <RootNamespace>Snail.MCP.Probe</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Mcp.Http\Mcp.Http.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,7 +1,3 @@
-using System.Diagnostics;
-using System.Net;
-using System.Net.Sockets;
-using ModelContextProtocol.Client;
 using Snail.Sdk.Mcp.Testing;
 
 namespace Snail.MCP.Template.Tests;
@@ -13,89 +9,26 @@ public sealed class HttpContractTests : IAsyncLifetime
 
     private const string Variable = "SNAIL_TMPLSHORT_SERVER";
 
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
+    private HttpServerProgram _server = null!;
 
-    private readonly Uri _url = new($"http://127.0.0.1:{FreePort()}/");
+    /// <summary>The server reads its address from SNAIL_MCP_TMPLSHORT_URL and maps no readiness path: it is ready when its endpoint answers.</summary>
+    public async Task InitializeAsync() =>
+        _server = await HttpServerProgram.StartAsync(Assembly, Variable, new Dictionary<string, string?> { ["SNAIL_MCP_TMPLSHORT_TRANSPORT"] = "http" }, readiness: null);
 
-    private Process? _server;
-
-    public async Task InitializeAsync()
-    {
-        var (command, arguments) = ServerProgram.Command(Assembly, Variable);
-        var start = new ProcessStartInfo(command);
-
-        foreach (var argument in arguments)
-            start.ArgumentList.Add(argument);
-
-        start.Environment["HOME"] = ServerProgram.Home;
-        start.Environment["SNAIL_MCP_TMPLSHORT_CONFIG"] = ServerProgram.NoSettingsFile;
-        start.Environment["SNAIL_MCP_TMPLSHORT_TRANSPORT"] = "http";
-        start.Environment["SNAIL_MCP_TMPLSHORT_URL"] = _url.ToString();
-
-        _server = Process.Start(start);
-
-        await ListeningAsync();
-    }
-
-    public Task DisposeAsync()
-    {
-        _server?.Kill(entireProcessTree: true);
-        _server?.Dispose();
-
-        return Task.CompletedTask;
-    }
+    public async Task DisposeAsync() => await _server.DisposeAsync();
 
     [Fact]
     public async Task Tools_OverHttp_KeepTheGuardRules()
     {
-        await using var client = await McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions { Endpoint = new Uri(_url, "mcp") }));
+        await using var client = await _server.SessionAsync();
 
         var listed = await client.ListToolsAsync();
 
         Assert.Empty(ToolGuards.Problems(listed.Select(tool => tool.ProtocolTool)));
     }
 
+    /// <summary>A page in a browser always sends Origin and an agent's client never does: no web page may reach the server.</summary>
     [Fact]
-    public async Task Request_FromABrowser_IsRefused()
-    {
-        using var http = new HttpClient();
-        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(_url, "mcp"));
-
-        request.Headers.Add("Origin", "https://example.com");
-
-        using var answer = await http.SendAsync(request);
-
-        Assert.Equal(HttpStatusCode.Forbidden, answer.StatusCode);
-    }
-
-    private static int FreePort()
-    {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
-
-        listener.Start();
-
-        return ((IPEndPoint)listener.LocalEndpoint).Port;
-    }
-
-    private async Task ListeningAsync()
-    {
-        using var probe = new HttpClient();
-        var deadline = DateTime.UtcNow + Patience;
-
-        while (DateTime.UtcNow < deadline)
-        {
-            try
-            {
-                using var answer = await probe.GetAsync(new Uri(_url, "mcp"));
-
-                return;
-            }
-            catch (HttpRequestException)
-            {
-                await Task.Delay(200);
-            }
-        }
-
-        throw new TimeoutException($"the server did not listen on {_url} within {Patience.TotalSeconds:0} s");
-    }
+    public async Task Endpoint_AsServed_RefusesBrowsersOnly() =>
+        Assert.Empty(await HttpGuards.ProblemsAsync(_server.Endpoint));
 }

@@ -439,6 +439,14 @@ every push. Beyond what a test of the code itself asserts:
       the tool and every parameter described, read-only or destructive stated, every allowed value named as a word of
       its own, English;
     - **the HTTP contract** for a server with HTTP: the endpoint, its tools, the refusal of a browser's request.
+      `HttpServerProgram.StartAsync(assembly, "SNAIL_<SHORT>_SERVER")` starts the same build or publication on a free
+      loopback port (`Ports.Free()`), told through `SNAIL_MCP_<SHORT>_URL` — or the variable the test names, given the
+      port alone when its name ends in `_PORT` — with the same home and no settings file, and hands it back once
+      `GET /healthz` answers with success (`readiness: null` for a server that maps none waits for its MCP endpoint).
+      A server that exits at start fails the test at once with its exit code and its stderr; one disposed is killed
+      with every process it started. `SessionAsync(query)` opens a session on `/mcp`, and
+      `HttpGuards.ProblemsAsync(server.Endpoint)` is empty when a request with `Origin` is refused with 403 and one
+      without it is not.
 - **Temporary folders a cleaner can prove are leftovers.** A test takes its temporary folder from
   `TestFolder.Create()` of `Snail.Sdk.Mcp.Testing`, never from `Directory.CreateTempSubdirectory()` or
   `Path.GetTempPath()` with a random name. The folder is made directly in the temporary folder and named

@@ -18,6 +18,8 @@
     <ProjectReference Include="..\..\src\Mcp.Http\Mcp.Http.csproj" />
     <ProjectReference Include="..\..\src\Mcp.JobClient\Mcp.JobClient.csproj" />
     <ProjectReference Include="..\..\src\Mcp.Testing\Mcp.Testing.csproj" />
+    <!-- Started as a program from beside the tests by HttpServerProgramTests, as a server's tests start the server. -->
+    <ProjectReference Include="..\Mcp.Probe\Mcp.Probe.csproj" />
   </ItemGroup>
 
   <ItemGroup>

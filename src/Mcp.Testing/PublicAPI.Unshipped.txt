@@ -1,1 +1,13 @@
 #nullable enable
+const Snail.Sdk.Mcp.Testing.HttpServerProgram.DefaultReadiness = "/healthz" -> string!
+Snail.Sdk.Mcp.Testing.HttpGuards
+Snail.Sdk.Mcp.Testing.HttpServerProgram
+Snail.Sdk.Mcp.Testing.HttpServerProgram.Address.get -> System.Uri!
+Snail.Sdk.Mcp.Testing.HttpServerProgram.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Snail.Sdk.Mcp.Testing.HttpServerProgram.Endpoint.get -> System.Uri!
+Snail.Sdk.Mcp.Testing.HttpServerProgram.Log.get -> string!
+Snail.Sdk.Mcp.Testing.HttpServerProgram.SessionAsync(string? query = null, ModelContextProtocol.Client.McpClientOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ModelContextProtocol.Client.McpClient!>!
+Snail.Sdk.Mcp.Testing.Ports
+static Snail.Sdk.Mcp.Testing.HttpGuards.ProblemsAsync(System.Uri! endpoint, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>!>!
+static Snail.Sdk.Mcp.Testing.HttpServerProgram.StartAsync(string! assemblyName, string! overrideVariable, System.Collections.Generic.IDictionary<string!, string?>? environment = null, string? addressVariable = null, string? readiness = "/healthz", System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Testing.HttpServerProgram!>!
+static Snail.Sdk.Mcp.Testing.Ports.Free() -> int

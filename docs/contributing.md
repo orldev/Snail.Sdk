@@ -18,7 +18,7 @@ sets the same properties as `Snail.Sdk` and passes `src/Sdk/Sdk/Snail.Sdk.global
 | `src/Conformance` | (in `Snail.Sdk`) | `Snail.Sdk.Conformance`, the S3LC checks |
 | `src/Docs` | (in the levels) | `Snail.Sdk.Docs`: the API and tool reference, the site configuration; `site/` holds the theme and the pinned MkDocs |
 | `pack/` | | the README of each package, `pack/<PackageId>.md`, written for nuget.org with absolute links |
-| `tests/` | | `Analyzers.Tests`, `Mcp.Tests`, `Sdk.Tests` |
+| `tests/` | | `Analyzers.Tests`, `Mcp.Tests`, `Sdk.Tests`; `Mcp.Probe`, the tiny HTTP server `Mcp.Tests` starts as a program |
 | `tools/Metrics` | | measures the shapes the analyzer rules judge over folders of C#, so a threshold sits where the code is |
 | `tools/Fleet` | | starts the stdio servers of the local Claude Code configuration as the client does and measures their start and memory |
 

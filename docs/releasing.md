@@ -97,6 +97,7 @@ seven days until its first publish binds it — a policy that expired unused is 
 
 Every package of the repository — `Snail.Sdk`, `.Analyzers`, `.Library`, `.Mcp`, `.Mcp.Hosting`, `.Mcp.Http`,
 `.Mcp.Testing`, `.Mcp.JobClient`, `.Templates` — is released together, at one version, by its own `publish.yml`.
+`.Mcp.Programs`, first released in 0.5.0, goes with them and is treated as the server libraries are in step 6.
 
 1. **Master is green**: `ci.yml` ran the tests, actionlint and shellcheck.
 2. **The release commit**: the entries of `src/Analyzers/AnalyzerReleases.Unshipped.md` move to

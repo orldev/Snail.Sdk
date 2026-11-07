@@ -13,6 +13,7 @@ sets the same properties as `Snail.Sdk` and passes `src/Sdk/Sdk/Snail.Sdk.global
 | `src/Library` | `Snail.Sdk.Library` | the library level; carries the docs tool and the site theme in `tools/docs` |
 | `src/Mcp` | `Snail.Sdk.Mcp` | the server level, the install targets, the launchd script; carries the docs tool too |
 | `src/Mcp.Hosting`, `src/Mcp.Http`, `src/Mcp.Testing`, `src/Mcp.JobClient` | the same names | the server libraries, and the client of their jobs |
+| `src/Mcp.Programs` | `Snail.Sdk.Mcp.Programs` | `run_program` on Jint, the library a server opts into; tested by `tests/Mcp.Programs.Tests` |
 | `src/Analyzers` | `Snail.Sdk.Analyzers` | the S3L rules, their code fixes and the suppressors |
 | `src/Templates` | `Snail.Sdk.Templates` | `content/s3l-lib`, `content/s3l-mcp` |
 | `src/Conformance` | (in `Snail.Sdk`) | `Snail.Sdk.Conformance`, the S3LC checks |

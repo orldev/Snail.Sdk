@@ -7,6 +7,8 @@ implicitly ([Snail.Sdk.Mcp.Hosting](https://www.nuget.org/packages/Snail.Sdk.Mcp
 [Snail.Sdk.Mcp.Testing](https://www.nuget.org/packages/Snail.Sdk.Mcp.Testing) and
 [Snail.Sdk.Mcp.JobClient](https://www.nuget.org/packages/Snail.Sdk.Mcp.JobClient) for its tests), the tool reference
 generated from the server itself, and publishing of an installed copy under `~/.s3l-mcp/<name>/`.
+A library a server opts into — [Snail.Sdk.Mcp.Programs](https://www.nuget.org/packages/Snail.Sdk.Mcp.Programs) for
+`run_program` — is named without a version and gets the level's own release.
 
 A server and its test project both name it:
 

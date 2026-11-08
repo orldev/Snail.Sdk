@@ -145,7 +145,19 @@ A change that a repository must act on says what to do.
   Snail.MCP.Playwright, FileSystem, Documents and Git keep their settings under `Snail`, and their operators wrote the
   endpoint there, where a read at the root alone did not look. A refusal names the key where it was found,
   `SNAIL_MCP_FILESYSTEM_SNAIL__PORT (or Snail:Port in the settings file) is '…'`. Such a server passes `"Snail"` and
-  drops the remark that the section is not read.
+  drops the remark that the section is not read. `Read(settings, defaultUrl, options)` and `ReadHttp(…, options)` take
+  a `McpEndpointOptions` — its `FallbackSection`, and its `Reach`: a keyless server keeps to loopback with
+  `McpReach.LoopbackOnly` (Snail.MCP.Memory, CodeContext, Figma), or `McpReach.LoopbackOrContainer` when it ships an
+  image (Git, FileSystem, Documents, Playwright, Roslyn, Sandbox, Security, Connector, `dotnet new s3l-mcp`), and `ListensOnEveryInterface=true`, a
+  URL at `0.0.0.0` or beyond loopback, and — for `LoopbackOnly` — a start inside a container are refused at the read,
+  naming the variable, `DOTNET_RUNNING_IN_CONTAINER is 'true'; …` among them. The old `CreateBuilder(args, url)` refused
+  an address beyond loopback; the endpoint opened every interface for any of the three, so a keyless server could be
+  served to the network by one setting (Snail.MCP.Memory). `McpReach.Unrestricted`, the reads without options, keeps
+  that for a server that guards its endpoint, and listens on an IP address beyond loopback — a LAN one, Snail.MCP.Blender
+  and AfterEffects — as named; a URL at a host name, which was served on loopback without a word, is refused at the
+  read. `McpEndpoint.UrlSetting` names the key the address was read from (`Url`, `Http:Url`, or either under the
+  section; null for the default): Snail.MCP.Blender signed its links with `Http:Url` while `SNAIL_MCP_BLENDER_URL` had
+  moved the listener.
 - `McpHttpHost.MapHealth(path = "/healthz", isHealthy = null)`: 200 with no body, for a container's healthcheck, which
   the servers in images mapped by hand; with `isHealthy` — asked with the request's services and its cancellation —
   503 while the server cannot serve, and when the check throws. Snail.MCP.Playwright mapped a `/healthz` of its own

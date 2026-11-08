@@ -381,3 +381,24 @@ static Snail.Sdk.Mcp.Hosting.ServerFolders.FullPath(string? path, string! fallba
 static Snail.Sdk.Mcp.Hosting.McpHost.CreateBuilder(string![]! args, Microsoft.Extensions.Configuration.IConfiguration! settings) -> Microsoft.Extensions.Hosting.HostApplicationBuilder!
 Snail.Sdk.Mcp.Hosting.McpHost.extension(Microsoft.Extensions.DependencyInjection.IServiceCollection!).AddReadyThreads(int workers) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Snail.Sdk.Mcp.Hosting.McpHost.AddReadyThreads(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, int workers) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+Snail.Sdk.Mcp.Hosting.McpEndpoint.UrlSetting.get -> string?
+Snail.Sdk.Mcp.Hosting.McpEndpoint.UrlSetting.init -> void
+Snail.Sdk.Mcp.Hosting.McpEndpointOptions
+Snail.Sdk.Mcp.Hosting.McpEndpointOptions.<Clone>$() -> Snail.Sdk.Mcp.Hosting.McpEndpointOptions!
+Snail.Sdk.Mcp.Hosting.McpEndpointOptions.Equals(Snail.Sdk.Mcp.Hosting.McpEndpointOptions? other) -> bool
+Snail.Sdk.Mcp.Hosting.McpEndpointOptions.FallbackSection.get -> string?
+Snail.Sdk.Mcp.Hosting.McpEndpointOptions.FallbackSection.init -> void
+Snail.Sdk.Mcp.Hosting.McpEndpointOptions.McpEndpointOptions() -> void
+Snail.Sdk.Mcp.Hosting.McpEndpointOptions.Reach.get -> Snail.Sdk.Mcp.Hosting.McpReach
+Snail.Sdk.Mcp.Hosting.McpEndpointOptions.Reach.init -> void
+Snail.Sdk.Mcp.Hosting.McpReach
+Snail.Sdk.Mcp.Hosting.McpReach.LoopbackOnly = 2 -> Snail.Sdk.Mcp.Hosting.McpReach
+Snail.Sdk.Mcp.Hosting.McpReach.LoopbackOrContainer = 1 -> Snail.Sdk.Mcp.Hosting.McpReach
+Snail.Sdk.Mcp.Hosting.McpReach.Unrestricted = 0 -> Snail.Sdk.Mcp.Hosting.McpReach
+override Snail.Sdk.Mcp.Hosting.McpEndpointOptions.Equals(object? obj) -> bool
+override Snail.Sdk.Mcp.Hosting.McpEndpointOptions.GetHashCode() -> int
+override Snail.Sdk.Mcp.Hosting.McpEndpointOptions.ToString() -> string!
+static Snail.Sdk.Mcp.Hosting.McpEndpoint.Read(Microsoft.Extensions.Configuration.IConfiguration! settings, System.Uri! defaultUrl, Snail.Sdk.Mcp.Hosting.McpEndpointOptions! options) -> Snail.Sdk.Mcp.Hosting.McpEndpoint!
+static Snail.Sdk.Mcp.Hosting.McpEndpoint.ReadHttp(Microsoft.Extensions.Configuration.IConfiguration! settings, System.Uri! defaultUrl, Snail.Sdk.Mcp.Hosting.McpEndpointOptions! options) -> Snail.Sdk.Mcp.Hosting.McpEndpoint!
+static Snail.Sdk.Mcp.Hosting.McpEndpointOptions.operator !=(Snail.Sdk.Mcp.Hosting.McpEndpointOptions? left, Snail.Sdk.Mcp.Hosting.McpEndpointOptions? right) -> bool
+static Snail.Sdk.Mcp.Hosting.McpEndpointOptions.operator ==(Snail.Sdk.Mcp.Hosting.McpEndpointOptions? left, Snail.Sdk.Mcp.Hosting.McpEndpointOptions? right) -> bool

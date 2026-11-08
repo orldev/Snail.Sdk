@@ -377,6 +377,15 @@ A change that a repository must act on says what to do.
   `urls` setting, which the web host reads from the `IConfiguration` the services hold: a server that registered a
   configuration of its own got Kestrel on localhost:5000 without a word (Snail.MCP.Documents). An `https` address is
   refused, since the host serves plain HTTP.
+- The `subscriptions/listen` stream of a client of the 2026-07-28 revision carries every kind it asked for and the server
+  declares — `toolsListChanged`, `promptsListChanged`, `resourcesListChanged` and the resources it may watch — each
+  notification tagged with the stream's id. `WithJobs` put a handler in place of the MCP SDK's that acknowledged and
+  carried resources alone, so with `WithSkills` a sessionless client never heard a skill's tools arrive or leave
+  (Snail.MCP.AfterEffects, Blender). `WithSkills` puts the same handler in place without jobs too — the MCP SDK's own
+  grants a sessionless client nothing — and gives every options instance of the host one tool collection, since over
+  HTTP the MCP SDK builds the options anew per session and per sessionless request and an idle skill's expiry,
+  announced through the host's own, reached none of them. Nothing to change in a server: its skipped tests of a
+  sessionless client loading a skill run again.
 
 ## [0.4.2] - 2026-11-06
 

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using Snail.Sdk.Mcp.Hosting.Jobs;
 
 namespace Snail.Sdk.Mcp.Hosting.Discovery;
 
@@ -117,7 +118,10 @@ public static class DiscoveryRegistration
         /// The skills' classes are registered as any other (<c>.WithTools&lt;MaterialTools&gt;()</c>): every tool stays in the
         /// server's collection, so the protocol finds every call and <c>find_tool</c> every tool, and a session's list leaves
         /// out what it has not loaded. Loading or unloading tells the session with <c>notifications/tools/list_changed</c>
-        /// in the reply to the call. A call to a tool of a skill not loaded loads it; a step of <c>run_tools</c> does not.
+        /// in the reply to the call before the 2026-07-28 revision, and from it on the client's <c>subscriptions/listen</c>
+        /// stream when it asked for <c>toolsListChanged</c> — a sessionless client over HTTP among them, whose listen stream
+        /// this puts in place of the MCP SDK's, which grants such a client nothing. A call to a tool of a skill not loaded
+        /// loads it; a step of <c>run_tools</c> does not.
         /// Over stdio and for a sessionless client there is one set of loaded skills; each MCP session has its own.
         /// </para>
         /// <para>
@@ -141,13 +145,15 @@ public static class DiscoveryRegistration
             builder.Services.TryAddSingleton(TimeProvider.System);
             builder.Services.AddSingleton(options);
             builder.Services.AddSingleton(services => new SkillSessions(name, services.GetRequiredService<TimeProvider>()));
+            builder.Services.AddSingleton<SharedToolCollection>();
             builder.Services.AddHostedService<SkillExpiry>();
+            ListenStreams.Register(builder.Services);
 
             foreach (var tool in SkillTools.All(name))
                 builder.Services.AddSingleton<McpServerTool>(tool);
 
             builder.Services.Configure<McpServerOptions>(Announcing);
-            builder.Services.PostConfigure<McpServerOptions>(Collecting);
+            builder.Services.AddOptions<McpServerOptions>().PostConfigure<SharedToolCollection>((server, shared) => server.ToolCollection = shared.Of(server.ToolCollection));
             builder.WithRequestFilters(filters =>
             {
                 filters.AddListToolsFilter(SkillTools.Hiding);
@@ -157,10 +163,6 @@ public static class DiscoveryRegistration
             return builder;
         }
     }
-
-    /// <summary>The server's tools in a collection an expiry can announce through, once every other setup has filled it.</summary>
-    private static void Collecting(McpServerOptions options) =>
-        options.ToolCollection = new SkillToolCollection(options.ToolCollection ?? []);
 
     /// <summary>Says the server tells of a change to its tool list, which loading a skill is.</summary>
     private static void Announcing(McpServerOptions options)

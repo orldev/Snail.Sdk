@@ -1,5 +1,3 @@
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ModelContextProtocol;
@@ -25,7 +23,9 @@ public static class JobsRegistration
         /// 2026-07-28 revision, served per request over HTTP, opens <c>subscriptions/listen</c> instead: the stream is
         /// acknowledged and held open until the client closes it, since a client that reads its end as the end of the
         /// connection drops every tool (Claude Code did, in 172 of 652 sessions of Snail.MCP.Blender), and the updates of
-        /// the resources it asked for are sent on it.
+        /// the resources it asked for are sent on it — with the changes of the tool, prompt and resource lists it asked for
+        /// and the server declares, which the MCP SDK's own handler would have carried had this one not replaced it
+        /// (a skill loaded by such a client reached it no other way).
         /// </para>
         /// <para>Called twice, it registers once.</para>
         /// </remarks>
@@ -48,6 +48,7 @@ public static class JobsRegistration
             if (builder.Services.Any(service => service.ServiceType == typeof(Jobs)))
                 return builder;
 
+            ListenStreams.Register(builder.Services);
             builder.Services.AddSingleton(new JobOwnership(ownerOf));
             builder.Services.AddSingleton(provider => new Jobs(server, provider.GetService<TimeProvider>(), provider.GetService<IHostApplicationLifetime>()));
             builder.Services.AddSingleton<JobWatchers>();
@@ -62,9 +63,10 @@ public static class JobsRegistration
 /// <remarks>
 /// The MCP SDK keeps no subscriptions of its own on the server: the subscribe and unsubscribe handlers are the
 /// server's to write, and so is sending. One instance serves every session of the host, keyed by the server of the
-/// session, which a stdio host has one of and an HTTP host one per client.
+/// session, which a stdio host has one of and an HTTP host one per client. A client of the 2026-07-28 revision watches on
+/// its listen stream instead, which <see cref="ListenStreams"/> holds for every kind of notification.
 /// </remarks>
-internal sealed class JobWatchers(Jobs jobs, JobOwnership owners, TimeProvider? clock = null)
+internal sealed class JobWatchers(Jobs jobs, JobOwnership owners, ListenStreams streams, TimeProvider? clock = null)
 {
     /// <summary>How often at most a progress step reaches a watcher; a change of state reaches it at once.</summary>
     internal static readonly TimeSpan Throttle = TimeSpan.FromSeconds(1);
@@ -83,11 +85,14 @@ internal sealed class JobWatchers(Jobs jobs, JobOwnership owners, TimeProvider? 
         options.Capabilities.Resources.Subscribe = true;
         options.Handlers.SubscribeToResourcesHandler = watchers.SubscribeAsync;
         options.Handlers.UnsubscribeFromResourcesHandler = watchers.UnsubscribeAsync;
-        options.Handlers.SubscriptionsListenHandler = watchers.ListenAsync;
+        watchers.Streams.Watches = watchers.IsSeen;
         options.Handlers.ReadResourceHandler = watchers.Wrap(options.Handlers.ReadResourceHandler);
         options.Handlers.ListResourceTemplatesHandler = watchers.Templates(options.Handlers.ListResourceTemplatesHandler);
         watchers.Listen();
     }
+
+    /// <summary>The listen streams of the clients of the 2026-07-28 revision, on which the jobs they asked for are told.</summary>
+    internal ListenStreams Streams { get; } = streams;
 
     /// <summary>Drops every notification instead of sending it, for a test of a client whose notifications were lost.</summary>
     internal bool IsMute { get; set; }
@@ -96,7 +101,7 @@ internal sealed class JobWatchers(Jobs jobs, JobOwnership owners, TimeProvider? 
     internal int WatchersOf(string uri)
     {
         lock (_gate)
-            return _sessions.Values.Count(watching => watching.Uris.Contains(uri));
+            return _sessions.Values.Count(watching => watching.Uris.Contains(uri)) + Streams.WatchersOf(uri);
     }
 
     /// <summary>
@@ -150,47 +155,6 @@ internal sealed class JobWatchers(Jobs jobs, JobOwnership owners, TimeProvider? 
         }
 
         return ValueTask.FromResult(new EmptyResult());
-    }
-
-    /// <summary>Acknowledges the resources the client asked for and holds the stream open until the client closes it or the host stops.</summary>
-    private async ValueTask<EmptyResult> ListenAsync(RequestContext<SubscriptionsListenRequestParams> request, CancellationToken cancellationToken)
-    {
-        IReadOnlyList<string> asked = [.. (request.Params?.Notifications?.ResourceSubscriptions ?? []).Where(uri => IsSeen(uri, request.Services))];
-        var granted = new SubscriptionsListenNotifications { ResourceSubscriptions = asked.Count > 0 ? [.. asked] : null };
-        var acknowledgement = JsonSerializer.SerializeToNode(new SubscriptionsAcknowledgedNotificationParams { Notifications = granted }, McpJsonUtilities.DefaultOptions.GetTypeInfo(typeof(SubscriptionsAcknowledgedNotificationParams)))!.AsObject();
-
-        acknowledgement["_meta"] = new JsonObject { [MetaKeys.SubscriptionId] = JsonSerializer.SerializeToNode(request.JsonRpcRequest.Id, McpJsonUtilities.DefaultOptions.GetTypeInfo(typeof(RequestId))) };
-
-        await request.Server.SendMessageAsync(new JsonRpcNotification { Method = NotificationMethods.SubscriptionsAcknowledgedNotification, Params = acknowledgement }, cancellationToken).ConfigureAwait(false);
-
-        var key = KeyOf(request.Server);
-
-        lock (_gate)
-        {
-            if (asked.Count > 0)
-                _sessions[key] = new Watching(request.Server, asked);
-        }
-
-        try
-        {
-            await HeldOpenAsync(request.Services?.GetService<IHostApplicationLifetime>()?.ApplicationStopping ?? CancellationToken.None, cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            lock (_gate)
-                _sessions.Remove(key);
-        }
-
-        return new EmptyResult();
-    }
-
-    private static async Task HeldOpenAsync(CancellationToken stopping, CancellationToken closed)
-    {
-        using var either = CancellationTokenSource.CreateLinkedTokenSource(stopping, closed);
-        var ended = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        await using var registration = either.Token.Register(() => ended.TrySetResult());
-
-        await ended.Task.ConfigureAwait(false);
     }
 
     /// <summary>A job's report at its URI; any other URI goes to the handler the server had, or is unknown.</summary>
@@ -252,14 +216,16 @@ internal sealed class JobWatchers(Jobs jobs, JobOwnership owners, TimeProvider? 
                     _sessions.Remove(key);
             }
         }
+
+        await Streams.UpdatedAsync(report.Uri).ConfigureAwait(false);
     }
 
     /// <summary>One session's watch: the server to send on and the URIs it asked for.</summary>
-    private sealed class Watching(McpServer server, IEnumerable<string>? uris = null)
+    private sealed class Watching(McpServer server)
     {
         public McpServer Server { get; } = server;
 
-        public HashSet<string> Uris { get; } = new(uris ?? [], StringComparer.Ordinal);
+        public HashSet<string> Uris { get; } = new(StringComparer.Ordinal);
     }
 }
 

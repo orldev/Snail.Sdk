@@ -37,8 +37,9 @@ internal static class SkillTools
     /// <remarks>
     /// A client before the 2026-07-28 revision is told in the response it is already reading: over HTTP Claude Code never
     /// saw a skill's tools arrive until Snail.MCP.Blender sent the notice there. A client of that revision or later must hear
-    /// only what it subscribed to, so the collection announces the change and the MCP SDK delivers it to the subscriptions
-    /// that asked for it.
+    /// only what it subscribed to, so the collection announces the change and the listen streams that asked for
+    /// <c>toolsListChanged</c> carry it (<see cref="Jobs.ListenStreams"/>) — a sessionless client's included, which has
+    /// no other channel.
     /// </remarks>
     public static async Task ToldAsync(McpServer server, CancellationToken cancellationToken)
     {

@@ -2,7 +2,6 @@ using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -133,25 +132,17 @@ internal static partial class RunTools
 
     /// <summary>The answer of a step that threw, as <c>ExplainFailures</c> answers a direct call that throws.</summary>
     /// <remarks>
-    /// The one place a step's exception becomes an answer, so a kind of exception the server throws as a refusal is read
-    /// here as the filter reads it. Arguments the MCP SDK could not bind are the call's fault, type <c>arguments</c>, and
-    /// are not logged; anything else is logged with its trace and answered in the words of <see cref="FailureOptions"/>,
-    /// type <c>internal</c>.
+    /// The filter's own reading of the exception (<c>ToolFailures.AnswerTo</c>): a <see cref="ToolRefusalException"/> in its
+    /// own words, arguments the MCP SDK could not bind as the call's fault (type <c>arguments</c>, not logged), anything
+    /// else logged with its trace and answered in the words of <see cref="FailureOptions"/>, type <c>internal</c> unless
+    /// they name another.
     /// </remarks>
     private static CallToolResult Thrown(RequestContext<CallToolRequestParams> context, McpServerTool tool, JsonObject? arguments, Exception failure)
     {
-        var name = tool.ProtocolTool.Name;
         var services = SessionRegistration.ServicesOf(context);
-
-        if (ArgumentFaults.AnswerTo(Called(context, tool, arguments), failure) is { } refused)
-            return refused;
-
-        if (services?.GetService<ILoggerFactory>() is { } loggers)
-            Failed(loggers.CreateLogger(typeof(RunTools)), failure, name);
-
         var words = services?.GetService<IOptions<FailureOptions>>()?.Value ?? new FailureOptions();
 
-        return ToolAnswer.Failed(words.Error?.Invoke(name, failure) ?? failure.Message, words.Hint, ToolFailures.Internal);
+        return ToolFailures.AnswerTo(Called(context, tool, arguments), failure, words);
     }
 
     /// <summary>The request a step stands for: its tool and its arguments as the protocol carries them.</summary>
@@ -162,9 +153,6 @@ internal static partial class RunTools
 
         return new RequestContext<CallToolRequestParams>(context.Server, context.JsonRpcRequest, parameters) { MatchedPrimitive = tool, Services = context.Services };
     }
-
-    [LoggerMessage(EventId = 2, Level = LogLevel.Error, Message = "{Tool} failed inside the server as a step of run_tools")]
-    private static partial void Failed(ILogger logger, Exception failure, string tool);
 
     private static string NoSuchTool(RequestContext<CallToolRequestParams> context, string named)
     {

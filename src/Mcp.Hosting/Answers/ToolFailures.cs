@@ -91,13 +91,7 @@ public static partial class ToolFailures
             }
             catch (Exception failure) when (IsUnforeseen(failure, cancellationToken))
             {
-                if (failure is ToolRefusalException refusal)
-                    return ToolAnswer.Failed(refusal.Error, refusal.Hint, refusal.Type, refusal.Details);
-
-                if (ArgumentFaults.AnswerTo(request, failure) is { } refused)
-                    return refused;
-
-                return Unforeseen(request, failure, words);
+                return AnswerTo(request, failure, words);
             }
 
             if (answer.IsError != true && ToolAnswer.IsFailure(answer))
@@ -105,6 +99,19 @@ public static partial class ToolFailures
 
             return answer;
         };
+
+    /// <summary>The answer to a call that threw: a refusal in its own words, arguments the call got wrong, or the server's failure.</summary>
+    /// <remarks>One reading of an exception for a direct call and for a step of <c>run_tools</c>, so a step that throws is answered as the call would have been.</remarks>
+    internal static CallToolResult AnswerTo(RequestContext<CallToolRequestParams> request, Exception failure, FailureOptions words)
+    {
+        if (failure is ToolRefusalException refusal)
+            return ToolAnswer.Failed(refusal.Error, refusal.Hint, refusal.Type, refusal.Details);
+
+        if (ArgumentFaults.AnswerTo(request, failure) is { } refused)
+            return refused;
+
+        return Unforeseen(request, failure, words);
+    }
 
     /// <summary>A failure the tool did not answer itself, in the server's words, logged as the server's own when its type is <c>internal</c>.</summary>
     private static CallToolResult Unforeseen(RequestContext<CallToolRequestParams> request, Exception failure, FailureOptions words)

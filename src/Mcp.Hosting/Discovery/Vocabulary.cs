@@ -12,8 +12,8 @@ namespace Snail.Sdk.Mcp.Hosting.Discovery;
 /// </para>
 /// <para>
 /// The words every task is made of — what, the, in, my — are dropped, because a description long enough to hold them all
-/// would otherwise answer every task ever asked; so are the words a server names as its noise and the words of its prefix,
-/// which every tool's name shares.
+/// would otherwise answer every task ever asked — from a task and from a description alike; so are the words a server
+/// names as its noise and the words of its prefix, which every tool's name shares.
 /// </para>
 /// </remarks>
 internal sealed class Vocabulary
@@ -24,7 +24,7 @@ internal sealed class Vocabulary
 
     private const double InTheDescription = 1.0;
 
-    /// <summary>The letters two words must agree on to be forms of each other; below it every word is a form of something.</summary>
+    /// <summary>The letters two words must agree on to be forms of each other, and the fewest either may have; below it every word is a form of something.</summary>
     private const int ShortestStem = 4;
 
     /// <summary>The words a task is made of rather than about.</summary>
@@ -82,7 +82,7 @@ internal sealed class Vocabulary
     {
         var named = Words(name).Where(word => !_dropped.Contains(word)).ToList();
         var meant = Words(meanings);
-        var described = Words(description);
+        var described = Words(description).Where(word => !_dropped.Contains(word)).ToList();
 
         return asked.Sum(word => Weight(word, named, meant, described));
     }
@@ -100,17 +100,21 @@ internal sealed class Vocabulary
 
     private static bool IsFormOfAny(IReadOnlyList<string> words, string asked) => words.Any(word => AreForms(word, asked));
 
-    /// <summary>Whether two words agree on their first four letters, or entirely when one is shorter than that.</summary>
-    /// <remarks>"stage" and "staging" part on the fifth letter, which is why this is not one word starting with the other.</remarks>
+    /// <summary>Whether two words of four letters or more agree on their first four.</summary>
+    /// <remarks>
+    /// <para>"stage" and "staging" part on the fifth letter, which is why this is not one word starting with the other.</para>
+    /// <para>
+    /// A shorter word is a form of nothing but itself. Agreeing "entirely when one is shorter", the "s" of "composition's"
+    /// was a form of "slerp", the "z" of "+z" of "zzzz" and the "e" and "g" of "e.g." of every word they begin, so a task in
+    /// words no tool uses still found tools (Snail.MCP.AfterEffects, Blender) — the fleet's own indexes asked four letters
+    /// of both.
+    /// </para>
+    /// </remarks>
     private static bool AreForms(string word, string asked)
     {
-        var shortest = Math.Min(word.Length, asked.Length);
-        var enough = Math.Min(ShortestStem, shortest);
-        var common = 0;
+        if (word.Length < ShortestStem || asked.Length < ShortestStem)
+            return false;
 
-        while (common < shortest && word[common] == asked[common])
-            common++;
-
-        return common >= enough;
+        return word.AsSpan(0, ShortestStem).SequenceEqual(asked.AsSpan(0, ShortestStem));
     }
 }

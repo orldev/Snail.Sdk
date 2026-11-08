@@ -316,15 +316,20 @@ A change that a repository must act on says what to do.
 - The ways into a server that the fleet spells alike, in `Snail.Sdk.Mcp.Hosting.Discovery`, each one line beside
   `AddMcpServer` and each over the tools the server registers, so none keeps a catalog of its own:
   - `.WithToolDiscovery(options => …)` adds `find_tool(task, limit)`, `intent` taken for `task` (Blender's and
-    AfterEffects' logs show clients sending either). It ranks the server's tools with the weights five servers arrived
-    at — 4 for a word of the name or of `DiscoveryOptions.Meanings`, 2.5 for a form of one (four letters shared), 1 for
-    a word of the description, English glue, `Noise` and the words of `Prefix` dropped — and answers
+    AfterEffects' logs show clients sending either), and `query` too, undeclared so the schema stays as short. It ranks the server's tools with the weights five servers arrived
+    at — 4 for a word of the name or of `DiscoveryOptions.Meanings`, 2.5 for a form of one (the first four letters
+    shared by two words of four or more: a shorter word is a form of nothing but itself, or the "s" of "composition's"
+    answered "slerp" and the "z" of "+z" answered "zzzz"), 1 for a word of the description, English glue — of the task
+    and of the description alike — `Noise` and the words of `Prefix` dropped — and answers
     `{task, isMatched, note, tools:[{name, command, description, parameters:[{name, type, isRequired, description}]}]}`
     read from each tool's input schema, an array typed by its items (`string[]`, `integer[][]`; CleanUp's own index
     wrote `string[]`, not `array`). When nothing matched, or no task was given, `isMatched` is false and every tool is
     listed by its name and the first sentence of its description alone, the tools of `Prefix` first, with a note to ask
     again in their words: an empty `find_tool` that listed every tool's parameters weighed 70 357 characters in Roslyn.
-    A tool the session may not call (`IToolGate`) is not named. `CommandOf` names a tool's command for `run_program`;
+    A tool the session may not call (`IToolGate`) is not named. `CommandOf` names a tool's command for `run_program`,
+    and `ParameterOf(tool, parameter)` names that command's parameters as the command takes them — null drops one — so
+    a program written from the answer sends `light_type` to a bridge of snake_case rather than the tool's `lightType`,
+    which it ignored (Blender, AfterEffects);
     `Catalog` replaces the registered tools for a server that keeps some outside its collection; `Examples` shows the
     server's own example tasks in the description of `task`, which shows none otherwise (the SDK's "push the branch"
     was Git's); `Shape` is the structured content of a success (`AnswerShape`, the data by default).
@@ -349,15 +354,22 @@ A change that a repository must act on says what to do.
     tool does not take — `ToolAnswer.Failed` with `type` `arguments`, the parameter it probably meant (within a third of
     its length in edits, or a short form: `timeout` → `timeoutSeconds`, `path` → `remotePath`) and what the tool takes
     as the hint; `run_tools` checks its steps alike. Without it a missing parameter was the MCP SDK's "An error occurred
-    invoking …" and an unknown one was dropped without a word. Register it after `.RefuseWhatWasNotGranted()`.
+    invoking …" and an unknown one was dropped without a word. `ArgumentCheckOptions.Synonyms` offers what a name spelled
+    like nothing it means stands for — `.WithArgumentCheck(options => options.Synonyms["query"] = ["task", "intent"])`
+    (Blender's logs). Register it after `.RefuseWhatWasNotGranted()`.
   - `.WithSkills(options => …)` with `[Skill(name, description)]` on a tool class: the skill's tools are registered like
     any other (`.WithTools<MaterialTools>()`) and left out of a session's list until it loads the skill with
-    `<short>_enable_skill` (`<short>_skills` lists, `<short>_disable_skill` unloads; `SkillOptions.Name`, else the
-    server's command). `find_tool` then answers `skill` and `isLoaded` per tool and takes `enable: true` to load the
-    skills of what it found; a direct call of an unloaded skill's tool loads it, a `run_tools` step does not. Each MCP
-    session has its own set, stdio and sessionless clients one; a change is told as `notifications/tools/list_changed`,
-    in the reply before the 2026-07-28 revision and through the client's subscription from it. `IdleTimeout` unloads a
-    skill unused that long. Nothing is built by reflection: the skills are read from `McpServerTool.Metadata`.
+    `<short>_enable_skill` (`<short>_skills` lists, `<short>_disable_skill` unloads; `SkillOptions.Prefix`, `ae` or
+    `ae_`, else the server's command). `find_tool` then answers `skill` and `isLoaded` per tool and takes `enable: true` to load the
+    skills of what it found, and its description names the ways the server registered to run their tools without loading
+    — `run_tools` of `.WithToolSequences()`, `run_program`, both or neither — where it said "run_tools" whatever was
+    there (AfterEffects runs them by `run_program`); a direct call of an unloaded skill's tool loads it, a `run_tools` step does not. Each MCP
+    session has its own set, stdio and sessionless clients one, unless `SessionOf(services, server)` names whose set a
+    request belongs to (AfterEffects and Blender: the name of the client's key; null falls back to the session); a
+    change is told as `notifications/tools/list_changed`, in the reply before the 2026-07-28 revision and on the
+    client's `subscriptions/listen` stream from it. `IdleTimeout` unloads a skill unused that long, unless
+    `IsBusy(skill, services)` says it is at work — a farm render with no call of its tools for an hour — and then it
+    stays a whole timeout after. Nothing is built by reflection: the skills are read from `McpServerTool.Metadata`.
 
   To adopt, a server deletes its `DiscoveryTools`, `ToolIndex`, `Vocabulary`, `ToolEntry`/`ToolArgument` and their
   guard test of tool classes (Git, FileSystem, Sandbox, CleanUp, Roslyn; Blender's and AfterEffects' `Discovery/ToolIndex`
@@ -420,6 +432,15 @@ A change that a repository must act on says what to do.
   `urls` setting, which the web host reads from the `IConfiguration` the services hold: a server that registered a
   configuration of its own got Kestrel on localhost:5000 without a word (Snail.MCP.Documents). An `https` address is
   refused, since the host serves plain HTTP.
+- The `subscriptions/listen` stream of a client of the 2026-07-28 revision carries every kind it asked for and the server
+  declares — `toolsListChanged`, `promptsListChanged`, `resourcesListChanged` and the resources it may watch — each
+  notification tagged with the stream's id. `WithJobs` put a handler in place of the MCP SDK's that acknowledged and
+  carried resources alone, so with `WithSkills` a sessionless client never heard a skill's tools arrive or leave
+  (Snail.MCP.AfterEffects, Blender). `WithSkills` puts the same handler in place without jobs too — the MCP SDK's own
+  grants a sessionless client nothing — and gives every options instance of the host one tool collection, since over
+  HTTP the MCP SDK builds the options anew per session and per sessionless request and an idle skill's expiry,
+  announced through the host's own, reached none of them. Nothing to change in a server: its skipped tests of a
+  sessionless client loading a skill run again.
 
 ## [0.4.2] - 2026-11-06
 

@@ -72,15 +72,27 @@ internal sealed class LoadedSkills
         }
     }
 
-    /// <summary>Unloads every skill unused for <paramref name="idle"/> or longer; the ones it unloaded.</summary>
-    public IReadOnlyList<string> Expire(DateTimeOffset now, TimeSpan idle)
+    /// <summary>Unloads every skill unused for <paramref name="idle"/> or longer that is not busy; the ones it unloaded.</summary>
+    /// <remarks>A busy skill counts as used now, so it stays a whole <paramref name="idle"/> after its work ends.</remarks>
+    public IReadOnlyList<string> Expire(DateTimeOffset now, TimeSpan idle, Func<string, bool> isBusy)
     {
         lock (_gate)
         {
-            List<string> expired = [.. _used.Where(each => now - each.Value >= idle).Select(each => each.Key).Order(StringComparer.Ordinal)];
+            List<string> unused = [.. _used.Where(each => now - each.Value >= idle).Select(each => each.Key).Order(StringComparer.Ordinal)];
+            List<string> expired = [];
 
-            foreach (var skill in expired)
+            foreach (var skill in unused)
+            {
+                if (isBusy(skill))
+                {
+                    _used[skill] = now;
+
+                    continue;
+                }
+
                 _used.Remove(skill);
+                expired.Add(skill);
+            }
 
             return expired;
         }
@@ -97,8 +109,9 @@ internal sealed class LoadedSkills
 /// <summary>The skills loaded by every session of the server, each session's its own.</summary>
 /// <remarks>
 /// <para>
-/// A session is known by its MCP session id: over stdio and to a sessionless client there is none, and they share one
-/// set — what Snail.MCP.Blender gives a client it cannot tell apart. Every tool, skills included, stays in the server's
+/// A session is known by <see cref="SkillOptions.SessionOf"/>, else by its MCP session id: over stdio and to a sessionless
+/// client there is none, and those the server does not key share one set — what Snail.MCP.Blender gives a client it
+/// cannot tell apart. Every tool, skills included, stays in the server's
 /// one tool collection; a session's list leaves out the skills it has not loaded, so loading one changes the list of the
 /// session that asked and of nobody else, and the protocol's own tool lookup serves every call.
 /// </para>
@@ -108,31 +121,40 @@ internal sealed class LoadedSkills
 /// HTTP transport's session hook — neither of which a native build or a stdio server has.
 /// </para>
 /// </remarks>
-internal sealed class SkillSessions(string name, TimeProvider time)
+internal sealed class SkillSessions(string prefix, TimeProvider time, Func<IServiceProvider, McpServer?, string?>? sessionOf = null)
 {
     private readonly ConcurrentDictionary<string, LoadedSkills> _sessions = new(StringComparer.Ordinal);
 
-    /// <summary>The server's short name, which names the skill tools.</summary>
-    public string Name { get; } = name;
+    /// <summary>The prefix of the skill tools' names, without its underscore.</summary>
+    public string Prefix { get; } = prefix;
 
     public TimeProvider Time { get; } = time;
 
-    /// <summary>The skills of the session <paramref name="server"/> serves.</summary>
-    public LoadedSkills Of(McpServer server)
+    /// <summary>The skills of the session <paramref name="server"/> serves, as <paramref name="services"/> name it.</summary>
+    public LoadedSkills Of(McpServer server, IServiceProvider? services)
     {
-        var loaded = _sessions.GetOrAdd(server.SessionId ?? string.Empty, _ => new LoadedSkills());
+        var named = services is not null && sessionOf is not null ? sessionOf(services, server) : null;
+        var loaded = _sessions.GetOrAdd(named ?? server.SessionId ?? string.Empty, _ => new LoadedSkills());
 
         loaded.Seen(Time.GetUtcNow());
 
         return loaded;
     }
 
-    /// <summary>Unloads, in every session, the skills unused for <paramref name="idle"/>; the skills unloaded, each once.</summary>
-    /// <remarks>A session with nothing loaded that has not been heard from for as long is forgotten, so ended sessions do not pile up.</remarks>
-    public IReadOnlyList<string> Expire(TimeSpan idle)
+    /// <summary>The skills of the session a request is served in.</summary>
+    public LoadedSkills Of(MessageContext context) => Of(context.Server, Sessions.SessionRegistration.ServicesOf(context));
+
+    /// <summary>Unloads, in every session, the skills unused for <paramref name="idle"/> and not busy; the skills unloaded, each once.</summary>
+    /// <remarks>
+    /// A session with nothing loaded that has not been heard from for as long is forgotten, so ended sessions do not pile up.
+    /// Whether a skill is busy is asked once a sweep, however many sessions loaded it.
+    /// </remarks>
+    public IReadOnlyList<string> Expire(TimeSpan idle, Func<string, bool>? isBusy = null)
     {
         var now = Time.GetUtcNow();
-        List<string> expired = [.. _sessions.Values.SelectMany(session => session.Expire(now, idle)).Distinct(StringComparer.OrdinalIgnoreCase)];
+        var asked = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        var busy = isBusy is null ? (_ => false) : (Func<string, bool>)(skill => asked.TryGetValue(skill, out var known) ? known : asked[skill] = isBusy(skill));
+        List<string> expired = [.. _sessions.Values.SelectMany(session => session.Expire(now, idle, busy)).Distinct(StringComparer.OrdinalIgnoreCase)];
 
         foreach (var forgotten in _sessions.Where(each => each.Value.IsForgotten(now, idle)).ToList())
             _sessions.TryRemove(forgotten);

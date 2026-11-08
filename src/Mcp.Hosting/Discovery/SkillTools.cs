@@ -11,12 +11,12 @@ namespace Snail.Sdk.Mcp.Hosting.Discovery;
 /// <summary>The tools that load and unload skills — <c>&lt;short&gt;_skills</c>, <c>_enable_skill</c>, <c>_disable_skill</c> — and the filters that make a session's list its skills'.</summary>
 internal static class SkillTools
 {
-    /// <summary>The three tools, named by the server's short name.</summary>
-    public static IEnumerable<Func<IServiceProvider, McpServerTool>> All(string name) =>
+    /// <summary>The three tools, named by the prefix, the server's short name without its underscore.</summary>
+    public static IEnumerable<Func<IServiceProvider, McpServerTool>> All(string prefix) =>
     [
-        services => McpServerTool.Create(ListSkills, Options(services, $"{name}_skills", ToolDescriptions.Skills, isReadOnly: true)),
-        services => McpServerTool.Create(EnableAsync, Options(services, $"{name}_enable_skill", ToolDescriptions.EnableSkill, isReadOnly: false)),
-        services => McpServerTool.Create(DisableAsync, Options(services, $"{name}_disable_skill", ToolDescriptions.DisableSkill, isReadOnly: false)),
+        services => McpServerTool.Create(ListSkills, Options(services, $"{prefix}_skills", ToolDescriptions.Skills, isReadOnly: true)),
+        services => McpServerTool.Create(EnableAsync, Options(services, $"{prefix}_enable_skill", ToolDescriptions.EnableSkill, isReadOnly: false)),
+        services => McpServerTool.Create(DisableAsync, Options(services, $"{prefix}_disable_skill", ToolDescriptions.DisableSkill, isReadOnly: false)),
     ];
 
     /// <summary>Loads the named skills in the session, as far as the gate lets it call their tools; the ones it loaded.</summary>
@@ -37,8 +37,9 @@ internal static class SkillTools
     /// <remarks>
     /// A client before the 2026-07-28 revision is told in the response it is already reading: over HTTP Claude Code never
     /// saw a skill's tools arrive until Snail.MCP.Blender sent the notice there. A client of that revision or later must hear
-    /// only what it subscribed to, so the collection announces the change and the MCP SDK delivers it to the subscriptions
-    /// that asked for it.
+    /// only what it subscribed to, so the collection announces the change and the listen streams that asked for
+    /// <c>toolsListChanged</c> carry it (<see cref="Jobs.ListenStreams"/>) — a sessionless client's included, which has
+    /// no other channel.
     /// </remarks>
     public static async Task ToldAsync(McpServer server, CancellationToken cancellationToken)
     {
@@ -63,7 +64,7 @@ internal static class SkillTools
             if (SessionRegistration.ServicesOf(context)?.GetService<SkillSessions>() is not { } sessions)
                 return listed;
 
-            var loaded = sessions.Of(context.Server);
+            var loaded = sessions.Of(context);
 
             listed.Tools = [.. listed.Tools.Where(tool => SkillOf(context.Server, tool.Name) is not { } skill || loaded.IsLoaded(skill))];
 
@@ -83,7 +84,7 @@ internal static class SkillTools
             if (services?.GetService<SkillSessions>() is not { } sessions || context.MatchedPrimitive is not McpServerTool tool || ToolCatalog.SkillOf(tool) is not { } skill)
                 return await next(context, cancellationToken).ConfigureAwait(false);
 
-            var loaded = sessions.Of(context.Server);
+            var loaded = sessions.Of(context);
             var isAllowed = services.GetService<IToolGate>()?.Refusal(tool.ProtocolTool.Name, services) is null;
 
             if (isAllowed && loaded.TryLoad(skill, sessions.Time.GetUtcNow()))
@@ -96,7 +97,7 @@ internal static class SkillTools
 
     private static CallToolResult ListSkills(RequestContext<CallToolRequestParams> context)
     {
-        var loaded = SessionsOf(context).Of(context.Server);
+        var loaded = SessionsOf(context).Of(context);
         var skills = Callable(context);
 
         return ToolAnswer.Ok(new JsonObject { ["skills"] = new JsonArray([.. skills.Select(skill => Described(skill, loaded))]) });
@@ -113,7 +114,7 @@ internal static class SkillTools
         if (Named(skills, name) is not { } skill)
             return Unknown(name, skills);
 
-        var loaded = sessions.Of(context.Server);
+        var loaded = sessions.Of(context);
 
         if (loaded.TryLoad(skill.Name, sessions.Time.GetUtcNow()))
             await ToldAsync(context.Server, cancellationToken).ConfigureAwait(false);
@@ -131,7 +132,7 @@ internal static class SkillTools
         if (Named(skills, name) is not { } skill)
             return Unknown(name, skills);
 
-        var loaded = SessionsOf(context).Of(context.Server);
+        var loaded = SessionsOf(context).Of(context);
 
         if (loaded.TryUnload(skill.Name))
             await ToldAsync(context.Server, cancellationToken).ConfigureAwait(false);

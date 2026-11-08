@@ -180,6 +180,47 @@ public sealed class FindToolTests
         Assert.Equal(0.0, vocabulary.Score(vocabulary.Asked("the"), "git_stage", null, "the"));
     }
 
+    /// <summary>
+    /// A word of one to three letters is a form of nothing but itself: the "s" of "composition's" answered "slerp", the "z"
+    /// of "+z" answered "zzzz" and the "e" and "g" of "e.g." every word they begin (Snail.MCP.AfterEffects, Blender).
+    /// </summary>
+    [Theory]
+    [InlineData("quaternion slerp gimbal")]
+    [InlineData("zzzz qqqq")]
+    [InlineData("granular entropy")]
+    public void Words_NoToolUses_FindNothing_RatherThanAGuess(string task)
+    {
+        IReadOnlyList<ToolEntry> entries =
+        [
+            new("comp_settings", "Changes the composition's frame rate, e.g. 25 or 30.", null, null, []),
+            new("mesh_extrude", "Extrudes faces along +z by a distance.", null, null, []),
+            new("layer_add", "Adds a layer to a composition, i.e. a solid, a null or a shape.", null, null, []),
+        ];
+
+        Assert.Empty(ToolCatalog.Find(entries, task, 5));
+    }
+
+    [Fact]
+    public void Forms_NeedFourLettersOnBothSides_AndTheCommonWordsOfADescriptionSayNothing()
+    {
+        var vocabulary = new Vocabulary([], null);
+
+        Assert.Equal(0.0, vocabulary.Score(["slerp"], "comp_settings", null, "The composition's rate."));
+        Assert.Equal(0.0, vocabulary.Score(["theirs"], "list_files", null, "Lists their files."));
+        Assert.Equal(1.0, vocabulary.Score(["rates"], "comp_settings", null, "The composition's rate."));
+        Assert.Equal(4.0, vocabulary.Score(["z"], "move_z", null, null));
+    }
+
+    [Fact]
+    public async Task Task_InWordsNoToolUses_IsNotMatched()
+    {
+        await using var stand = await DiscoveryStand.StartAsync(skills: false);
+
+        var found = await stand.FindAsync(new() { ["task"] = "zzzz qqqq" });
+
+        Assert.False(found["isMatched"]!.GetValue<bool>());
+    }
+
     [Fact]
     public async Task Task_ThatMatchesNothing_IsAnsweredWithEveryTool_AndANote()
     {
@@ -290,6 +331,30 @@ public sealed class FindToolTests
 
     private static JsonElement Schema(IList<McpClientTool> listed, string name) => listed.Single(tool => tool.Name == name).ProtocolTool.OutputSchema!.Value;
 
+    /// <summary>A program written from the answer sent the tool's camelCase to a bridge command of snake_case, which ignored it (Blender, AfterEffects).</summary>
+    [Fact]
+    public async Task ParameterOf_NamesTheParametersOfACommand_AsTheCommandTakesThem()
+    {
+        await using var stand = await DiscoveryStand.StartAsync(skills: false, discovery: options =>
+        {
+            options.CommandOf = tool => tool == "read_file" ? "file.read" : null;
+            options.ParameterOf = (tool, parameter) => (tool, parameter) switch
+            {
+                ("read_file", "path") => "file_path",
+                (_, "timeoutSeconds") => null,
+                _ => parameter,
+            };
+        });
+
+        var found = await stand.FindAsync(new() { ["task"] = "read or write a whole file", ["limit"] = 2 });
+        var read = found["tools"]!.AsArray().Single(tool => tool!["name"]!.GetValue<string>() == "read_file")!;
+        var write = found["tools"]!.AsArray().Single(tool => tool!["name"]!.GetValue<string>() == "write_file")!;
+
+        Assert.Equal("file.read", read["command"]!.GetValue<string>());
+        Assert.Equal(["file_path"], read["parameters"]!.AsArray().Select(parameter => parameter!["name"]!.GetValue<string>()));
+        Assert.Equal(["path", "text"], write["parameters"]!.AsArray().Select(parameter => parameter!["name"]!.GetValue<string>()));
+    }
+
     /// <summary>Blender's and AfterEffects' find_tool took intent, and their logs show clients sending task: either spelling is answered.</summary>
     [Fact]
     public async Task Intent_IsTakenForTask()
@@ -336,6 +401,21 @@ public sealed class FindToolTests
         Assert.Equal(["render"], found["enabledSkills"]!.AsArray().Select(skill => skill!.GetValue<string>()));
         Assert.True(found["tools"]![0]!["isLoaded"]!.GetValue<bool>());
         Assert.Contains(listed, tool => tool.Name == "render_image");
+    }
+
+    /// <summary>"run_tools runs their tools without loading" was written whatever the server registered (AfterEffects runs them by run_program).</summary>
+    [Theory]
+    [InlineData(true, false, "It searches unloaded skills too: enable: true loads them, and run_tools runs their tools without loading.")]
+    [InlineData(false, true, "It searches unloaded skills too: enable: true loads them, and run_program calls their commands without loading.")]
+    [InlineData(true, true, "It searches unloaded skills too: enable: true loads them, and run_tools or run_program runs their tools without loading.")]
+    [InlineData(false, false, "It searches unloaded skills too: enable: true loads them.")]
+    public async Task Description_WithSkills_NamesTheWaysTheServerRegistered(bool runTools, bool runProgram, string said)
+    {
+        await using var stand = await DiscoveryStand.StartAsync(runTools: runTools, tools: runProgram ? DiscoveryStand.WithProgram : null);
+
+        var description = stand.Listed.Single(tool => tool.Name == "find_tool").Description;
+
+        Assert.EndsWith(said, description, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -579,6 +659,37 @@ public sealed class ArgumentCheckTests
     {
         Assert.Empty(ArgumentCheck.Nearest("wildfire", ["intent", "limit", "enable"]));
     }
+
+    /// <summary>A synonym is spelled like nothing it means: Blender's logs held query sent for intent, and the check guessed nothing.</summary>
+    [Fact]
+    public async Task Synonym_OfAParameter_IsOfferedForIt_ByADirectCallAndAStep()
+    {
+        await using var plain = await DiscoveryStand.StartAsync();
+        await using var given = await DiscoveryStand.StartAsync(checks: options => options.Synonyms["location"] = ["file", "path"]);
+        var arguments = new Dictionary<string, object?> { ["location"] = "a.txt" };
+
+        var guessed = await plain.Client.CallToolAsync("read_file", arguments);
+        var meant = await given.Client.CallToolAsync("read_file", new Dictionary<string, object?> { ["LOCATION"] = "a.txt", ["path"] = "a.txt" });
+        var step = await given.RunAsync(new JsonObject { ["tool"] = "read_file", ["arguments"] = new JsonObject { ["location"] = "a.txt" } });
+
+        Assert.Equal("'read_file' needs 'path', which this call did not send, and takes no 'location'.", guessed.Error());
+        Assert.Equal("'read_file' takes no 'LOCATION' (did you mean 'path'?).", meant.Error());
+        Assert.Contains("takes no 'location' (did you mean 'path'?)", step.Error(), StringComparison.Ordinal);
+    }
+
+    /// <summary>find_tool takes query for task, as Blender's logs show clients sending, without declaring it.</summary>
+    [Fact]
+    public async Task Query_IsTakenForTask_ByFindTool_WithoutBeingDeclared()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var found = await stand.FindAsync(new() { ["query"] = "read the text of a file" });
+        var schema = stand.Listed.Single(tool => tool.Name == "find_tool").ProtocolTool.InputSchema.GetProperty("properties");
+
+        Assert.Equal("read the text of a file", found["task"]!.GetValue<string>());
+        Assert.Equal("read_file", found["tools"]![0]!["name"]!.GetValue<string>());
+        Assert.False(schema.TryGetProperty("query", out _));
+    }
 }
 
 /// <summary>Skills: loaded per session on demand, unloaded when idle.</summary>
@@ -682,6 +793,60 @@ public sealed class SkillsTests
         Assert.Contains(listed, tool => tool.Name == "render_image");
     }
 
+    /// <summary>A farm render runs for an hour with no call of the skill's tools; unloading it took the tools that follow the render away (Blender, AfterEffects).</summary>
+    [Fact]
+    public async Task Skill_Busy_StaysLoadedPastTheIdleTimeout_AndAWholeTimeoutAfter()
+    {
+        var busy = true;
+        await using var stand = await DiscoveryStand.StartAsync(idle: TimeSpan.FromMinutes(10), skilled: options => options.IsBusy = (skill, _) => busy && skill == "render");
+
+        await stand.Client.CallToolAsync("sample_enable_skill", new Dictionary<string, object?> { ["name"] = "render" });
+        stand.Clock.Advance(TimeSpan.FromMinutes(30));
+        stand.Expiry.Sweep();
+        var whileBusy = await stand.Client.ListToolsAsync();
+        busy = false;
+        stand.Clock.Advance(TimeSpan.FromMinutes(9));
+        stand.Expiry.Sweep();
+        var justAfter = await stand.Client.ListToolsAsync();
+        stand.Clock.Advance(TimeSpan.FromMinutes(2));
+        stand.Expiry.Sweep();
+        var later = await stand.Client.ListToolsAsync();
+
+        Assert.Contains(whileBusy, tool => tool.Name == "render_image");
+        Assert.Contains(justAfter, tool => tool.Name == "render_image");
+        Assert.DoesNotContain(later, tool => tool.Name == "render_image");
+    }
+
+    /// <summary>Clients without an MCP session — stdio, the sessionless revision — share one set unless the server tells them apart.</summary>
+    [Fact]
+    public async Task SessionOf_KeysTheSetOfLoadedSkills()
+    {
+        string? key = null;
+        await using var stand = await DiscoveryStand.StartAsync(skilled: options => options.SessionOf = (_, _) => Volatile.Read(ref key));
+
+        Volatile.Write(ref key, "titles");
+        await stand.Client.CallToolAsync("sample_enable_skill", new Dictionary<string, object?> { ["name"] = "render" });
+        var titles = await stand.Client.ListToolsAsync();
+        Volatile.Write(ref key, "edit");
+        var edit = await stand.Client.ListToolsAsync();
+        Volatile.Write(ref key, null);
+        var unkeyed = await stand.Client.ListToolsAsync();
+
+        Assert.Contains(titles, tool => tool.Name == "render_image");
+        Assert.DoesNotContain(edit, tool => tool.Name == "render_image");
+        Assert.DoesNotContain(unkeyed, tool => tool.Name == "render_image");
+    }
+
+    [Fact]
+    public async Task Prefix_NamesTheSkillTools_WithOrWithoutItsUnderscore()
+    {
+        await using var plain = await DiscoveryStand.StartAsync();
+        await using var underscored = await DiscoveryStand.StartAsync(skilled: options => options.Prefix = "sample_");
+
+        Assert.Contains(plain.Listed, tool => tool.Name == "sample_enable_skill");
+        Assert.Contains(underscored.Listed, tool => tool.Name == "sample_enable_skill");
+    }
+
     [Fact]
     public async Task Server_SaysItTellsOfAChangeToItsTools()
     {
@@ -749,7 +914,10 @@ internal sealed class DiscoveryStand : IAsyncDisposable
         Action<SequenceOptions>? sequences = null,
         TimeSpan idle = default,
         string? protocolVersion = null,
-        Action<IMcpServerBuilder>? tools = null)
+        Action<IMcpServerBuilder>? tools = null,
+        Action<SkillOptions>? skilled = null,
+        bool runTools = true,
+        Action<ArgumentCheckOptions>? checks = null)
     {
         var toServer = new Pipe();
         var toClient = new Pipe();
@@ -766,14 +934,20 @@ internal sealed class DiscoveryStand : IAsyncDisposable
         var server = builder.Services.AddMcpServer()
             .WithStreamServerTransport(toServer.Reader.AsStream(), toClient.Writer.AsStream())
             .RefuseWhatWasNotGranted()
-            .WithArgumentCheck()
-            .WithToolDiscovery(discovery)
-            .WithToolSequences(sequences);
+            .WithArgumentCheck(checks)
+            .WithToolDiscovery(discovery);
+
+        if (runTools)
+            server.WithToolSequences(sequences);
 
         (tools ?? WithSamples)(server);
 
         if (skills)
-            server.WithSkills(options => (options.Name, options.IdleTimeout) = ("sample", idle));
+            server.WithSkills(options =>
+            {
+                (options.Prefix, options.IdleTimeout) = ("sample", idle);
+                skilled?.Invoke(options);
+            });
 
         var host = builder.Build();
         await host.StartAsync();
@@ -785,6 +959,13 @@ internal sealed class DiscoveryStand : IAsyncDisposable
 
     /// <summary>The sample tools every stand has unless a test gives its own.</summary>
     public static void WithSamples(IMcpServerBuilder server) => server.WithTools<FileSample>().WithTools<RenderSample>();
+
+    /// <summary>The samples and a <c>run_program</c>, as Snail.Sdk.Mcp.Programs registers it.</summary>
+    public static void WithProgram(IMcpServerBuilder server)
+    {
+        WithSamples(server);
+        server.Services.AddSingleton(McpServerTool.Create(() => ToolAnswer.Ok(new JsonObject()), new McpServerToolCreateOptions { Name = "run_program", Description = "Runs a program." }));
+    }
 
     /// <summary>The samples and a tool that states an output schema, as every tool of Snail.MCP.FileSystem does.</summary>
     public static void WithStatedSchema(IMcpServerBuilder server)

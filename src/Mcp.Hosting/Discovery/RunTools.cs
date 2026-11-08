@@ -111,7 +111,8 @@ internal static partial class RunTools
 
         var schema = tool.ProtocolTool.InputSchema;
 
-        if (services.GetService<ArgumentCheck.Checked>() is not null && ArgumentCheck.Refusal(named, schema, step.Arguments?.Select(argument => argument.Key)) is { } wrong)
+        if (services.GetService<ArgumentCheck.Checked>() is { } check
+            && ArgumentCheck.Refusal(named, schema, step.Arguments?.Select(argument => argument.Key), ArgumentCheck.AcceptedBy(tool), check.Options.Synonyms) is { } wrong)
             return Step.Failed(named, wrong, ArgumentCheck.Takes(named, schema), ArgumentCheck.Type);
 
         CallToolResult result;
@@ -167,7 +168,7 @@ internal static partial class RunTools
     private static void Touch(RequestContext<CallToolRequestParams> context, McpServerTool tool)
     {
         if (SessionRegistration.ServicesOf(context)?.GetService<SkillSessions>() is { } sessions && ToolCatalog.SkillOf(tool) is { } skill)
-            sessions.Of(context.Server).Touch(skill, sessions.Time.GetUtcNow());
+            sessions.Of(context).Touch(skill, sessions.Time.GetUtcNow());
     }
 
     /// <summary>What one step answered: its data on success, why it failed otherwise.</summary>

@@ -23,8 +23,24 @@ internal sealed class Discovery(DiscoveryOptions options)
 
     private readonly Vocabulary _vocabulary = new(options.Noise, options.Prefix);
 
-    /// <summary>Every tool the server offers, skills loaded or not.</summary>
-    public IReadOnlyList<ToolEntry> Catalog(McpServer server) => options.Catalog ?? ToolCatalog.Of(ServerTools.Of(server), options.CommandOf);
+    /// <summary>Every tool the server offers, skills loaded or not, the parameters of a command named as the command takes them.</summary>
+    public IReadOnlyList<ToolEntry> Catalog(McpServer server)
+    {
+        var catalog = options.Catalog ?? ToolCatalog.Of(ServerTools.Of(server), options.CommandOf);
+
+        return options.ParameterOf is { } parameterOf ? [.. catalog.Select(entry => Commanded(entry, parameterOf))] : catalog;
+    }
+
+    /// <summary>An entry with a command, its parameters renamed as the command takes them and the ones it does not take dropped.</summary>
+    private static ToolEntry Commanded(ToolEntry entry, Func<string, string, string?> parameterOf)
+    {
+        if (entry.Command is null)
+            return entry;
+
+        var named = entry.Parameters.Select(parameter => (Parameter: parameter, Name: parameterOf(entry.Name, parameter.Name)));
+
+        return entry with { Parameters = [.. named.Where(each => each.Name is not null).Select(each => each.Parameter with { Name = each.Name! })] };
+    }
 
     /// <summary>The entries that answer the task, best first and at most <paramref name="limit"/>; empty when none does.</summary>
     public IReadOnlyList<ToolEntry> Find(string? task, IReadOnlyList<ToolEntry> entries, int limit) =>
@@ -81,12 +97,16 @@ internal sealed class Discovery(DiscoveryOptions options)
 /// </para>
 /// <para>
 /// <c>intent</c> is taken for <c>task</c>: Snail.MCP.Blender's and AfterEffects' <c>find_tool</c> took <c>intent</c>, and
-/// their logs show clients sending <c>task</c> to them; a client that learned either spelling is answered.
+/// their logs show clients sending <c>task</c> to them; a client that learned either spelling is answered. So is one that
+/// sends <c>query</c>, as Blender's logs show too — taken without being declared, since every session reads the schema.
 /// </para>
 /// </remarks>
 internal static class FindTool
 {
     public const string Name = "find_tool";
+
+    /// <summary>The name taken for <c>task</c> beside <c>intent</c>, undeclared: the schema stays as short as every session reads it.</summary>
+    private const string Query = "query";
 
     /// <summary>The tool as the server registers it: with <c>enable</c> where the server has skills, without where it has none.</summary>
     public static McpServerTool Create(IServiceProvider services)
@@ -103,24 +123,48 @@ internal static class FindTool
         return tool;
     }
 
-    /// <summary>States the output schema of <c>find_tool</c> where the server states output schemas of its own.</summary>
-    public static void Fit(McpServerOptions server, DiscoveryOptions options)
+    /// <summary>The name of the tool of Snail.Sdk.Mcp.Programs that runs a program of the server's commands.</summary>
+    private const string RunProgram = "run_program";
+
+    /// <summary>
+    /// States the output schema of <c>find_tool</c> where the server states output schemas of its own, and with skills
+    /// names the ways the server registered to run a skill's tools without loading it.
+    /// </summary>
+    /// <remarks>
+    /// Written as "run_tools runs their tools without loading" whatever was registered, it pointed the model of a server
+    /// whose own <c>run_tools</c> takes commands, or whose way is <c>run_program</c>, at the wrong tool (Snail.MCP.AfterEffects).
+    /// <c>run_tools</c> is named when it is the SDK's (<c>WithToolSequences</c>), whose steps are tools; <c>run_program</c>
+    /// whenever the server has it, since a program calls commands whatever registered it.
+    /// </remarks>
+    public static void Fit(McpServerOptions server, DiscoveryOptions options, IServiceProvider services)
     {
-        if (server.ToolCollection is { } tools && tools.TryGetPrimitive(Name, out var find) && OutputSchemas.AreStated(tools))
+        if (server.ToolCollection is not { } tools || !tools.TryGetPrimitive(Name, out var find))
+            return;
+
+        if (OutputSchemas.AreStated(tools))
             find.ProtocolTool.OutputSchema = OutputSchemas.OfFindTool(options.Shape);
+
+        if (services.GetService<SkillSessions>() is not null)
+        {
+            var runsTools = services.GetService<SequenceOptions>() is not null && tools.TryGetPrimitive(RunTools.Name, out _);
+
+            find.ProtocolTool.Description = ToolDescriptions.FindToolWithSkillsAnd(runsTools, tools.TryGetPrimitive(RunProgram, out _));
+        }
     }
 
     [McpServerTool(Name = Name, ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description(ToolDescriptions.FindTool)]
+    [Accepts(Query)]
     private static CallToolResult Find(
         RequestContext<CallToolRequestParams> context,
         [Description(ToolDescriptions.Task)] string? task = null,
         [Description(ToolDescriptions.Limit)] int limit = Discovery.DefaultLimit,
         [Description(ToolDescriptions.Intent)] string? intent = null) =>
-        Answered(context, Answer(context, Asked(task, intent), limit, null, []));
+        Answered(context, Answer(context, Asked(context, task, intent), limit, null, []));
 
     [McpServerTool(Name = Name, ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description(ToolDescriptions.FindToolWithSkills)]
+    [Accepts(Query)]
     private static async Task<CallToolResult> FindAndEnableAsync(
         RequestContext<CallToolRequestParams> context,
         [Description(ToolDescriptions.Task)] string? task = null,
@@ -130,8 +174,8 @@ internal static class FindTool
         CancellationToken cancellationToken = default)
     {
         var services = SessionRegistration.ServicesOf(context)!;
-        var loaded = services.GetRequiredService<SkillSessions>().Of(context.Server);
-        var asked = Asked(task, intent);
+        var loaded = services.GetRequiredService<SkillSessions>().Of(context);
+        var asked = Asked(context, task, intent);
         IReadOnlyList<string> enabled = [];
 
         if (enable)
@@ -157,7 +201,17 @@ internal static class FindTool
         return JsonElement.Parse(rewritten.ToJsonString());
     }
 
-    private static string? Asked(string? task, string? intent) => string.IsNullOrWhiteSpace(task) ? intent : task;
+    /// <summary>The task, sent as <c>task</c>, <c>intent</c> or <c>query</c>, the first given.</summary>
+    private static string? Asked(RequestContext<CallToolRequestParams> context, string? task, string? intent)
+    {
+        if (!string.IsNullOrWhiteSpace(task))
+            return task;
+
+        if (!string.IsNullOrWhiteSpace(intent))
+            return intent;
+
+        return context.Params?.Arguments?.TryGetValue(Query, out var query) == true && query.ValueKind == JsonValueKind.String ? query.GetString() : task ?? intent;
+    }
 
     /// <summary>The tools the session may call that answer the task; empty when none does.</summary>
     private static IReadOnlyList<ToolEntry> Found(RequestContext<CallToolRequestParams> context, string? task, int limit)

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json.Nodes;
 using Snail.Sdk.Mcp.Hosting.Answers;
+using Snail.Sdk.Mcp.Hosting.Sessions;
 
 namespace Snail.Sdk.Mcp.Programs.Tests;
 
@@ -156,6 +157,51 @@ public sealed class ProgramRunnerTests
         Assert.Equal("the program stopped at line 2: not granted", run.Failure.Error);
     }
 
+    /// <summary>Without a request there is no server to ask for its hint: the fleet's, which names no session.</summary>
+    [Fact]
+    public async Task RefusedCommand_WithoutARequest_CarriesTheFleetsHint()
+    {
+        var run = await RunAsync("git.status();", refusal: tool => tool == "git_status" ? "not granted" : null);
+
+        Assert.Equal(GrantOptions.Hint, run.Failure!.Hint);
+    }
+
+    /// <summary>A command that stands for no tool is asked of the gate under its own name, never let past it.</summary>
+    [Fact]
+    public async Task CommandWithoutATool_IsAskedOfTheGate_UnderItsOwnName()
+    {
+        var asked = new List<string>();
+
+        var run = await RunAsync(
+            "tools.status(); return 'ran';",
+            options => options.Global = "tools",
+            refusal: tool =>
+            {
+                asked.Add(tool);
+
+                return null;
+            },
+            commands: new Named(["status"]));
+
+        Assert.Equal("ran", run.Result!.GetValue<string>());
+        Assert.Equal(["status"], asked);
+    }
+
+    [Fact]
+    public async Task Command_IsSentItsDeadline_AndNoRequestWhereTheRunnerWasGivenNone()
+    {
+        var sent = new List<CommandCall>();
+
+        var run = await RunAsync("tools.status(); return 'ran';", options => options.Global = "tools", timeout: TimeSpan.FromSeconds(20), commands: new Named(["status"], sent));
+        var call = Assert.Single(sent);
+
+        Assert.Null(run.Failure);
+        Assert.Equal(("status", null), (call.Command, call.Request));
+        Assert.InRange(call.Deadline - DateTimeOffset.UtcNow, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(20));
+        Assert.InRange(call.Remaining, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(20));
+        Assert.Equal(TimeSpan.Zero, (call with { Deadline = DateTimeOffset.UtcNow.AddSeconds(-1) }).Remaining);
+    }
+
     [Fact]
     public async Task FailedCommand_Uncaught_KeepsItsOwnTypeAndDetails()
     {
@@ -261,13 +307,21 @@ public sealed class ProgramRunnerTests
         return new ProgramRunner(options).RunAsync(commands ?? _catalog, code, input, timeout, refusal, cancellationToken: cancellationToken);
     }
 
-    private sealed class Named(IReadOnlyList<string> names) : IProgramCommands
+    /// <summary>Commands that stand for no tool, and keep what each was sent with.</summary>
+    private sealed class Named(IReadOnlyList<string> names, List<CommandCall>? sent = null) : IProgramCommands
     {
         public IReadOnlyList<string> Names => names;
 
-        public string ToolOf(string command) => command;
+        public string? ToolOf(string command) => null;
 
         public Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, CancellationToken cancellationToken) =>
             Task.FromResult(ProgramAnswer.Ok(null));
+
+        public Task<ProgramAnswer> CallAsync(CommandCall call, CancellationToken cancellationToken)
+        {
+            sent?.Add(call);
+
+            return Task.FromResult(ProgramAnswer.Ok(null));
+        }
     }
 }

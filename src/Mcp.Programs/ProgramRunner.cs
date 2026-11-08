@@ -11,6 +11,7 @@ using Jint.Runtime.Interop;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using Snail.Sdk.Mcp.Hosting.Answers;
+using Snail.Sdk.Mcp.Hosting.Sessions;
 
 namespace Snail.Sdk.Mcp.Programs;
 
@@ -65,8 +66,8 @@ public sealed class ProgramRunner(ProgramOptions options)
     /// <param name="code">The program: JavaScript, run in strict mode.</param>
     /// <param name="input">What the program reads as <c>input</c>; an empty object when null.</param>
     /// <param name="timeout">How long it may run; <see cref="ProgramOptions.Timeout"/> when null.</param>
-    /// <param name="refusal">Why the session may not call a tool, or null when it may, asked with <see cref="IProgramCommands.ToolOf"/> before every command; every command is allowed when null.</param>
-    /// <param name="context">The request of <c>run_program</c>, handed to every command through <see cref="IProgramCommands.CallAsync(string, JsonObject, RequestContext{CallToolRequestParams}, CancellationToken)"/>; when null, the commands are called without it.</param>
+    /// <param name="refusal">Why the session may not call a tool, or null when it may, asked before every command with <see cref="IProgramCommands.ToolOf"/> — the command's own name where that is null; every command is allowed when null.</param>
+    /// <param name="context">The request of <c>run_program</c>, handed to every command on <see cref="CommandCall.Request"/>, whose server's hint (<see cref="ToolForwarding.Hint"/>) a refused command carries; when null, the commands are called without it and a refusal carries <see cref="GrantOptions.Hint"/>.</param>
     /// <param name="cancellationToken">Ends the program, which then reports <see cref="ProgramFailures.Cancelled"/>.</param>
     public Task<ProgramRun> RunAsync(
         IProgramCommands commands,
@@ -101,6 +102,7 @@ public sealed class ProgramRunner(ProgramOptions options)
         private readonly TimeSpan _timeout;
         private readonly CancellationToken _caller;
         private readonly CancellationTokenSource _deadline;
+        private readonly DateTimeOffset _ends;
         private readonly Engine _engine;
         private readonly List<string> _log = [];
         private readonly List<ProgramCall> _calls = [];
@@ -117,6 +119,7 @@ public sealed class ProgramRunner(ProgramOptions options)
             _timeout = timeout;
             _caller = caller;
             _deadline = CancellationTokenSource.CreateLinkedTokenSource(caller);
+            _ends = DateTimeOffset.UtcNow + timeout;
             _deadline.CancelAfter(timeout);
             _engine = new Engine(engine => engine
                 .Strict()
@@ -273,11 +276,13 @@ public sealed class ProgramRunner(ProgramOptions options)
 
             var given = Arguments(command, arguments);
 
-            if (_refusal?.Invoke(_commands.ToolOf(command)) is { } refused)
+            var tool = _commands.ToolOf(command) ?? command;
+
+            if (_refusal?.Invoke(tool) is { } refused)
             {
                 _calls.Add(new ProgramCall(command, false, 0));
 
-                throw new JavaScriptException(Failure(ProgramAnswer.Failed(refused, "this session was not granted it; carry on without it, or leave it to a session that was", ProgramFailures.NotGranted)));
+                throw new JavaScriptException(Failure(ProgramAnswer.Failed(refused, Hint(tool), ProgramFailures.NotGranted)));
             }
 
             var started = _running.Elapsed;
@@ -285,7 +290,7 @@ public sealed class ProgramRunner(ProgramOptions options)
 
             try
             {
-                var sent = _context is null ? _commands.CallAsync(command, given, _deadline.Token) : _commands.CallAsync(command, given, _context, _deadline.Token);
+                var sent = _commands.CallAsync(new CommandCall(command, given, _context, _ends), _deadline.Token);
 
                 answer = sent.WaitAsync(_deadline.Token).GetAwaiter().GetResult();
             }
@@ -300,6 +305,11 @@ public sealed class ProgramRunner(ProgramOptions options)
 
             return answer.IsSuccess ? Parsed(answer.Data) : throw new JavaScriptException(Failure(answer));
         }
+
+        /// <summary>What a command refused for want of a grant tells the program to do next: the server's hint, as its door and forwarders give it.</summary>
+        /// <remarks>It said "this session was not granted it" whatever the server's hint and on a stateless server too, which has no session.</remarks>
+        private string Hint(string tool) =>
+            _context is not null && (_context.Services ?? _context.Server.Services) is { } services ? ToolForwarding.Hint(services, tool) : GrantOptions.Hint;
 
         private int Milliseconds(TimeSpan started) => (int)(_running.Elapsed - started).TotalMilliseconds;
 

@@ -179,7 +179,12 @@ A change that a repository must act on says what to do.
     `GrantOptions.Hint`, lowercase and without a closing stop as the hints beside it are — and the tool is left
     out of the list (`GrantOptions.HidesWithheldTools`, true). The words speak of "this request" instead of "this
     session" on a transport that keeps no sessions (`ISessionAddress.Subject`, which the address of
-    `Snail.Sdk.Mcp.Http` reads from `HttpServerSessionMode.Stateless`; Snail.MCP.Playwright needs no setting). A server whose answers have another shape sets
+    `Snail.Sdk.Mcp.Http` reads from `HttpServerSessionMode.Stateless`; Snail.MCP.Playwright needs no setting). A server
+    whose hint differs sets it once, `GrantOptions.HintOf = (tool, address) => …` — `address.Subject` says `session` or
+    `request` — and every layer that refuses for want of a grant gives it: the door, `ToolForwarding.Refused` and
+    `Refused<T>`, and a program's refused command, which said "this session was not granted it" whatever the server's
+    hint and on a stateless server too. Snail.MCP.Blender drops the `Refusal` it set only for its scope hint and the
+    copy in its forwarders, Snail.MCP.Git the hint its catalog kept. A server whose answers have another shape sets
     `GrantOptions.Refusal`; one that must never serve a session
     without a grant sets `GrantOptions.RequiresGrant` (HTTP only: a program over stdio names no tool). A server with
     scopes of its own — Snail.MCP.AfterEffects, Blender — registers an `IToolGate`, which the door asks instead. It is
@@ -190,9 +195,13 @@ A change that a repository must act on says what to do.
     the protocol would, and a forwarder is never a step of another. A forwarder whose steps are commands rather than tools
     (Snail.MCP.Git) asks `ToolForwarding.Refusal(context, "git_status")` for each, or takes the refusal whole:
     `ToolForwarding.Refused(context, tool)` is the door's answer in the server's shape, and `Refused<T>(context, tool)`
-    the same as an `Answer<T>` — type `notGranted`, hint `GrantOptions.Hint` — so Snail.MCP.Git drops its copy of the
-    hint, and a program's refused command (`Snail.Sdk.Mcp.Programs`) is `notGranted` too: one refusal, one type, at
-    every layer. Its own `Refusal` and `Invoke` go.
+    the same as an `Answer<T>` — type `notGranted`, the server's hint (`GrantOptions.HintOf`, `GrantOptions.Hint` unless
+    set) — so Snail.MCP.Git drops its copy of the hint, and a program's refused command (`Snail.Sdk.Mcp.Programs`) is
+    `notGranted` too: one refusal, one type, at every layer. Its own `Refusal` and `Invoke` go. Each of the three takes
+    an `IServiceProvider` in place of the request as well — `ToolForwarding.Refusal(services, tool)` — for a forwarder
+    handed services rather than a request and for a unit test with a container and no protocol (Snail.MCP.Blender
+    asked `IToolGate` itself for its batches); `ToolForwarding.Hint(services, tool)` is the server's hint for an
+    answer of the server's own shape.
   - `.WithSessionRoots(services => volumes, options => …)` registers `SessionRoots`: the roots the address names
     (`?root=`) inside the configured volumes, or the volumes when it names none, and `Reach(path, mustBe)`, which
     answers the path with every link on it followed, or why it may not be used. `mustBe` — `PathKind.File`, `Folder`, or `Any`,
@@ -243,10 +252,17 @@ A change that a repository must act on says what to do.
   `blender.add_primitive({ … })` — so work that decides as it goes costs one call. `TCommands` is an `IProgramCommands`
   (`Names`, `ToolOf(command)`, `CallAsync`, answering a `ProgramAnswer`; `CallAsync(command, arguments, context, …)`
   hands a command the request of `run_program` — its session, services and progress token — and calls the one without
-  it unless a catalog overrides it), or `ToolCommands`, every tool of the server
+  it unless a catalog overrides it; `CallAsync(CommandCall call, …)`, which the runner calls, hands it all at once —
+  `Command`, `Arguments`, `Request`, and the program's `Deadline` with `Remaining`, so a command that waits on a
+  bridge waits as long as its program has left, where Snail.MCP.AfterEffects waited `MaxTimeout` for every command —
+  and calls the other two unless a catalog overrides it, so a catalog written against either compiles unchanged), or
+  `ToolCommands`, every tool of the server
   but the forwarders, `notes_read` called as `notes.read()`, through `ToolForwarding.CallAsync`. The tool is marked
-  `[Forwards]`; before every command the session's gate is asked for the command's tool, and a refusal, like any failed
-  command, reaches the program as `{ error, message, hint, type, details }`, which it may catch. A command the server
+  `[Forwards]`; before every command the session's gate is asked for the command's tool — or, where `ToolOf` answers
+  null because the command stands for none (most of Snail.MCP.AfterEffects' 129), for the command's own name, which a
+  scope gate judges as a command and the default gate grants as a tool; null never passes the gate — and a refusal,
+  like any failed command, reaches the program as `{ error, message, hint, type, details }`, which it may catch, as
+  the description of `run_program` now says in full. A command the server
   does not have stops the program with the names nearest to it (`no command 'stauts'; the nearest: status`) instead of
   "is not a function"; `log(…)` is a global of the program only, so a command named `log` still runs (Snail.MCP.Git's
   collision). `ProgramOptions` bound a program — `Timeout` 120 s and `MaxTimeout` 600 s (raised to a `Timeout` set past
@@ -256,8 +272,10 @@ A change that a repository must act on says what to do.
   `programTooLarge`, `tooManyCalls`, `syntax` and `runtime` with the line of the program, `noSuchCommand`, `notGranted`,
   `cancelled`, `invalid`. The answer is the envelope:
   `{"result":…,"log":[…],"calls":[{"command","ok","milliseconds"}]}`, a result past the budget left out with
-  `isOmitted` and a note, and on a stop the same data beside `error`, `hint` and `type`. `ProgramRunner` runs a program
-  without the tool. A server opts in with `<PackageReference Include="Snail.Sdk.Mcp.Programs" />`, no version: the
+  `isOmitted` and a note, and on a stop the same data beside `error`, `hint` and `type`. `ProgramOptions.Ran =
+  (run, services) => …` is called once per program run, finished or stopped, with its `ProgramRun` and the services of
+  the request: Snail.MCP.Blender's traffic report counted a program at its catalog's first command, so a program that
+  sent none went uncounted. `ProgramRunner` runs a program without the tool. A server opts in with `<PackageReference Include="Snail.Sdk.Mcp.Programs" />`, no version: the
   `Snail.Sdk.Mcp` level gives it its own release. A native server sets `IlcTreatWarningsAsErrors` false, as
   Snail.MCP.Git does: the native compiler reports Jint, which is not annotated for trimming; this package's own code is
   held to no trim or AOT warning. To adopt in Snail.MCP.Git, Snail.MCP.Blender and Snail.MCP.AfterEffects: implement

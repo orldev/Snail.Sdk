@@ -3,7 +3,8 @@
   <!--
     A tiny HTTP server for the tests of HttpServerProgram: started as a program from beside the tests, the way a server's
     own tests start it. Named as a server is, so the address and settings variables it reads are derived as a server's
-    are: SNAIL_MCP_PROBE_URL (or SNAIL_MCP_PROBE_PORT), SNAIL_MCP_PROBE_CONFIG.
+    are: SNAIL_MCP_PROBE_URL (or SNAIL_MCP_PROBE_PORT), SNAIL_MCP_PROBE_CONFIG. It is a server of both transports, which
+    answers over stdio unless SNAIL_MCP_PROBE_TRANSPORT or a port says HTTP; told stdio, it exits with 4.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using ModelContextProtocol.Client;
+using Snail.Sdk.Mcp.Hosting;
 
 namespace Snail.Sdk.Mcp.Testing;
 
@@ -11,7 +12,8 @@ namespace Snail.Sdk.Mcp.Testing;
 /// The twin of <see cref="ServerProgram"/> for a server one machine or one platform shares: the build beside the tests,
 /// or the publication the override variable names — a native program among them — started with
 /// <see cref="ServerProgram.Home"/> as its home and <see cref="ServerProgram.NoSettingsFile"/> as its settings file,
-/// told its address through the variable it reads it from, and given back once it is ready. Only the process shows what
+/// told its address through the variable it reads it from and told to answer over HTTP, and given back once it is ready.
+/// Only the process shows what
 /// a native build gets wrong, and only the process shows the refusal of a browser that the host it builds keeps.
 /// </para>
 /// <para>
@@ -74,7 +76,12 @@ public sealed class HttpServerProgram : IAsyncDisposable
     /// </summary>
     /// <param name="assemblyName">The server's assembly, <c>Snail.MCP.&lt;Name&gt;</c>, as for <see cref="ServerProgram"/>.</param>
     /// <param name="overrideVariable">The variable that names a publication to start instead of the build beside the tests.</param>
-    /// <param name="environment">Variables the server starts with beyond its home, its settings file and its address.</param>
+    /// <param name="environment">
+    /// Variables the server starts with beyond its home, its settings file and its address. A Snail server is given
+    /// <c>SNAIL_MCP_&lt;SHORT&gt;_TRANSPORT=Http</c> as well unless these name that variable, so a server of both
+    /// transports, which answers over stdio when its settings name no transport, starts over HTTP; its URL alone does
+    /// not say HTTP, and the start waited for a server that was answering over stdio (Snail.MCP.Documents, 0.5.0).
+    /// </param>
     /// <param name="addressVariable">
     /// The variable the server reads its address from; <c>SNAIL_MCP_&lt;SHORT&gt;_URL</c> unless named. It is given the URL,
     /// or the port alone when its name ends in <c>_PORT</c>.
@@ -112,6 +119,9 @@ public sealed class HttpServerProgram : IAsyncDisposable
         var variables = ServerProgram.Variables(assemblyName, environment);
 
         variables[variable] = variable.EndsWith("_PORT", StringComparison.Ordinal) ? address.Port.ToString(CultureInfo.InvariantCulture) : address.ToString();
+
+        if (TransportVariableOf(assemblyName) is { } transport && environment?.ContainsKey(transport) is not true)
+            variables[transport] = nameof(McpTransport.Http);
 
         foreach (var (key, value) in variables)
             Set(start, key, value);
@@ -158,6 +168,10 @@ public sealed class HttpServerProgram : IAsyncDisposable
         ServerProgram.ShortNameOf(assemblyName) is { } name
             ? $"SNAIL_MCP_{name.ToUpperInvariant()}_URL"
             : throw new ArgumentException($"'{assemblyName}' is not a Snail server's name: name the variable its address is read from.", nameof(assemblyName));
+
+    /// <summary><c>Snail.MCP.Security</c> reads its transport from <c>SNAIL_MCP_SECURITY_TRANSPORT</c>; null for a program that is not a Snail server.</summary>
+    internal static string? TransportVariableOf(string assemblyName) =>
+        ServerProgram.ShortNameOf(assemblyName) is { } name ? $"SNAIL_MCP_{name.ToUpperInvariant()}_TRANSPORT" : null;
 
     private static void Set(ProcessStartInfo start, string key, string? value)
     {

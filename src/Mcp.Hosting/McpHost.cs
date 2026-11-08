@@ -1,4 +1,6 @@
+using System.Collections;
 using System.Reflection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -11,13 +13,14 @@ namespace Snail.Sdk.Mcp.Hosting;
 /// <summary>The host a stdio MCP server runs in.</summary>
 /// <remarks>
 /// The empty one: the full builder's appsettings, their file watchers, the command line and the default loggers are not
-/// loaded; the server's own settings are, its settings file and its variables (<see cref="ServerSettings"/>). stdout carries JSON-RPC, so log lines go to stderr. The heap is
+/// loaded; the server's own settings are, its settings file and its variables (<see cref="ServerSettings"/>), and the log
+/// levels they name (<c>UseLevelsFrom</c>). stdout carries JSON-RPC, so log lines go to stderr. The heap is
 /// compacted once the server has gone quiet (<c>AddIdleTrim</c>); a server that wants its orphaned process ended adds
 /// <c>AddIdleShutdown</c>.
 /// </remarks>
 public static class McpHost
 {
-    /// <summary>An empty host builder that logs from information up to stderr and trims the heap when the server is idle.</summary>
+    /// <summary>An empty host builder that logs to stderr at the levels its settings name and trims the heap when the server is idle.</summary>
     /// <remarks>
     /// For a program built on Snail.Sdk.Mcp, which names its server in its assembly, the server's settings are read — and,
     /// first, its folders moved from the snail names (<see cref="ServerFolders.MoveFromSnailNames(string)"/>), so a
@@ -33,7 +36,7 @@ public static class McpHost
         if (ServerSettings.NameOf(server) is { } name)
             builder.Configuration.AddServerSettings(name);
 
-        builder.Logging.UseStderr();
+        builder.Logging.UseStderr().UseLevelsFrom(builder.Configuration);
         builder.Services.AddIdleTrim();
 
         return builder;
@@ -41,12 +44,41 @@ public static class McpHost
 
     extension(ILoggingBuilder logging)
     {
-        /// <summary>Clears every logger and writes a line to stderr from information up.</summary>
+        /// <summary>Clears every logger and writes a line to stderr from information up, or from the level a filter sets.</summary>
         public ILoggingBuilder UseStderr()
         {
             logging.ClearProviders();
             logging.SetMinimumLevel(LogLevel.Information);
             logging.AddProvider(new StderrLogging());
+
+            return logging;
+        }
+
+        /// <summary>Applies the log levels <paramref name="settings"/> name, over defaults that keep the MCP SDK and ASP.NET Core to warnings and up.</summary>
+        /// <param name="settings">The server's settings — the host's configuration, which both hosts fill with them.</param>
+        /// <remarks>
+        /// <para>
+        /// The levels are the <c>Logging</c> section of .NET, <c>Logging:LogLevel:&lt;category&gt;</c> and
+        /// <c>Logging:LogLevel:Default</c>, read from three places, each over the one before: the plain
+        /// <c>Logging__LogLevel__…</c> variables that .NET reads everywhere and an image's <c>Dockerfile</c> sets as its
+        /// defaults, then the server's settings file, then its <c>SNAIL_MCP_&lt;NAME&gt;_LOGGING__LOGLEVEL__…</c> variables —
+        /// a category with a dot in it written with the dot, <c>…_LOGLEVEL__MICROSOFT.ASPNETCORE</c>, where the shell allows it.
+        /// Both hosts are empty builders, which bound no <c>Logging</c> section, so the levels an image set were silently
+        /// ignored (Snail.MCP.Documents, 2026-11-07).
+        /// </para>
+        /// <para>
+        /// Without a level of their own, <c>ModelContextProtocol</c> and <c>Microsoft.AspNetCore</c> write from warnings up:
+        /// the MCP SDK writes three lines at information for every call, which over stdio land in the client's log of the
+        /// server and over HTTP in the job's. A category the settings name takes their level instead, the default included.
+        /// </para>
+        /// </remarks>
+        public ILoggingBuilder UseLevelsFrom(IConfiguration settings)
+        {
+            ArgumentNullException.ThrowIfNull(settings);
+
+            logging.AddFilter(ModelContextProtocolCategory, LogLevel.Warning);
+            logging.AddFilter(AspNetCoreCategory, LogLevel.Warning);
+            logging.AddConfiguration(LevelsOf(settings, Environment.GetEnvironmentVariables()));
 
             return logging;
         }
@@ -136,6 +168,27 @@ public static class McpHost
 
             return services;
         }
+    }
+
+    /// <summary>The category of every logger of the MCP SDK.</summary>
+    internal const string ModelContextProtocolCategory = "ModelContextProtocol";
+
+    private const string AspNetCoreCategory = "Microsoft.AspNetCore";
+
+    private const string LoggingVariablePrefix = "Logging__";
+
+    /// <summary>The <c>Logging</c> section: the plain <c>Logging__</c> variables among <paramref name="variables"/>, under <paramref name="settings"/>.</summary>
+    internal static IConfiguration LevelsOf(IConfiguration settings, IDictionary variables)
+    {
+        var images = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (DictionaryEntry entry in variables)
+        {
+            if (entry.Key is string name && name.StartsWith(LoggingVariablePrefix, StringComparison.OrdinalIgnoreCase) && entry.Value is string value)
+                images[name.Replace("__", ":", StringComparison.Ordinal)] = value;
+        }
+
+        return new ConfigurationBuilder().AddInMemoryCollection(images).AddConfiguration(settings).Build().GetSection("Logging");
     }
 
     /// <summary>Counts every incoming MCP message, once however many features ask for it.</summary>

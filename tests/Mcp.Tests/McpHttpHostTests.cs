@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Net;
 using System.Net.Sockets;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -125,6 +126,57 @@ public sealed class McpHttpHostTests : IAsyncLifetime
             new HttpClientTransport(new HttpClientTransportOptions { Endpoint = new Uri(_url, McpHttpHost.DefaultPath) }));
 
         Assert.True(activity.Quiet < quietBefore);
+    }
+
+    /// <summary>The web host reads <c>urls</c> from the configuration the services hold: Snail.MCP.Documents registered its own and got localhost:5000.</summary>
+    [Fact]
+    public async Task CreateBuilder_AServerWithAConfigurationOfItsOwn_StillListensWhereAsked()
+    {
+        var port = FreePort();
+        var builder = McpHttpHost.CreateBuilder([], new Uri($"http://127.0.0.1:{port}/"));
+
+        builder.Services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+
+        Assert.Equal(HttpStatusCode.OK, await HealthAsync(builder, port));
+    }
+
+    [Fact]
+    public async Task CreateBuilder_Localhost_ListensOnLoopback()
+    {
+        var port = FreePort();
+
+        var status = await HealthAsync(McpHttpHost.CreateBuilder([], new Uri($"http://localhost:{port}/")), port);
+
+        Assert.Equal(HttpStatusCode.OK, status);
+    }
+
+    [Fact]
+    public async Task CreateBuilder_AnEndpointOnEveryInterface_ListensOnItsPort()
+    {
+        var port = FreePort();
+        var endpoint = new McpEndpoint(McpTransport.Http, new Uri($"http://0.0.0.0:{port}/"), ListensOnEveryInterface: true);
+
+        var status = await HealthAsync(McpHttpHost.CreateBuilder([], endpoint), port);
+
+        Assert.Equal(HttpStatusCode.OK, status);
+    }
+
+    /// <summary>The host serves plain HTTP: an https address would start a host that answers nobody.</summary>
+    [Fact]
+    public void CreateBuilder_AnHttpsAddress_IsRefused() =>
+        Assert.Throws<ArgumentException>(() => McpHttpHost.CreateBuilder([], new Uri("https://127.0.0.1:9230/")));
+
+    private static async Task<HttpStatusCode> HealthAsync(WebApplicationBuilder builder, int port)
+    {
+        await using var app = builder.Build();
+
+        app.MapHealth();
+        await app.StartAsync();
+
+        using var http = new HttpClient();
+        using var response = await http.GetAsync(new Uri($"http://127.0.0.1:{port}{McpHttpHost.DefaultHealthPath}"));
+
+        return response.StatusCode;
     }
 
     private static int FreePort()

@@ -3,8 +3,9 @@
 What every Snail MCP server starts from:
 
 - `McpHost.CreateBuilder(args)`: the empty host, with log lines on stderr (`UseStderr`) since stdout carries JSON-RPC,
-  and the heap compacted once the server has heard no MCP message for five minutes (`AddIdleTrim`;
-  `SNAIL_MCP_IDLE_TRIM` sets the seconds, `0` turns it off).
+  at the levels the server's settings and an image's `Logging__LogLevel__…` variables name, the MCP SDK's from warnings
+  up unless they say otherwise (`UseLevelsFrom`), and the heap compacted once the server has heard no MCP message for
+  five minutes (`AddIdleTrim`; `SNAIL_MCP_IDLE_TRIM` sets the seconds, `0` turns it off).
 - `ToolJson.Options(MyJson.Default)`: the MCP SDK's JSON options with the server's source-generated types put first,
   so the tools work in a native build.
 - `ServerSettings.Read(name)` and `configuration.AddServerSettings(name)`: the server's settings file — the one

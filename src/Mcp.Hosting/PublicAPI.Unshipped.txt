@@ -63,7 +63,8 @@ override Snail.Sdk.Mcp.Hosting.McpEndpoint.GetHashCode() -> int
 override Snail.Sdk.Mcp.Hosting.McpEndpoint.ToString() -> string!
 static Snail.Sdk.Mcp.Hosting.McpEndpoint.operator !=(Snail.Sdk.Mcp.Hosting.McpEndpoint? left, Snail.Sdk.Mcp.Hosting.McpEndpoint? right) -> bool
 static Snail.Sdk.Mcp.Hosting.McpEndpoint.operator ==(Snail.Sdk.Mcp.Hosting.McpEndpoint? left, Snail.Sdk.Mcp.Hosting.McpEndpoint? right) -> bool
-static Snail.Sdk.Mcp.Hosting.McpEndpoint.Read(Microsoft.Extensions.Configuration.IConfiguration! settings, System.Uri! defaultUrl, Snail.Sdk.Mcp.Hosting.McpTransport defaultTransport = Snail.Sdk.Mcp.Hosting.McpTransport.Stdio) -> Snail.Sdk.Mcp.Hosting.McpEndpoint!
+static Snail.Sdk.Mcp.Hosting.McpEndpoint.Read(Microsoft.Extensions.Configuration.IConfiguration! settings, System.Uri! defaultUrl) -> Snail.Sdk.Mcp.Hosting.McpEndpoint!
+static Snail.Sdk.Mcp.Hosting.McpEndpoint.ReadHttp(Microsoft.Extensions.Configuration.IConfiguration! settings, System.Uri! defaultUrl) -> Snail.Sdk.Mcp.Hosting.McpEndpoint!
 static Snail.Sdk.Mcp.Hosting.McpHost.AddIdleShutdown(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.TimeSpan after, System.Func<System.IServiceProvider!, bool>? isBusy = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Snail.Sdk.Mcp.Hosting.ServerFolders.ExpandHome(string! path) -> string!
 static Snail.Sdk.Mcp.Hosting.ServerFolders.ExpandHome(string? path, string! fallback) -> string!
@@ -255,3 +256,10 @@ static Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry.operator !=(Snail.Sdk.Mcp.Hosti
 static Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry.operator ==(Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry? left, Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry? right) -> bool
 static Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.operator !=(Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter? left, Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter? right) -> bool
 static Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.operator ==(Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter? left, Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter? right) -> bool
+Snail.Sdk.Mcp.Hosting.McpHost.extension(Microsoft.Extensions.Logging.ILoggingBuilder!).UseLevelsFrom(Microsoft.Extensions.Configuration.IConfiguration! settings) -> Microsoft.Extensions.Logging.ILoggingBuilder!
+static Snail.Sdk.Mcp.Hosting.McpHost.UseLevelsFrom(this Microsoft.Extensions.Logging.ILoggingBuilder! logging, Microsoft.Extensions.Configuration.IConfiguration! settings) -> Microsoft.Extensions.Logging.ILoggingBuilder!
+Snail.Sdk.Mcp.Hosting.ServerSecretRefusedException
+Snail.Sdk.Mcp.Hosting.ServerSecretRefusedException.Expected.get -> string!
+Snail.Sdk.Mcp.Hosting.ServerSecretRefusedException.File.get -> string!
+Snail.Sdk.Mcp.Hosting.ServerSecretRefusedException.Found.get -> string!
+Snail.Sdk.Mcp.Hosting.ServerSecretRefusedException.ServerSecretRefusedException(string! file, string! found, string! expected) -> void

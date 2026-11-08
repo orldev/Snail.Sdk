@@ -57,6 +57,27 @@ public sealed class HttpServerProgramTests
         Assert.NotNull(session.ServerInfo);
     }
 
+    /// <summary>A server of both transports answers over stdio unless told otherwise; its URL alone does not tell it HTTP.</summary>
+    [Fact]
+    public async Task StartAsync_OfAServerOfBothTransports_TellsItHttp()
+    {
+        await using var server = await HttpServerProgram.StartAsync(Assembly, Variable);
+
+        Assert.Contains($"listening on {server.Address}", server.Log, StringComparison.Ordinal);
+    }
+
+    /// <summary>A test that names the transport itself is obeyed: the probe told stdio exits, and says so.</summary>
+    [Fact]
+    public async Task StartAsync_WithATransportOfTheTest_LeavesItAsTheTestSaid()
+    {
+        var environment = new Dictionary<string, string?> { ["SNAIL_MCP_PROBE_TRANSPORT"] = "Stdio" };
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => HttpServerProgram.StartAsync(Assembly, Variable, environment));
+
+        Assert.Contains("exited with 4", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("told to answer over stdio", failure.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task StartAsync_OfAServerThatExitsAtStart_FailsAtOnce_WithItsStderr()
     {
@@ -110,6 +131,13 @@ public sealed class HttpServerProgramTests
         Assert.Equal("SNAIL_MCP_SECURITY_URL", HttpServerProgram.AddressVariableOf("Snail.MCP.Security"));
         Assert.Equal("SNAIL_MCP_AFTEREFFECTS_URL", HttpServerProgram.AddressVariableOf("Snail.MCP.AfterEffects"));
         Assert.Throws<ArgumentException>(() => HttpServerProgram.AddressVariableOf("Other.Program"));
+    }
+
+    [Fact]
+    public void TransportVariable_OfAServer_IsItsTransportVariable_OfAnyOtherProgramNone()
+    {
+        Assert.Equal("SNAIL_MCP_AFTEREFFECTS_TRANSPORT", HttpServerProgram.TransportVariableOf("Snail.MCP.AfterEffects"));
+        Assert.Null(HttpServerProgram.TransportVariableOf("Other.Program"));
     }
 
     [Fact]

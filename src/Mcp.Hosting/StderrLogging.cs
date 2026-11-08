@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Snail.Sdk.Mcp.Hosting;
 
-/// <summary>Log lines written straight to stderr, one line each, from information up.</summary>
+/// <summary>Log lines written straight to stderr, one line each, at whatever level the host's filters let through.</summary>
 /// <remarks>
 /// stdout carries the JSON-RPC conversation, so a log line there breaks the protocol. The console logger of
 /// Microsoft.Extensions.Logging writes to stderr just as well, but brings options bound from configuration,
@@ -25,7 +25,7 @@ internal sealed class StderrLogging : ILoggerProvider
         public IDisposable? BeginScope<TState>(TState state)
             where TState : notnull => null;
 
-        public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Information && logLevel != LogLevel.None;
+        public bool IsEnabled(LogLevel logLevel) => logLevel != LogLevel.None;
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
@@ -40,6 +40,8 @@ internal sealed class StderrLogging : ILoggerProvider
 
         private static string Level(LogLevel level) => level switch
         {
+            LogLevel.Trace => "trce",
+            LogLevel.Debug => "dbug",
             LogLevel.Information => "info",
             LogLevel.Warning => "warn",
             LogLevel.Error => "fail",

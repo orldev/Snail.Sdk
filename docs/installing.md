@@ -128,6 +128,26 @@ A job loaded from a copy of the one written, with variables of the server added 
 not restarted either: the install names each variable as the field it is in the settings file — never its value — and
 then prints the commands that load the new job, to run once they are moved.
 
+## Log levels
+
+A server writes its log to stderr — the client's log of the server over stdio, the job's or the container's over HTTP — from
+information up, and the MCP SDK's own lines (`ModelContextProtocol`) and ASP.NET Core's from warnings up: the MCP SDK
+writes three lines at information for every call. Both hosts read the levels of .NET's `Logging` section,
+`Logging:LogLevel:<category>` and `Logging:LogLevel:Default`, from three places, each over the one before:
+
+| Where | Written | For |
+| --- | --- | --- |
+| the plain .NET variables | `Logging__LogLevel__Default=Warning`, `Logging__LogLevel__Microsoft.AspNetCore=Error` | an image's defaults, set by `ENV` in its `Dockerfile` |
+| the server's settings file | `"Logging": { "LogLevel": { "Default": "Warning" } }` | one machine's choice |
+| the server's variables | `SNAIL_MCP_<SHORT>_LOGGING__LOGLEVEL__DEFAULT=Warning` | a registration, a job, a `docker run -e` |
+
+A category is matched by its beginning, letter case aside: `ModelContextProtocol` sets every logger of the MCP SDK,
+`Default` every logger no other entry names. A category the settings name takes their level instead of the default,
+so `…_LOGLEVEL__MODELCONTEXTPROTOCOL=Information` brings the MCP SDK's lines back. A server's variable keeps a dot of
+the category where the shell allows one (`SNAIL_MCP_<SHORT>_LOGGING__LOGLEVEL__MICROSOFT.ASPNETCORE`, as a job's
+`EnvironmentVariables` or a `Dockerfile` can write it); its single underscores are dropped, like those of every other
+setting. A level below information — `Debug`, `Trace` — is written too when a level asks for it.
+
 ## The idle trim
 
 Every server built on `McpHost` or `McpHttpHost` gives back the memory its last piece of work left behind once it has
@@ -149,8 +169,8 @@ It is one variable for every server, not a `SNAIL_MCP_<SHORT>_IDLE_TRIM` of each
 goes into that server's registration (`claude mcp add … -e SNAIL_MCP_IDLE_TRIM=0`) or, for a shared server, the
 `EnvironmentVariables` of its job template in `deploy/` — not of the loaded job, which an install would then stop
 restarting; set in the shell, it applies to every server started from it. Each trim logs the bytes committed before
-and after and the pause at debug level, which the stderr lines of `UseStderr`, from information up, leave out: it shows
-in a logger that writes debug.
+and after and the pause at debug level, which shows once the server's log level for `Snail.Sdk.Mcp.Hosting` is `Debug`
+([log levels](#log-levels)).
 
 ## The idle shutdown
 
@@ -164,21 +184,25 @@ stop is one line on stderr, at information.
 
 ## Where a server answers
 
-A server of both transports reads where it answers from its own settings (`McpEndpoint` of `Snail.Sdk.Mcp.Hosting`),
-in either of two ways:
+A server with HTTP reads where it answers from its own settings (`McpEndpoint` of `Snail.Sdk.Mcp.Hosting`), in either
+of two ways:
 
 | Setting | Variable | Means |
 | --- | --- | --- |
-| `Transport` | `SNAIL_MCP_<SHORT>_TRANSPORT` | `Stdio` (the default) or `Http` |
+| `Transport` | `SNAIL_MCP_<SHORT>_TRANSPORT` | `Stdio` (the default of a server of both transports) or `Http` |
 | `Url` | `SNAIL_MCP_<SHORT>_URL` (or `_HTTP__URL`) | where HTTP listens; the server's default address when not set |
 | `Port` | `SNAIL_MCP_<SHORT>_PORT` | above zero: HTTP on that port, even without `Transport`; it replaces the port of the URL |
 | `ListensOnEveryInterface` | `SNAIL_MCP_<SHORT>_LISTENS_ON_EVERY_INTERFACE` | `true` opens the port on every interface rather than loopback |
 
-A `Transport` that is set decides, even beside a `Port`. The port is opened on every interface when the flag says so,
-when the URL names `0.0.0.0` or `[::]`, and inside a container — the .NET images set `DOTNET_RUNNING_IN_CONTAINER=true` —
-since a container's published port does not reach its loopback; anywhere else it stays on loopback, because the endpoint
-asks for no key. A value a setting cannot mean — `Transport=Htpp`, a port that is not a number — stops the server at
-its start with a line that names it.
+A `Transport` that is set decides, even beside a `Port`; a `Url` alone does not mean HTTP, it says where HTTP would
+listen. A server that answers only over HTTP (`McpEndpoint.ReadHttp`) is HTTP whatever the settings say, and refuses
+`Transport=Stdio` and `Port=0` at its start. The port is opened on every interface when the flag says so, when the URL
+names `0.0.0.0` or `[::]`, and inside a container — the .NET images set `DOTNET_RUNNING_IN_CONTAINER=true` — since a
+container's published port does not reach its loopback; anywhere else it stays on loopback, because the endpoint asks
+for no key. A server that listens on every interface by default names `0.0.0.0` in its default address, and a loopback
+`Url` narrows it. A value a setting cannot mean — `Transport=Htpp`, a port that is not a number — stops the server at
+its start with a line that names the variable and the key of the settings file:
+`SNAIL_MCP_<SHORT>_PORT (or Port in the settings file) is 'eighty'; …`.
 
 ## Checking an installed server
 

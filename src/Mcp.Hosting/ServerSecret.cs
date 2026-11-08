@@ -31,7 +31,7 @@ public static class ServerSecret
     /// <summary>The secret of <paramref name="length"/> random bytes kept in <paramref name="file"/>, made the first time it is asked for.</summary>
     /// <param name="file">The file it is kept in, such as <c>proof.key</c> in <see cref="ServerFolders.DataDirectory(string)"/>.</param>
     /// <param name="length">How many bytes it is; 16 at the least.</param>
-    /// <exception cref="InvalidOperationException">The file holds another number of bytes; it is left as it is.</exception>
+    /// <exception cref="ServerSecretRefusedException">The file holds another number of bytes; it is left as it is.</exception>
     /// <exception cref="IOException">Another process held the lock beside the file for ten seconds.</exception>
     public static byte[] ReadOrCreate(string file, int length = 32)
     {
@@ -41,7 +41,7 @@ public static class ServerSecret
         var kept = Kept(file, () => RandomNumberGenerator.GetBytes(length));
 
         if (kept.Length != length)
-            throw new InvalidOperationException(Refusal(file, $"{kept.Length} bytes instead of {length}"));
+            throw new ServerSecretRefusedException(file, $"{kept.Length} bytes", $"{length} bytes");
 
         return kept;
     }
@@ -54,7 +54,7 @@ public static class ServerSecret
     /// read from the file by a script inside another program (Snail.MCP.AfterEffects' bridge). Both keep such files
     /// already, so these files are read as they are: white space around the digits is allowed.
     /// </remarks>
-    /// <exception cref="InvalidOperationException">The file holds anything but the digits of a secret of that length; it is left as it is.</exception>
+    /// <exception cref="ServerSecretRefusedException">The file holds anything but the digits of a secret of that length; it is left as it is.</exception>
     /// <exception cref="IOException">Another process held the lock beside the file for ten seconds.</exception>
     public static string ReadOrCreateHex(string file, int length = 32)
     {
@@ -66,7 +66,7 @@ public static class ServerSecret
         var isWhole = text.Length == length * 2 && text.All(char.IsAsciiHexDigit);
 
         if (!isWhole)
-            throw new InvalidOperationException(Refusal(file, $"{kept.Length} bytes that are not {length * 2} hex digits"));
+            throw new ServerSecretRefusedException(file, $"{kept.Length} bytes", $"{length * 2} hex digits");
 
         return text;
     }
@@ -177,7 +177,4 @@ public static class ServerSecret
             return;
         }
     }
-
-    private static string Refusal(string file, string found) =>
-        $"{file} holds {found}. It is left as it is: a new secret would invalidate every one handed out with it. Restore it, or remove it to have a new one made.";
 }

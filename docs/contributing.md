@@ -81,6 +81,27 @@ local feed builds, tests and passes the conformance check, but cannot be release
 `LocalPackages` mapping and a `-local` version (S3LC0026). Once the change is released, it moves back as
 [releasing](releasing.md#from-the-local-feed-to-nuget) describes.
 
+A `nuget.config` that begins with `<clear/>` hides the user-level `LocalPackages` source too, and the mapping then names
+a source restore does not know: such a repository leaves `<clear/>` out while it is on the local feed, and puts it back
+with the move back.
+
+An image is not built on the local feed: its build stage restores inside Docker, where neither `~/nuget` nor the
+user-level source exists, so restore cannot find a `-local` SDK. A repository on the local feed checks its image after
+the release instead — once the version is on nuget.org and the repository has moved back, `docker build` and the
+image's own checks run before the branch is merged into `master`. When the change is to the image itself and has to be
+seen before, a local build may carry the feed in as a named build context of BuildKit:
+
+```bash
+docker build --build-context localfeed=$HOME/nuget -t s3l-<short>-mcp:local .
+```
+
+with two lines added to the build stage before `dotnet publish`, and never committed:
+
+```dockerfile
+COPY --from=localfeed . /localfeed
+RUN dotnet nuget add source /localfeed -n LocalPackages
+```
+
 ## The public API of the server libraries
 
 `Snail.Sdk.Mcp.Hosting`, `.Http` and `.Testing` are built on plain `Microsoft.NET.Sdk` from source, and each references

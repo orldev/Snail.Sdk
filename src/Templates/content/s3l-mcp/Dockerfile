@@ -21,6 +21,10 @@
 # healthcheck.
 #
 #endif
+# The log goes to stderr from information up, the MCP SDK's own lines from warnings up. A level is set with
+# SNAIL_MCP_TMPLSHORT_LOGGING__LOGLEVEL__DEFAULT=Warning (or Logging__LogLevel__Default=Warning, the plain .NET name) in
+# an ENV here or at docker run.
+#
 # The SDK is pinned to the band global.json asks for: on the floating sdk:10.0 a newer feature band would one day
 # refuse the build.
 #if (native)

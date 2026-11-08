@@ -358,6 +358,9 @@ Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.TryGet(out T value) -> bool
 Snail.Sdk.Mcp.Hosting.Answers.FailureOptions
 Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.Error.get -> System.Func<string!, System.Exception!, string!>?
 Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.Error.set -> void
+Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.AnswersText.get -> bool
+Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.AnswersText.set -> void
+Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.Refuse<TException>(string! type, System.Func<TException!, string?>? hint = null) -> Snail.Sdk.Mcp.Hosting.Answers.FailureOptions!
 Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.FailureOptions() -> void
 Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.Hint.set -> void
 Snail.Sdk.Mcp.Hosting.Answers.ToolFailures.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).ExplainFailures(System.Action<Snail.Sdk.Mcp.Hosting.Answers.FailureOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!

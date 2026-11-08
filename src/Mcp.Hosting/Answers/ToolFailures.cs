@@ -55,8 +55,10 @@ public static partial class ToolFailures
         /// <remarks>
         /// As <c>ExplainFailures()</c>, for a server whose failures named the tool or pointed at its own log
         /// (Snail.MCP.Documents' "read_file failed: …"), and for one that throws exceptions of its own for a caller's
-        /// mistake and words them as refusals (<see cref="FailureOptions.Type"/>). Called again, the filter stays one and
-        /// each <paramref name="configure"/> applies in turn.
+        /// mistake and words them as refusals (<see cref="FailureOptions.Refuse{TException}"/>). A server whose answers
+        /// are text keeps its failures text too: <c>ExplainFailures(options =&gt; options.AnswersText = true)</c> answers
+        /// them as <c>error — hint</c>, flagged <c>isError</c> (<see cref="FailureOptions.AnswersText"/>). Called again, the
+        /// filter stays one and each <paramref name="configure"/> applies in turn.
         /// </remarks>
         public IMcpServerBuilder ExplainFailures(Action<FailureOptions> configure)
         {
@@ -101,37 +103,67 @@ public static partial class ToolFailures
         };
 
     /// <summary>The answer to a call that threw: a refusal in its own words, arguments the call got wrong, or the server's failure.</summary>
-    /// <remarks>One reading of an exception for a direct call and for a step of <c>run_tools</c>, so a step that throws is answered as the call would have been.</remarks>
+    /// <remarks>
+    /// One reading of an exception for a direct call and for a step of <c>run_tools</c>, so a step that throws is answered as
+    /// the call would have been, in the envelope or, for a server whose answers are text, in words.
+    /// </remarks>
     internal static CallToolResult AnswerTo(RequestContext<CallToolRequestParams> request, Exception failure, FailureOptions words)
     {
+        var refused = FailureOf(request, failure, words);
+
+        return words.AnswersText ? Words(refused) : ToolAnswer.Failed(refused.Error, refused.Hint, refused.Type, refused.Details);
+    }
+
+    /// <summary>What a call that threw is answered with, before it is written in either form.</summary>
+    private static AnswerFailure FailureOf(RequestContext<CallToolRequestParams> request, Exception failure, FailureOptions words)
+    {
         if (failure is ToolRefusalException refusal)
-            return ToolAnswer.Failed(refusal.Error, refusal.Hint, refusal.Type, refusal.Details);
+            return new AnswerFailure(refusal.Error, refusal.Hint, refusal.Type) { Details = refusal.Details };
 
-        if (ArgumentFaults.AnswerTo(request, failure) is { } refused)
-            return refused;
+        return ArgumentFaults.FaultOf(request, failure) ?? Unforeseen(request, failure, words);
+    }
 
-        return Unforeseen(request, failure, words);
+    /// <summary>A failure as plain text, the error and then the hint after a dash, flagged as an error: for a server whose answers are text.</summary>
+    private static CallToolResult Words(AnswerFailure failure)
+    {
+        var text = failure.Hint is null ? failure.Error : $"{failure.Error} — {failure.Hint}";
+
+        return new CallToolResult { IsError = true, Content = [new TextContentBlock { Text = text }] };
     }
 
     /// <summary>A failure the tool did not answer itself, in the server's words, logged as the server's own when its type is <c>internal</c>.</summary>
-    private static CallToolResult Unforeseen(RequestContext<CallToolRequestParams> request, Exception failure, FailureOptions words)
+    private static AnswerFailure Unforeseen(RequestContext<CallToolRequestParams> request, Exception failure, FailureOptions words)
     {
         var tool = request.Params?.Name ?? "a tool";
         var error = words.Error?.Invoke(tool, failure) ?? failure.Message;
-        var type = words.Type?.Invoke(tool, failure) ?? Internal;
+        var named = words.RefusalOf(failure);
+        var type = named?.Type ?? words.Type?.Invoke(tool, failure) ?? Internal;
+        var isInternal = string.Equals(type, Internal, StringComparison.Ordinal);
         var loggers = request.Services?.GetService<ILoggerFactory>() ?? request.Server.Services?.GetService<ILoggerFactory>();
 
         if (loggers is not null)
         {
             var logger = loggers.CreateLogger(typeof(ToolFailures));
 
-            if (string.Equals(type, Internal, StringComparison.Ordinal))
+            if (isInternal)
                 Failed(logger, failure, tool);
             else
                 Refused(logger, tool, type, error);
         }
 
-        return ToolAnswer.Failed(error, words.Hint?.Invoke(tool, failure), type);
+        return new AnswerFailure(error, HintOf(tool, failure, words, named, isInternal), type);
+    }
+
+    /// <summary>The hint of a failure the tool did not answer: the refusal's the server named, the server's own, or the default hint when the failure is the server's.</summary>
+    private static string? HintOf(string tool, Exception failure, FailureOptions words, FailureOptions.Refusal? named, bool isInternal)
+    {
+        if (named is not null)
+            return named.Hint?.Invoke(failure);
+
+        if (ReferenceEquals(words.Hint, FailureOptions.InternalOnly))
+            return isInternal ? Hint : null;
+
+        return words.Hint?.Invoke(tool, failure);
     }
 
     private static bool IsUnforeseen(Exception failure, CancellationToken cancellationToken) =>

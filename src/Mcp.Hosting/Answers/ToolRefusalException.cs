@@ -13,7 +13,7 @@ namespace Snail.Sdk.Mcp.Hosting.Answers;
 /// </para>
 /// <para>
 /// A server that throws exceptions of its own for such refusals, and keeps them, words them instead through
-/// <see cref="FailureOptions.Hint"/> and <see cref="FailureOptions.Type"/>.
+/// <see cref="FailureOptions.Refuse{TException}"/>.
 /// </para>
 /// </remarks>
 public sealed class ToolRefusalException : Exception

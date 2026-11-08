@@ -93,23 +93,71 @@ public sealed class McpEndpointTests
     [InlineData(null, false)]
     public void Read_InsideAContainer_ListensOnEveryInterface(string? container, bool listensOnEveryInterface)
     {
-        var endpoint = McpEndpoint.Read(Settings(new() { ["Transport"] = "Http" }), Default, container);
+        var endpoint = McpEndpoint.Read(Settings(new() { ["Transport"] = "Http" }), Default, isHttpOnly: false, container, server: null);
 
         Assert.Equal(listensOnEveryInterface, endpoint.ListensOnEveryInterface);
     }
 
-    /// <summary>A server that answers only over HTTP says so once, and a transport or a port in its settings still decides.</summary>
+    /// <summary>A server that answers only over HTTP says so once, and a port in its settings still moves it.</summary>
     [Theory]
-    [InlineData(null, null, McpTransport.Http)]
-    [InlineData("Stdio", null, McpTransport.Stdio)]
-    [InlineData(null, "9400", McpTransport.Http)]
-    public void Read_SettingsThatNameNoTransport_TakeTheDefaultTransport(string? transport, string? port, McpTransport expected)
+    [InlineData(null, null, 9300)]
+    [InlineData("Http", null, 9300)]
+    [InlineData(null, "9400", 9400)]
+    public void ReadHttp_SettingsThatMeanHttp_AreHttp(string? transport, string? port, int expected)
     {
-        var settings = Settings(new() { ["Transport"] = transport, ["Port"] = port });
+        var endpoint = ReadHttp(new() { ["Transport"] = transport, ["Port"] = port });
 
-        var endpoint = McpEndpoint.Read(settings, Default, containerVariable: null, McpTransport.Http);
+        Assert.Equal(McpTransport.Http, endpoint.Transport);
+        Assert.Equal(expected, endpoint.Url.Port);
+    }
 
-        Assert.Equal(expected, endpoint.Transport);
+    /// <summary>Read as stdio, these came out an endpoint no HTTP builder takes, refused later without naming the variable (Snail.MCP.Sandbox).</summary>
+    [Theory]
+    [InlineData("Transport", "Stdio")]
+    [InlineData("Port", "0")]
+    public void ReadHttp_SettingsThatMeanStdio_AreRefusedAtTheRead(string key, string value)
+    {
+        var refusal = Assert.Throws<InvalidOperationException>(() => ReadHttp(new() { [key] = value }));
+
+        Assert.Contains($"{key} is '{value}'", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("only over HTTP", refusal.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>The operator set a variable, so a refusal names it, and the key of the settings file beside it.</summary>
+    [Theory]
+    [InlineData("Url", "127.0.0.1:9400", "SNAIL_MCP_DEMO_URL (or Url in the settings file) is '127.0.0.1:9400'")]
+    [InlineData("Http:Url", "ftp://x/", "SNAIL_MCP_DEMO_HTTP__URL (or Http:Url in the settings file) is 'ftp://x/'")]
+    [InlineData("ListensOnEveryInterface", "yes", "SNAIL_MCP_DEMO_LISTENS_ON_EVERY_INTERFACE (or ListensOnEveryInterface in the settings file) is 'yes'")]
+    [InlineData("Transport", "Stdio", "SNAIL_MCP_DEMO_TRANSPORT (or Transport in the settings file) is 'Stdio'")]
+    public void ReadHttp_AValueOfANamedServer_IsRefusedNamingItsVariable(string key, string value, string expected)
+    {
+        var refusal = Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(Settings(new() { [key] = value }), Default, isHttpOnly: true, containerVariable: null, server: "demo"));
+
+        Assert.StartsWith(expected, refusal.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A server that keeps the keys in a section passes the section, and the refusal names the key under it.</summary>
+    [Fact]
+    public void Read_ASection_IsRefusedNamingTheKeyUnderIt()
+    {
+        var section = Settings(new() { ["Server:Port"] = "eighty" }).GetSection("Server");
+
+        var refusal = Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(section, Default, isHttpOnly: false, containerVariable: null, server: "demo"));
+
+        Assert.StartsWith("SNAIL_MCP_DEMO_SERVER__PORT (or Server:Port in the settings file) is 'eighty'", refusal.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Snail.MCP.E2E under launchd listens on every interface outside a container: its default URL says 0.0.0.0, and a loopback URL narrows it.</summary>
+    [Fact]
+    public void ReadHttp_ADefaultUrlOnEveryInterface_ListensOnEveryInterface_UntilAUrlNarrowsIt()
+    {
+        var everywhere = new Uri("http://0.0.0.0:8830/");
+
+        var byDefault = McpEndpoint.Read(Settings(new() { ["Port"] = "8840" }), everywhere, isHttpOnly: true, containerVariable: null, server: null);
+        var narrowed = McpEndpoint.Read(Settings(new() { ["Url"] = "http://127.0.0.1:8840/" }), everywhere, isHttpOnly: true, containerVariable: null, server: null);
+
+        Assert.Equal(new McpEndpoint(McpTransport.Http, new Uri("http://0.0.0.0:8840/"), ListensOnEveryInterface: true), byDefault);
+        Assert.Equal(new McpEndpoint(McpTransport.Http, new Uri("http://127.0.0.1:8840/"), ListensOnEveryInterface: false), narrowed);
     }
 
     [Theory]
@@ -119,6 +167,8 @@ public sealed class McpEndpointTests
     [InlineData("Port", "70000")]
     [InlineData("Url", "127.0.0.1:9400")]
     [InlineData("Url", "ftp://127.0.0.1/")]
+    [InlineData("Url", "https://127.0.0.1/")]
+    [InlineData("Port", "-1")]
     [InlineData("ListensOnEveryInterface", "yes")]
     public void Read_AValueTheKeyCannotMean_IsRefusedNamingIt(string key, string value)
     {
@@ -137,7 +187,9 @@ public sealed class McpEndpointTests
     public void CreateBuilder_AnAddressBeyondLoopbackWithoutTheFlag_IsRefused() =>
         Assert.Throws<ArgumentException>(() => McpHttpHost.CreateBuilder([], new McpEndpoint(McpTransport.Http, new Uri("http://192.168.1.5:9400/"), ListensOnEveryInterface: false)));
 
-    private static McpEndpoint Read(Dictionary<string, string?> values) => McpEndpoint.Read(Settings(values), Default, containerVariable: null);
+    private static McpEndpoint Read(Dictionary<string, string?> values) => McpEndpoint.Read(Settings(values), Default, isHttpOnly: false, containerVariable: null, server: null);
+
+    private static McpEndpoint ReadHttp(Dictionary<string, string?> values) => McpEndpoint.Read(Settings(values), Default, isHttpOnly: true, containerVariable: null, server: null);
 
     private static IConfiguration Settings(Dictionary<string, string?> values) => new ConfigurationBuilder().AddInMemoryCollection(values).Build();
 }

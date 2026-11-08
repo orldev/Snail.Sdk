@@ -301,9 +301,11 @@ And for the server project (no kind):
   `TimeSpan.Zero` turns the shutdown off ([installing](installing.md#the-idle-shutdown)).
 - Where a server answers, read in one call: `McpEndpoint.Read(settings, defaultUrl)` takes either of the two ways the
   servers say it — `Transport` with `Url`, or a `Port` alone — and opens the port on every interface inside a container
-  (`DOTNET_RUNNING_IN_CONTAINER`) or when told to, loopback anywhere else; `McpHttpHost.CreateBuilder(args, endpoint)`
-  builds the host it names ([installing](installing.md#where-a-server-answers)). `MapHealth()` maps `/healthz`, 200
-  with no body, for a container's healthcheck.
+  (`DOTNET_RUNNING_IN_CONTAINER`), at `0.0.0.0` or when told to, loopback anywhere else; `McpEndpoint.ReadHttp` is the
+  same for a server of HTTP alone, refusing a transport that means stdio at the start; a refusal names the variable the
+  operator set; `McpHttpHost.CreateBuilder(args, endpoint)` builds the host it names
+  ([installing](installing.md#where-a-server-answers)). `MapHealth()` maps `/healthz`, 200 with no body, for a
+  container's healthcheck.
 - A secret of the server's own — a signing key, a token its plugin presents — through `ServerSecret.ReadOrCreate(file)`
   (`ReadOrCreateHex` for one read as text): made once, readable by its owner alone from its first byte, appearing only
   whole, the same for every process that starts at once, and never replaced — a file of another length is refused, not
@@ -376,7 +378,8 @@ AOT — `clang` and `zlib1g-dev` in the build stage — for the platform the ima
 onto `mcr.microsoft.com/dotnet/runtime-deps:10.0`: no .NET runtime in the image, a smaller image and a faster start. Any other server publishes framework-dependent onto
 `mcr.microsoft.com/dotnet/aspnet:10.0`. Both run as the image's `app` user. Loopback, where a server listens elsewhere,
 is out of reach of a container's published port, so a server builds its host from where its settings say it answers —
-`McpHttpHost.CreateBuilder(args, McpEndpoint.Read(settings, defaultUrl))` — and inside an image (the .NET images set
+`McpHttpHost.CreateBuilder(args, McpEndpoint.Read(settings, defaultUrl))`, or `McpEndpoint.ReadHttp` for a server of
+HTTP alone — and inside an image (the .NET images set
 `DOTNET_RUNNING_IN_CONTAINER`) the endpoint opens its port on every interface, the published port the boundary;
 `McpHttpHost.CreateContainerBuilder(args, port)` is the same host asked for directly. Everything else stays the same —
 the settings, stderr, the idle trim, the refusal of a browser's request by `MapLocalMcp`. A
@@ -502,7 +505,8 @@ every push. Beyond what a test of the code itself asserts:
     - **the HTTP contract** for a server with HTTP: the endpoint, its tools, the refusal of a browser's request.
       `HttpServerProgram.StartAsync(assembly, "SNAIL_<SHORT>_SERVER")` starts the same build or publication on a free
       loopback port (`Ports.Free()`), told through `SNAIL_MCP_<SHORT>_URL` — or the variable the test names, given the
-      port alone when its name ends in `_PORT` — with the same home and no settings file, and hands it back once
+      port alone when its name ends in `_PORT` — and `SNAIL_MCP_<SHORT>_TRANSPORT=Http` unless the test names it, with
+      the same home and no settings file, and hands it back once
       `GET /healthz` answers with success (`readiness: null` for a server that maps none waits for its MCP endpoint).
       A server that exits at start fails the test at once with its exit code and its stderr; one disposed is killed
       with every process it started. `SessionAsync(query)` opens a session on `/mcp`, and

@@ -63,7 +63,8 @@ override Snail.Sdk.Mcp.Hosting.McpEndpoint.GetHashCode() -> int
 override Snail.Sdk.Mcp.Hosting.McpEndpoint.ToString() -> string!
 static Snail.Sdk.Mcp.Hosting.McpEndpoint.operator !=(Snail.Sdk.Mcp.Hosting.McpEndpoint? left, Snail.Sdk.Mcp.Hosting.McpEndpoint? right) -> bool
 static Snail.Sdk.Mcp.Hosting.McpEndpoint.operator ==(Snail.Sdk.Mcp.Hosting.McpEndpoint? left, Snail.Sdk.Mcp.Hosting.McpEndpoint? right) -> bool
-static Snail.Sdk.Mcp.Hosting.McpEndpoint.Read(Microsoft.Extensions.Configuration.IConfiguration! settings, System.Uri! defaultUrl, Snail.Sdk.Mcp.Hosting.McpTransport defaultTransport = Snail.Sdk.Mcp.Hosting.McpTransport.Stdio) -> Snail.Sdk.Mcp.Hosting.McpEndpoint!
+static Snail.Sdk.Mcp.Hosting.McpEndpoint.Read(Microsoft.Extensions.Configuration.IConfiguration! settings, System.Uri! defaultUrl) -> Snail.Sdk.Mcp.Hosting.McpEndpoint!
+static Snail.Sdk.Mcp.Hosting.McpEndpoint.ReadHttp(Microsoft.Extensions.Configuration.IConfiguration! settings, System.Uri! defaultUrl) -> Snail.Sdk.Mcp.Hosting.McpEndpoint!
 static Snail.Sdk.Mcp.Hosting.McpHost.AddIdleShutdown(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.TimeSpan after, System.Func<System.IServiceProvider!, bool>? isBusy = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Snail.Sdk.Mcp.Hosting.ServerFolders.ExpandHome(string! path) -> string!
 static Snail.Sdk.Mcp.Hosting.ServerFolders.ExpandHome(string? path, string! fallback) -> string!

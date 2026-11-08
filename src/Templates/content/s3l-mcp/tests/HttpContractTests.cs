@@ -15,9 +15,9 @@ public sealed class HttpContractTests : IAsyncLifetime
 
     private HttpServerProgram _server = null!;
 
-    /// <summary>The server reads its address from SNAIL_MCP_TMPLSHORT_URL and is ready when /healthz answers.</summary>
+    /// <summary>The server reads its address from SNAIL_MCP_TMPLSHORT_URL, is told HTTP by SNAIL_MCP_TMPLSHORT_TRANSPORT and is ready when /healthz answers.</summary>
     public async Task InitializeAsync() =>
-        _server = await HttpServerProgram.StartAsync(Assembly, Variable, new Dictionary<string, string?> { ["SNAIL_MCP_TMPLSHORT_TRANSPORT"] = "http" });
+        _server = await HttpServerProgram.StartAsync(Assembly, Variable);
 
     public async Task DisposeAsync() => await _server.DisposeAsync();
 

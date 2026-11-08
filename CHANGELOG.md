@@ -11,7 +11,9 @@ A change that a repository must act on says what to do.
 - `HttpServerProgram` of `Snail.Sdk.Mcp.Testing`, the HTTP twin of `ServerProgram`: the build beside the tests or the
   publication the override variable names — a native program among them — started on a free loopback port with its
   own home and no settings file, and handed back once `GET /healthz` answers with success. The address goes into
-  `SNAIL_MCP_<SHORT>_URL` unless `addressVariable` names another (given the port alone when its name ends in `_PORT`);
+  `SNAIL_MCP_<SHORT>_URL` unless `addressVariable` names another (given the port alone when its name ends in `_PORT`),
+  and `SNAIL_MCP_<SHORT>_TRANSPORT=Http` beside it unless the test's environment names that variable, so a server of
+  both transports starts over HTTP, as its URL alone does not tell it to (Snail.MCP.Documents);
   `readiness: null` waits for the MCP endpoint of a server that maps no readiness path. A server that exits at start
   fails the test at once with its exit code and its stderr, rather than after the minute of a loop; `Log` is its
   stderr so far, `SessionAsync(query)` a session on `/mcp?<query>`, and disposing it kills it with every process it
@@ -61,13 +63,19 @@ A change that a repository must act on says what to do.
   client that only pings now keeps the server up. A server served over HTTP is never stopped, so a program of both
   transports registers it alike. `TimeSpan.Zero` turns it off; the period and its default stay the server's setting.
   A server drops its `IdleShutdownWatcher`, `IActivityTracker` and their registration for one call.
-- `McpEndpoint.Read(settings, defaultUrl, defaultTransport)` and `McpTransport`: where a server answers, from either of the two ways the
-  fleet says it — `Transport` with `Url` (or `Http:Url`), or a `Port` alone — on every interface inside a container
-  (`DOTNET_RUNNING_IN_CONTAINER=true`), with `ListensOnEveryInterface`, or at `0.0.0.0`, on loopback anywhere else. A
-  value a key cannot mean is refused at the start, naming it. `McpHttpHost.CreateBuilder(args, endpoint)` builds the
-  host it names, loopback or the container's. A server drops its `McpServerHost` choice and its `Transport` enum. A
-  server that answers only over HTTP passes `McpTransport.Http` as the default, which settings naming no transport and
-  no port get.
+- `McpEndpoint.Read(settings, defaultUrl)` and `McpTransport`: where a server of both transports answers, from either of
+  the two ways the fleet says it — `Transport` with `Url` (or `Http:Url`), or a `Port` alone — on every interface inside
+  a container (`DOTNET_RUNNING_IN_CONTAINER=true`), with `ListensOnEveryInterface`, or at `0.0.0.0`, on loopback
+  anywhere else; stdio when the settings name neither a transport nor a port, since a `Url` alone does not mean HTTP.
+  `McpEndpoint.ReadHttp(settings, defaultUrl)` is the same for a server that answers only over HTTP: HTTP whatever the
+  settings name, and `Transport=Stdio` or `Port=0` refused at the read — read as stdio, they came out an endpoint the
+  HTTP builder refused later with an `ArgumentException` naming neither (Snail.MCP.Sandbox). A value a key cannot mean
+  is refused at the start naming what the operator set: the variable and the key of the settings file,
+  `SNAIL_MCP_SANDBOX_URL (or Url in the settings file) is '…'`, for a program built on Snail.Sdk.Mcp, which names its
+  server in its assembly; the key alone for any other. A server that listens on every interface outside a container
+  too — Snail.MCP.E2E under launchd — names `0.0.0.0` in its default URL: a `Port` keeps that host, a loopback `Url`
+  narrows it. `McpHttpHost.CreateBuilder(args, endpoint)` builds the host it names, loopback or every interface. A
+  server drops its `McpServerHost` choice and its `Transport` enum.
 - `McpHttpHost.MapHealth(path = "/healthz")`: 200 with no body, for a container's healthcheck, which the servers in
   images mapped by hand.
 - `ServerSecret` of `Snail.Sdk.Mcp.Hosting`: `ReadOrCreate(file, length)` keeps a secret in the server's data folder —
@@ -174,7 +182,9 @@ A change that a repository must act on says what to do.
 - `dotnet new s3l-mcp` is written on the 0.5.0 API: its tools answer through `ToolAnswer` (the job through
   `JobAnswer.Envelope`) beside `.ExplainFailures()`; over HTTP the host is `McpHttpHost.CreateBuilder(args,
   McpEndpoint.Read(…))` — the container builder chosen by the endpoint, no longer by the template — with `MapHealth()`
-  and `.RefuseWhatWasNotGranted()` answering a refusal in the envelope; its HTTP contract waits for `/healthz` and
+  and `.RefuseWhatWasNotGranted()` answering a refusal in the envelope — `McpEndpoint.ReadHttp` for a server of HTTP
+  alone, which refuses `Transport=Stdio` at the start; its HTTP contract, which no longer sets the transport itself,
+  waits for `/healthz` and
   checks a session's `?tool=` grant, and its tests read answers with `IsOk`/`Data`/`Error`/`Report`. The Sdk tests
   now build and test the sample job too (both transports, framework-dependent).
 - The folders are moved from the snail names by reading the settings: `AddServerSettings(name)` — and with it

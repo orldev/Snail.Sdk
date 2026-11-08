@@ -76,7 +76,7 @@ public static class McpHttpHost
 
     /// <summary>The host of the endpoint a server's settings ask for: on loopback at its URL, or on every interface at its port.</summary>
     /// <remarks>
-    /// The one call for a server that reads where it answers with <see cref="McpEndpoint.Read(Microsoft.Extensions.Configuration.IConfiguration, Uri, McpTransport)"/>: inside a container, or
+    /// The one call for a server that reads where it answers with <see cref="McpEndpoint.Read(Microsoft.Extensions.Configuration.IConfiguration, Uri)"/> or <see cref="McpEndpoint.ReadHttp(Microsoft.Extensions.Configuration.IConfiguration, Uri)"/>: inside a container, or
     /// told to listen on every interface, it is <see cref="CreateContainerBuilder"/> on the URL's port; anywhere else
     /// <see cref="CreateBuilder(string[], Uri)"/> on the URL itself, which refuses an address beyond loopback.
     /// </remarks>

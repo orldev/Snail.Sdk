@@ -184,21 +184,25 @@ stop is one line on stderr, at information.
 
 ## Where a server answers
 
-A server of both transports reads where it answers from its own settings (`McpEndpoint` of `Snail.Sdk.Mcp.Hosting`),
-in either of two ways:
+A server with HTTP reads where it answers from its own settings (`McpEndpoint` of `Snail.Sdk.Mcp.Hosting`), in either
+of two ways:
 
 | Setting | Variable | Means |
 | --- | --- | --- |
-| `Transport` | `SNAIL_MCP_<SHORT>_TRANSPORT` | `Stdio` (the default) or `Http` |
+| `Transport` | `SNAIL_MCP_<SHORT>_TRANSPORT` | `Stdio` (the default of a server of both transports) or `Http` |
 | `Url` | `SNAIL_MCP_<SHORT>_URL` (or `_HTTP__URL`) | where HTTP listens; the server's default address when not set |
 | `Port` | `SNAIL_MCP_<SHORT>_PORT` | above zero: HTTP on that port, even without `Transport`; it replaces the port of the URL |
 | `ListensOnEveryInterface` | `SNAIL_MCP_<SHORT>_LISTENS_ON_EVERY_INTERFACE` | `true` opens the port on every interface rather than loopback |
 
-A `Transport` that is set decides, even beside a `Port`. The port is opened on every interface when the flag says so,
-when the URL names `0.0.0.0` or `[::]`, and inside a container — the .NET images set `DOTNET_RUNNING_IN_CONTAINER=true` —
-since a container's published port does not reach its loopback; anywhere else it stays on loopback, because the endpoint
-asks for no key. A value a setting cannot mean — `Transport=Htpp`, a port that is not a number — stops the server at
-its start with a line that names it.
+A `Transport` that is set decides, even beside a `Port`; a `Url` alone does not mean HTTP, it says where HTTP would
+listen. A server that answers only over HTTP (`McpEndpoint.ReadHttp`) is HTTP whatever the settings say, and refuses
+`Transport=Stdio` and `Port=0` at its start. The port is opened on every interface when the flag says so, when the URL
+names `0.0.0.0` or `[::]`, and inside a container — the .NET images set `DOTNET_RUNNING_IN_CONTAINER=true` — since a
+container's published port does not reach its loopback; anywhere else it stays on loopback, because the endpoint asks
+for no key. A server that listens on every interface by default names `0.0.0.0` in its default address, and a loopback
+`Url` narrows it. A value a setting cannot mean — `Transport=Htpp`, a port that is not a number — stops the server at
+its start with a line that names the variable and the key of the settings file:
+`SNAIL_MCP_<SHORT>_PORT (or Port in the settings file) is 'eighty'; …`.
 
 ## Checking an installed server
 

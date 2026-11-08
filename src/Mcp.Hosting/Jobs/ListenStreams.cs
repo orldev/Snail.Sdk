@@ -62,13 +62,6 @@ internal sealed class ListenStreams
             return _streams.Count(stream => stream.Uris.Contains(uri));
     }
 
-    /// <summary>The streams granted a list's changes, for a test to see.</summary>
-    public int ListeningTo(string method)
-    {
-        lock (_gate)
-            return _streams.Count(stream => stream.Grants(method));
-    }
-
     /// <summary>Tells every stream that asked for the resource that it changed.</summary>
     public Task UpdatedAsync(string uri) =>
         SendAsync(stream => stream.Uris.Contains(uri), NotificationMethods.ResourceUpdatedNotification, () => new JsonObject { ["uri"] = uri });
@@ -77,6 +70,11 @@ internal sealed class ListenStreams
     public Task ChangedAsync(string method) => SendAsync(stream => stream.Grants(method), method, () => []);
 
     /// <summary>Acknowledges what the client asked for and the server declares, and holds the stream open until the client closes it or the host stops.</summary>
+    /// <remarks>
+    /// The stream is held before it is acknowledged, and what reaches it meanwhile waits for the acknowledgement: added
+    /// after it, a job's update or a skill's list change that came in between was lost, and a client heard of a skill's
+    /// tools only on its next change. The acknowledgement still goes first, as the revision requires.
+    /// </remarks>
     private async ValueTask<EmptyResult> ListenAsync(RequestContext<SubscriptionsListenRequestParams> request, CancellationToken cancellationToken)
     {
         var options = request.Server.ServerOptions;
@@ -86,13 +84,13 @@ internal sealed class ListenStreams
         var acknowledgement = JsonSerializer.SerializeToNode(new SubscriptionsAcknowledgedNotificationParams { Notifications = granted }, McpJsonUtilities.DefaultOptions.GetTypeInfo(typeof(SubscriptionsAcknowledgedNotificationParams)))!.AsObject();
 
         Hear(options);
-        await stream.SendAsync(NotificationMethods.SubscriptionsAcknowledgedNotification, acknowledgement, cancellationToken).ConfigureAwait(false);
 
         lock (_gate)
             _streams.Add(stream);
 
         try
         {
+            await stream.AcknowledgeAsync(acknowledgement, cancellationToken).ConfigureAwait(false);
             await HeldOpenAsync(request.Services?.GetService<IHostApplicationLifetime>()?.ApplicationStopping ?? CancellationToken.None, cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -158,7 +156,7 @@ internal sealed class ListenStreams
         {
             try
             {
-                await stream.SendAsync(method, parameters(), CancellationToken.None).ConfigureAwait(false);
+                await stream.NotifyAsync(method, parameters(), CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception gone) when (gone is IOException or ObjectDisposedException or InvalidOperationException or OperationCanceledException)
             {
@@ -180,6 +178,8 @@ internal sealed class ListenStreams
     /// <summary>One held stream: the server of its request, which sends on the request's own response, its id, and what it was granted.</summary>
     private sealed class Stream(McpServer server, RequestId id, SubscriptionsListenNotifications granted)
     {
+        private readonly TaskCompletionSource _acknowledged = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
         public HashSet<string> Uris { get; } = new(granted.ResourceSubscriptions ?? [], StringComparer.Ordinal);
 
         public bool Grants(string method) => method switch
@@ -190,8 +190,28 @@ internal sealed class ListenStreams
             _ => false,
         };
 
+        /// <summary>Sends the acknowledgement, and lets the notifications that waited for it go.</summary>
+        public async Task AcknowledgeAsync(JsonObject acknowledgement, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await SendAsync(NotificationMethods.SubscriptionsAcknowledgedNotification, acknowledgement, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                _acknowledged.TrySetResult();
+            }
+        }
+
+        /// <summary>Sends a notification once the stream is acknowledged.</summary>
+        public async Task NotifyAsync(string method, JsonObject parameters, CancellationToken cancellationToken)
+        {
+            await _acknowledged.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            await SendAsync(method, parameters, cancellationToken).ConfigureAwait(false);
+        }
+
         /// <summary>Sends a notification on the stream, tagged with the stream's id.</summary>
-        public Task SendAsync(string method, JsonObject parameters, CancellationToken cancellationToken)
+        private Task SendAsync(string method, JsonObject parameters, CancellationToken cancellationToken)
         {
             parameters["_meta"] = new JsonObject { [MetaKeys.SubscriptionId] = JsonSerializer.SerializeToNode(id, McpJsonUtilities.DefaultOptions.GetTypeInfo(typeof(RequestId))) };
 

@@ -2,8 +2,8 @@
 const Snail.Sdk.Mcp.Programs.ProgramFailures.Cancelled = "cancelled" -> string!
 const Snail.Sdk.Mcp.Programs.ProgramFailures.Invalid = "invalid" -> string!
 const Snail.Sdk.Mcp.Programs.ProgramFailures.NoSuchCommand = "noSuchCommand" -> string!
+const Snail.Sdk.Mcp.Programs.ProgramFailures.NotGranted = "notGranted" -> string!
 const Snail.Sdk.Mcp.Programs.ProgramFailures.ProgramTooLarge = "programTooLarge" -> string!
-const Snail.Sdk.Mcp.Programs.ProgramFailures.Refused = "refused" -> string!
 const Snail.Sdk.Mcp.Programs.ProgramFailures.Runtime = "runtime" -> string!
 const Snail.Sdk.Mcp.Programs.ProgramFailures.Syntax = "syntax" -> string!
 const Snail.Sdk.Mcp.Programs.ProgramFailures.Timeout = "timeout" -> string!

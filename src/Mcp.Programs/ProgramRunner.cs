@@ -277,7 +277,7 @@ public sealed class ProgramRunner(ProgramOptions options)
             {
                 _calls.Add(new ProgramCall(command, false, 0));
 
-                throw new JavaScriptException(Failure(ProgramAnswer.Failed(refused, "this session was not granted it; carry on without it, or leave it to a session that was", ProgramFailures.Refused)));
+                throw new JavaScriptException(Failure(ProgramAnswer.Failed(refused, "this session was not granted it; carry on without it, or leave it to a session that was", ProgramFailures.NotGranted)));
             }
 
             var started = _running.Elapsed;
@@ -333,7 +333,7 @@ public sealed class ProgramRunner(ProgramOptions options)
         }
 
         /// <summary>What the program threw and did not catch, with the line of the program it stopped on.</summary>
-        /// <remarks>A failed command keeps its own type, so the reply says <c>refused</c> or the server's <c>NotFound</c> rather than only that a program stopped.</remarks>
+        /// <remarks>A failed command keeps its own type, so the reply says <c>notGranted</c> or the server's <c>NotFound</c> rather than only that a program stopped.</remarks>
         private ProgramFailure Thrown(JavaScriptException failure)
         {
             var line = Line(failure.Location.Start.Line);

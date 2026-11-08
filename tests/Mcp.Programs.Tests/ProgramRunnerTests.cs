@@ -142,17 +142,17 @@ public sealed class ProgramRunnerTests
             refusal: tool => tool == "git_status" ? "'git_status' was not granted to this session" : null);
 
         Assert.Null(run.Failure);
-        Assert.Equal("""["refused","'git_status' was not granted to this session",true,"string"]""", run.Result!.ToJsonString(ToolAnswer.Wire));
+        Assert.Equal("""["notGranted","'git_status' was not granted to this session",true,"string"]""", run.Result!.ToJsonString(ToolAnswer.Wire));
         Assert.Equal(0, _catalog.Sent);
         Assert.False(Assert.Single(run.Calls).IsOk);
     }
 
     [Fact]
-    public async Task RefusedCommand_Uncaught_StopsTheProgram_AsRefused_AtItsLine()
+    public async Task RefusedCommand_Uncaught_StopsTheProgram_AsNotGranted_AtItsLine()
     {
         var run = await RunAsync("git.count();\ngit.status();", refusal: tool => tool == "git_status" ? "not granted" : null);
 
-        Assert.Equal(ProgramFailures.Refused, run.Failure!.Type);
+        Assert.Equal(ProgramFailures.NotGranted, run.Failure!.Type);
         Assert.Equal("the program stopped at line 2: not granted", run.Failure.Error);
     }
 

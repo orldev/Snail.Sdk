@@ -51,7 +51,7 @@ public sealed partial class ProgramToolTests
         var answer = await stand.RunAsync("try { notes.write({ text: 'x' }); } catch (e) { return e.type + ': ' + e.error; }");
 
         Assert.True(answer.IsOk(), answer.Text());
-        Assert.Equal("refused: 'notes_write' was not granted to this session, which may use notes_read, run_program", answer.Data()!["result"]!.GetValue<string>());
+        Assert.Equal("notGranted: 'notes_write' was not granted to this session, which may use notes_read, run_program", answer.Data()!["result"]!.GetValue<string>());
         Assert.Empty(stand.Notes.Written);
     }
 
@@ -190,7 +190,7 @@ public sealed partial class ProgramToolTests
 
         var answer = await stand.RunAsync("try { notes.write({ text: 'x' }); return 'wrote'; } catch (e) { return e.type; }");
 
-        Assert.Equal("refused", answer.Data()!["result"]!.GetValue<string>());
+        Assert.Equal("notGranted", answer.Data()!["result"]!.GetValue<string>());
         Assert.Empty(stand.Notes.Written);
     }
 

@@ -33,7 +33,7 @@ public sealed class InProcessServerTests
         });
 
         Assert.True(answer.IsOk(), answer.Text());
-        Assert.Equal("refused", answer.Data()!["result"]!.GetValue<string>());
+        Assert.Equal("notGranted", answer.Data()!["result"]!.GetValue<string>());
         Assert.Empty(notes.Written);
         Assert.Equal("127.0.0.1", server.Address.Host);
         Assert.NotEqual(0, server.Address.Port);

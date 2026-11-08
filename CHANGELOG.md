@@ -196,7 +196,7 @@ A change that a repository must act on says what to do.
   it rather than refused at startup), `MemoryBytes` 32 MiB, `MaxRecursion` 256, `MaxStatements` 1 000 000, `MaxCalls`
   200, `LogLines` 200 of `LogLineLength` 1000, `ResultBytes` 128 KiB — and each stop says which bound in its own words
   with a `type`: `timeout` (also when the time runs out inside a slow command, which is given up on at the deadline),
-  `programTooLarge`, `tooManyCalls`, `syntax` and `runtime` with the line of the program, `noSuchCommand`, `refused`,
+  `programTooLarge`, `tooManyCalls`, `syntax` and `runtime` with the line of the program, `noSuchCommand`, `notGranted`,
   `cancelled`, `invalid`. The answer is the envelope:
   `{"result":…,"log":[…],"calls":[{"command","ok","milliseconds"}]}`, a result past the budget left out with
   `isOmitted` and a note, and on a stop the same data beside `error`, `hint` and `type`. `ProgramRunner` runs a program

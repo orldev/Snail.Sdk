@@ -28,7 +28,7 @@ builder.Services.AddMcpServer()
   `log(…)` is a global of the program, never a command.
 - Bounded by `ProgramOptions`: the timeout (and the most a call may give), 32 MiB of memory, calls nested 256 deep, a
   million statements, a number of commands, the log and the size of the result — each stop with words of its own and a
-  `type` (`timeout`, `programTooLarge`, `tooManyCalls`, `syntax`, `runtime`, `noSuchCommand`, `refused`, `cancelled`).
+  `type` (`timeout`, `programTooLarge`, `tooManyCalls`, `syntax`, `runtime`, `noSuchCommand`, `notGranted`, `cancelled`).
 - The answer is the envelope of `Snail.Sdk.Mcp.Hosting`: `{"ok":true,"data":{"result":…,"log":[…],"calls":[…]}}`, and on
   a stop the same data beside `error`, `hint` and `type`, because the commands a program sent before it stopped stand.
 

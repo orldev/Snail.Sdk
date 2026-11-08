@@ -4,8 +4,9 @@ using Microsoft.Extensions.Options;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using Snail.Sdk.Mcp.Hosting.Answers;
 
-namespace Snail.Sdk.Mcp.Hosting.Answers;
+namespace Snail.Sdk.Mcp.Hosting;
 
 /// <summary>A failure of a tool told as the envelope every answer is, and flagged as one by the protocol.</summary>
 public static partial class ToolFailures

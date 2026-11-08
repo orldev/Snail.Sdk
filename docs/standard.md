@@ -354,7 +354,8 @@ And for the server project (no kind):
   that returns an `Answer<T>` (`Jobs.Start(kind, owner, work, typeInfo)`) ends a failure as a failed job — the error its
   `Message`, the hint and type `JobReport.Hint` and `JobReport.Type` — and a tool whose answer is the work's result
   answers `JobAnswer.Result(report, running)`: the result as the data once succeeded, the failure flagged once failed,
-  the report with `running` beside it while it runs.
+  the report with `running` beside it while it runs — the answer `JobAnswer.Pending(report, beside, hint)` writes for a
+  job in flight, which a tool that answers its result in a way of its own takes rather than build it by hand.
 - One answer envelope (`Snail.Sdk.Mcp.Hosting.Answers`): a tool's text is one block of compact JSON with nothing escaped
   that JSON allows, `{"ok":true,"data":…}` or `{"ok":false,"error":"…","hint":"…","type":"…","data":…}` with a field
   that has no value left out, written by `ToolAnswer.Ok(data, shape)`, `ToolAnswer.Failed(error, hint, type, data)` or
@@ -373,7 +374,8 @@ And for the server project (no kind):
   size budget counts the text. A picture follows the envelope in a block of its own (`result.WithImage(bytes, mime)`),
   never base64 in the JSON. `ToolAnswer.Word` spells an enum value in the casing the server chose,
   `ToolAnswer.Moment` a moment; `ToolAnswer.ObjectInfo` is the generated `JsonObject` a job's result needs.
-  `.ExplainFailures()` beside `AddMcpServer` answers a tool that threw with the envelope, `type` `internal`, logged once,
+  `.ExplainFailures()` beside `AddMcpServer` — `Snail.Sdk.Mcp.Hosting`'s, beside `McpHost`, so registering it takes
+  no `using` of the envelope's namespace — answers a tool that threw with the envelope, `type` `internal`, logged once,
   and flags an envelope with `ok` false that a tool returned as a string; a cancelled call stays cancelled; arguments
   the MCP SDK could not bind are `type` `arguments`, naming the parameter; a `ToolRefusalException` — a caller's mistake
   found deep inside — is answered in its own error, hint and type and not logged; `FailureOptions` words the rest,
@@ -393,7 +395,9 @@ And for the server project (no kind):
   no forwarder widens a grant and none runs another. `.WithSessionRoots(volumes)` confines paths to the named roots
   inside the configured volumes, every link followed (`SessionRoots.Reach`, `RealPath`), a file or a folder where the
   tool needs one (`mustBe`), each refusal with its kind (`Reached.Type`) and handed on as a tool's failure by
-  `reached.As<T>()`, and over HTTP `app.RefuseSessionsItCannotServe(volumes)` turns away at the door a session
+  `reached.As<T>()` — a disk that fails while a path is reached among them, `unreadable`, never the server's failure; a
+  server whose disk is behind a port of its own reaches paths on it (`SessionRootsOptions.Disk`, an `IRootsDisk`), so a
+  test can hand it a disk that fails — and over HTTP `app.RefuseSessionsItCannotServe(volumes)` turns away at the door a session
   whose root the machine does not have or the volumes do not hold. Over stdio there is no address
   (`SessionAddress.None`): every tool is granted, and the volumes are the roots — or, for a program a desktop client
   installs with no settings, everywhere (`SessionRootsOptions.ReachesEverywhereAsAProgram`). A refused call is type

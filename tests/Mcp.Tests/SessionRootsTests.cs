@@ -588,8 +588,110 @@ public sealed class SessionRootsTests
         Assert.Same(SessionAddress.None, provider.GetRequiredService<ISessionAddress>());
     }
 
+    /// <summary>#57: a disk that fails while a path is reached is a refusal of its own kind, not the server's failure.</summary>
+    [Fact]
+    public void Reach_OnADiskThatFails_IsRefusedAsUnreadable_InTheDisksWords()
+    {
+        var root = TestFolder.Create();
+        var disk = new FailingDisk { LinkTarget = _ => throw new IOException("the share did not answer") };
+        var roots = new SessionRoots(new FixedAddress(("root", root)), [], new SessionRootsOptions { Disk = disk });
+
+        var reached = roots.Reach("a.txt", PathKind.File);
+
+        Assert.False(reached.IsAllowed);
+        Assert.Equal(Reached.Unreadable, reached.Type);
+        Assert.Equal("'a.txt' could not be reached: the share did not answer", reached.Refusal);
+        Assert.NotNull(reached.Hint);
+    }
+
+    [Fact]
+    public void Reach_OnADiskThatMayNotBeRead_IsRefusedAsUnreadable()
+    {
+        var root = TestFolder.Create();
+        var disk = new FailingDisk { IsFile = _ => throw new UnauthorizedAccessException("access denied") };
+        var roots = new SessionRoots(new FixedAddress(("root", root)), [], new SessionRootsOptions { Disk = disk });
+
+        var reached = roots.Reach("a.txt", PathKind.File);
+
+        Assert.Equal(Reached.Unreadable, reached.Type);
+    }
+
+    /// <summary>A folder that is there when the door looks and gone when the call reaches it is absent, not a failure.</summary>
+    [Fact]
+    public void Reach_OfAFolderThatVanishedAfterTheDoor_IsAbsent()
+    {
+        var root = TestFolder.Create();
+        var asked = 0;
+        var disk = new FailingDisk { IsFolder = _ => ++asked == 1 };
+        var roots = new SessionRoots(new FixedAddress(("root", root)), [], new SessionRootsOptions { Disk = disk });
+
+        var absent = roots.Absent;
+        var reached = roots.Reach(root, PathKind.Folder);
+
+        Assert.Empty(absent);
+        Assert.Equal(Reached.Absent, reached.Type);
+    }
+
+    [Fact]
+    public void Roots_ThatTheDiskCannotAnswerFor_AreAbsent()
+    {
+        var root = TestFolder.Create();
+        var disk = new FailingDisk { IsFolder = _ => throw new IOException("stale handle") };
+
+        var roots = new SessionRoots(new FixedAddress(("root", root)), [], new SessionRootsOptions { Disk = disk });
+
+        Assert.Equal([root], roots.Absent);
+    }
+
+    /// <summary>The links of a path are read on the server's disk too: a link it knows of is followed, one the machine has is not asked about.</summary>
+    [Fact]
+    public void Links_AreReadOnTheServersDisk()
+    {
+        var root = RealPath.Of(TestFolder.Create())!;
+        var elsewhere = RealPath.Of(TestFolder.Create())!;
+        var link = Path.Combine(root, "out");
+        var disk = new FailingDisk { LinkTarget = path => path == link ? elsewhere : null };
+        var roots = new SessionRoots(new FixedAddress(("root", root)), [], new SessionRootsOptions { Disk = disk });
+
+        var reached = roots.Reach("out/secret.txt");
+
+        Assert.Equal(Path.Combine(elsewhere, "secret.txt"), RealPath.Of(link + "/secret.txt", disk: disk));
+        Assert.Equal(Reached.Outside, reached.Type);
+    }
+
+    [Fact]
+    public void Disk_IsTheMachines_UnlessSet_AndRegisteredWithTheOptions()
+    {
+        var volume = TestFolder.Create();
+        var disk = new FailingDisk();
+        var services = new ServiceCollection();
+
+        services.AddSessionRoots(_ => [volume], options => options.Disk = disk);
+        using var provider = services.BuildServiceProvider();
+
+        Assert.Same(IRootsDisk.Machine, new SessionRootsOptions().Disk);
+        Assert.Same(disk, provider.GetRequiredService<SessionRootsOptions>().Disk);
+        Assert.True(provider.GetRequiredService<SessionRoots>().Reach("a.txt").IsAllowed);
+    }
+
     private readonly record struct TaskLabel(string Value);
 
     private static bool IsTask(string name) =>
         name.Length > 0 && name.All(letter => char.IsAsciiLetterLower(letter) || char.IsAsciiDigit(letter) || letter == '-');
+
+    /// <summary>The machine's disk, with whichever question a test names answered its own way: by throwing, or by changing its mind.</summary>
+    private sealed class FailingDisk : IRootsDisk
+    {
+        public Func<string, bool> IsFile { get; init; } = IRootsDisk.Machine.IsFile;
+
+        public Func<string, bool> IsFolder { get; init; } = IRootsDisk.Machine.IsFolder;
+
+        public Func<string, string?> LinkTarget { get; init; } = IRootsDisk.Machine.LinkTarget;
+
+        bool IRootsDisk.IsFile(string path) => IsFile(path);
+
+        bool IRootsDisk.IsFolder(string path) => IsFolder(path);
+
+        string? IRootsDisk.LinkTarget(string path) => LinkTarget(path);
+    }
 }

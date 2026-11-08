@@ -24,8 +24,16 @@ public sealed record Reached(string? Path, string? Refusal, string? Hint, string
     /// <summary>The kind of a call that named no path.</summary>
     public const string NoPath = "noPath";
 
-    /// <summary>The kind of a path whose links cannot be followed: a loop of them, or one that may not be read.</summary>
+    /// <summary>The kind of a path whose links cannot be followed: a loop of them, more than <see cref="RealPath.MostLinks"/>.</summary>
     public const string Unfollowable = "unfollowable";
+
+    /// <summary>The kind of a path the disk failed on while it was reached: a folder this server may not read, a share that did not answer.</summary>
+    /// <remarks>
+    /// The disk's fault or the operator's, never the server's: it threw an <see cref="IOException"/> or an
+    /// <see cref="UnauthorizedAccessException"/> out of <see cref="IRootsDisk"/>, which reached the model as an <c>internal</c>
+    /// failure — "try once more" — or, for a link that may not be read, as a loop of links.
+    /// </remarks>
+    public const string Unreadable = "unreadable";
 
     /// <summary>The kind of a file or a folder that is not there where one must be.</summary>
     public const string Absent = "absent";
@@ -115,6 +123,14 @@ public sealed class SessionRootsOptions
     /// </para>
     /// </remarks>
     public bool ReachesEverywhereAsAProgram { get; set; }
+
+    /// <summary>The disk a path is reached on — what is at it, where its links lead — the machine's (<see cref="IRootsDisk.Machine"/>) unless set.</summary>
+    /// <remarks>
+    /// A server that reaches the disk through a port of its own sets it to that disk, so that its chaos tests fail
+    /// <c>Reach</c> too: Snail.MCP.FileSystem's <c>IWorkingCopy</c> was the whole of its disk but for the reaching of a path.
+    /// What it throws is answered as a refusal of the kind <see cref="Reached.Unreadable"/>.
+    /// </remarks>
+    public IRootsDisk Disk { get; set; } = IRootsDisk.Machine;
 }
 
 /// <summary>The folders this session works in, read from the address it was opened at, and whether a path lies in them.</summary>
@@ -174,9 +190,10 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
     /// <summary>Of the roots the address named, the ones this machine has no folder for.</summary>
     /// <remarks>
     /// A root missing here means the copy is on another host: discovery handed the worker of one machine the server of
-    /// another, and every answer would be about the wrong files — a wrong answer wearing the shape of a right one.
+    /// another, and every answer would be about the wrong files — a wrong answer wearing the shape of a right one. A root
+    /// the disk cannot even answer for — it threw — is as good as missing: nothing in it could be served.
     /// </remarks>
-    public IReadOnlyList<string> Absent => [.. Named.Where(root => !Directory.Exists(root))];
+    public IReadOnlyList<string> Absent => [.. Named.Where(root => !IsFolder(root))];
 
     /// <summary>Whether the address named a root outside every volume.</summary>
     public bool IsOutside => Outside.Count > 0;
@@ -209,6 +226,11 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
     /// <see cref="Reached.Absent"/>, <see cref="Reached.NotAFile"/> and the rest — and <see cref="Reached.As{T}"/> hands it
     /// on as a tool's failed answer.
     /// </para>
+    /// <para>
+    /// The path is reached on <see cref="SessionRootsOptions.Disk"/>. What that disk throws — an <see cref="IOException"/>, an
+    /// <see cref="UnauthorizedAccessException"/> — is a refusal of the kind <see cref="Reached.Unreadable"/> with the disk's
+    /// own words, never an exception out of here, which <c>ExplainFailures</c> answered as the server's own failure.
+    /// </para>
     /// </remarks>
     /// <param name="path">The path the caller named.</param>
     /// <param name="mustBe">What must be there: a file, a folder, or anything or nothing.</param>
@@ -226,15 +248,32 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
             return Reached.No("name a path", $"paths are absolute or relative to {from}", Reached.NoPath);
 
         var asked = path.Trim();
-        var real = RealPath.Of(Path.IsPathRooted(asked) ? asked : Path.Join(from, asked));
+
+        try
+        {
+            return Judged(asked, Path.IsPathRooted(asked) ? asked : Path.Join(from, asked), everywhere ? null : roots, mustBe);
+        }
+        catch (Exception failed) when (failed is IOException or UnauthorizedAccessException)
+        {
+            return Reached.No($"'{asked}' could not be reached: {failed.Message}",
+                "the disk refused it or did not answer — a folder this server may not read, a share that timed out; try once more, then name another path or ask whoever runs the server", Reached.Unreadable);
+        }
+    }
+
+    /// <summary>The path asked, followed and held to the roots — none when the session reaches everywhere — and to what must be there.</summary>
+    /// <exception cref="IOException">The disk failed on the path or on a root.</exception>
+    /// <exception cref="UnauthorizedAccessException">The disk may not be read there.</exception>
+    private Reached Judged(string asked, string full, IReadOnlyList<string>? roots, PathKind mustBe)
+    {
+        var real = RealPath.Walk(full, RealPath.MostLinks, Disk);
 
         if (real is null)
         {
-            return Reached.No($"'{asked}' cannot be followed: more than {RealPath.MostLinks} links lead on from it, or one of them may not be read",
-                "a link on the path leads in a circle or somewhere this server may not look; name the path it leads to", Reached.Unfollowable);
+            return Reached.No($"'{asked}' cannot be followed: more than {RealPath.MostLinks} links lead on from it",
+                "a link on the path leads in a circle; name the path it leads to", Reached.Unfollowable);
         }
 
-        if (!everywhere && !roots.Any(root => RealPath.Of(root) is { } inside && IsUnder(real, inside)))
+        if (roots is not null && !roots.Any(root => RealPath.Walk(root, RealPath.MostLinks, Disk) is { } inside && IsUnder(real, inside)))
             return Reached.No(OutsideRefusal(asked, roots), type: Reached.Outside);
 
         return Kind(asked, real, mustBe);
@@ -272,17 +311,21 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
 
         var roots = All;
 
-        if (roots.Count == 0 || RealPath.Of(roots[0]) is not { } first)
+        if (roots.Count == 0 || RealPath.Of(roots[0], disk: Disk) is not { } first)
             return path;
 
         return IsUnder(path, first) ? Path.GetRelativePath(first, path) : path;
     }
 
     /// <summary>The reached path when it is what the caller needs there, or what it is instead.</summary>
-    private static Reached Kind(string asked, string real, PathKind mustBe)
+    /// <remarks>
+    /// Asked of the disk once, the two answers then read together: a file gone between the two questions is absent, never
+    /// both a file and nothing.
+    /// </remarks>
+    private Reached Kind(string asked, string real, PathKind mustBe)
     {
-        bool isFile = File.Exists(real);
-        bool isFolder = Directory.Exists(real);
+        bool isFile = Disk.IsFile(real);
+        bool isFolder = Disk.IsFolder(real);
 
         return mustBe switch
         {
@@ -309,9 +352,25 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
     internal static string Configure(SessionRootsOptions? options) =>
         options?.RootsSetting is { Length: > 0 } setting ? $"set {setting}" : "configure the server's roots";
 
-    private static bool IsInside(string root, IReadOnlyList<string> configured) =>
+    /// <summary>The disk paths are reached on: the server's, or the machine's.</summary>
+    private IRootsDisk Disk => options?.Disk ?? IRootsDisk.Machine;
+
+    /// <summary>Whether the disk has a folder at the path; a disk that throws has none there to serve.</summary>
+    private bool IsFolder(string path)
+    {
+        try
+        {
+            return Disk.IsFolder(path);
+        }
+        catch (Exception failed) when (failed is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private bool IsInside(string root, IReadOnlyList<string> configured) =>
         configured.Count == 0
-        || (RealPath.Of(root) is { } real && configured.Any(volume => RealPath.Of(volume) is { } inside && IsUnder(real, inside)));
+        || (RealPath.Of(root, disk: Disk) is { } real && configured.Any(volume => RealPath.Of(volume, disk: Disk) is { } inside && IsUnder(real, inside)));
 
     /// <summary>Whether the path is the root or lies inside it; a sibling whose name only begins like the root's is not.</summary>
     /// <remarks>

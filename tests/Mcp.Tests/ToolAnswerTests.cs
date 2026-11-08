@@ -464,6 +464,56 @@ public sealed class ToolAnswerTests
         Assert.Equal("""{"ok":true,"data":{"uri":"job://sample/up/1","state":"running","startedAt":"1970-01-01T00:00:00+00:00","file":"out.csv"}}""", answer.Text());
     }
 
+    [Fact]
+    public void Pending_OfARunningJob_IsTheReport_WithWhatGoesBeside_AndTheHint_AsASuccess()
+    {
+        var report = new JobReport("job://sample/up/1", JobState.Running, DateTimeOffset.UnixEpoch, null, 0.5, "half", null);
+
+        var answer = JobAnswer.Pending(report, new JsonObject { ["note"] = "raising" }, "Read job://sample/up/1 when it ends.");
+
+        Assert.Equal("""{"ok":true,"hint":"Read job://sample/up/1 when it ends.","data":{"uri":"job://sample/up/1","state":"running","startedAt":"1970-01-01T00:00:00+00:00","progress":0.5,"message":"half","note":"raising"}}""", answer.Text());
+        Assert.NotEqual(true, answer.IsError);
+        Assert.Equal(report, answer.Report());
+    }
+
+    /// <summary>#22: Envelope and Result build the running answer through Pending, to the byte.</summary>
+    [Fact]
+    public void Envelope_AndResult_OfARunningJob_ArePending()
+    {
+        var report = new JobReport("job://sample/up/1", JobState.Running, DateTimeOffset.UnixEpoch, null, null, null, null);
+        var beside = new JsonObject { ["note"] = "raising" };
+        var options = new JobAnswerOptions { Hint = _ => "never asked" };
+
+        var pending = JobAnswer.Pending(report, beside);
+        var envelope = JobAnswer.Envelope(report, beside, "Start it again.", options);
+        var result = JobAnswer.Result(report, beside, "Raise again.", options);
+
+        Assert.Equal(pending.Text(), envelope.Text());
+        Assert.Equal(pending.Text(), result.Text());
+        Assert.Equal(pending.StructuredContent!.Value.GetRawText(), envelope.StructuredContent!.Value.GetRawText());
+        Assert.Equal(pending.StructuredContent!.Value.GetRawText(), result.StructuredContent!.Value.GetRawText());
+        Assert.Equal(pending.IsError, envelope.IsError);
+    }
+
+    /// <summary>A report that ended before the answer was written is no mistake of the caller's: it is answered as Envelope answers it.</summary>
+    [Theory]
+    [InlineData(JobState.Succeeded)]
+    [InlineData(JobState.Failed)]
+    [InlineData(JobState.Cancelled)]
+    public void Pending_OfAJobThatEnded_IsTheEnvelope(JobState state)
+    {
+        var report = new JobReport("job://sample/up/1", state, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, null, "No manifest.", null);
+        var beside = new JsonObject { ["note"] = "raising" };
+        var options = new JobAnswerOptions { Cancelled = "Stopped." };
+
+        var pending = JobAnswer.Pending(report, beside, "Start it again.", options);
+        var envelope = JobAnswer.Envelope(report, beside, "Start it again.", options);
+
+        Assert.Equal(envelope.Text(), pending.Text());
+        Assert.Equal(envelope.IsError, pending.IsError);
+        Assert.Equal(report, pending.Report());
+    }
+
     /// <summary>A failure kept as the job's result used to be answered ok, its envelope inside the data (Snail.MCP.E2E, Connector).</summary>
     [Fact]
     public void Result_OfAJobThatFailedWithAnAnswer_IsThatFailure_FlaggedAndWithoutWhatGoesBesideARunningJob()

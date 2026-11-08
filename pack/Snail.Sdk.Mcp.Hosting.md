@@ -27,17 +27,18 @@ What every Snail MCP server starts from:
   `ToolAnswer.Text`/`ToolAnswer.Of` carry the envelope outside a result and back; `result.WithImage(bytes, mime)` adds
   a picture after it, and `Envelope<T>` is its type for an output schema. `Answer<T>` with `TryGet`, `As<TOther>()` and
   `Map` is the value-or-why behind it, `Answer.Failed(error, hint, type, details)` a failure of any `Answer<T>` with what
-  was learned before it. `.ExplainFailures()` answers a tool that threw with it, a call whose arguments did not bind with
-  `type` `arguments`, and a `ToolRefusalException` in its own words.
+  was learned before it. `.ExplainFailures()`, in `Snail.Sdk.Mcp.Hosting` itself, answers a tool that threw with it, a
+  call whose arguments did not bind with `type` `arguments`, and a `ToolRefusalException` in its own words.
 - `Jobs.Start` and `JobAnswer`: a long operation as a job; work that returns an `Answer<T>` ends a failure as a failed
-  job with its hint and type, and `JobAnswer.Envelope` or `JobAnswer.Result` answers the tool.
+  job with its hint and type, and `JobAnswer.Envelope` or `JobAnswer.Result` answers the tool — `JobAnswer.Pending` a
+  job still running.
 - `Snail.Sdk.Mcp.Hosting.Sessions`: what a session's address (`?tool=`, `?root=`) grants it.
   `.RefuseWhatWasNotGranted()` refuses and hides a tool the session was not granted (`SessionGrant`, or a gate of the
   server's own, `IToolGate`); `ToolForwarding.CallAsync` is how a `[Forwards]` tool such as `run_tools` calls a step,
   held to the same grant, and `ToolForwarding.Refused` gives a catalog of commands the door's refusal, type
   `notGranted`; `SessionRoots` and `RealPath` say whether a path lies in the session's roots with every link
   followed, and whether it is the file or folder a tool needs — a refusal with its kind, `reached.As<T>()` as a tool's
-  failure; `WorkspaceCopy.Of` names the task a working copy belongs
+  failure — on the machine's disk or the server's own (`IRootsDisk`); `WorkspaceCopy.Of` names the task a working copy belongs
   to, or why a root is none; `JobOwners.TaskOfCopy` owns a server's jobs by that task; `SessionAddress.None` is the
   address of a program.
 - `Snail.Sdk.Mcp.Hosting.Discovery`: the ways in every server spells alike. `.WithToolDiscovery()` adds `find_tool`,

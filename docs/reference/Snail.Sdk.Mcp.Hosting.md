@@ -162,6 +162,15 @@ A start refused for what the operator set — a setting that cannot mean anythin
 | `StartRefusedException(string message)` | A start refused, in a sentence that names what the operator set and what it can be. |
 | `StartRefusedException(string message, Exception? innerException)` | A start refused, with the failure that showed it. |
 
+### static class ToolFailures
+
+A failure of a tool told as the envelope every answer is, and flagged as one by the protocol.
+
+| Member | Summary |
+| --- | --- |
+| `IMcpServerBuilder ExplainFailures(this IMcpServerBuilder builder)` | Answers a tool that threw with the failure envelope — its message, a hint and the type `internal` — logged once with its trace, and flags an answer that is the failure envelope but not an error as one. |
+| `IMcpServerBuilder ExplainFailures(this IMcpServerBuilder builder, Action<FailureOptions> configure)` | Answers a tool that threw with the failure envelope, in the words `configure` gives a failure nobody foresaw: its error, its hint and its type, each from the tool's name and what it threw. |
+
 ### static class ToolJson
 
 The JSON options a server's tools are registered with: the MCP SDK's own, with the server's types put first.
@@ -285,15 +294,6 @@ A tool's answer as every Snail server gives it: one text block holding the envel
 | `string OkText(JsonNode data, JsonObject? beside = null, string? hint = null)` | The text of a successful answer with fields of the tool's own after its data, and what to do next, for a tool that returns a string. |
 | `string Text(CallToolResult result)` | The envelope a result carries: the text of its first block, which is where every answer of `ToolAnswer` writes it. |
 | `string Word<TEnum>(TEnum value, WordCase casing = 0)` | An enum value as the answer spells it, in the casing the server chose. |
-
-### static class ToolFailures
-
-A failure of a tool told as the envelope every answer is, and flagged as one by the protocol.
-
-| Member | Summary |
-| --- | --- |
-| `IMcpServerBuilder ExplainFailures(this IMcpServerBuilder builder)` | Answers a tool that threw with the failure envelope — its message, a hint and the type `internal` — logged once with its trace, and flags an answer that is the failure envelope but not an error as one. |
-| `IMcpServerBuilder ExplainFailures(this IMcpServerBuilder builder, Action<FailureOptions> configure)` | Answers a tool that threw with the failure envelope, in the words `configure` gives a failure nobody foresaw: its error, its hint and its type, each from the tool's name and what it threw. |
 
 ### class ToolRefusalException
 
@@ -451,6 +451,7 @@ A job as the answer of a tool that speaks in words of its own: its text, with th
 | --- | --- |
 | `CallToolResult Envelope(JobReport report, JsonObject? beside = null, string? hint = null, JobAnswerOptions? options = null)` | The job as the envelope every answer is: the report as the data of the text, and as the structured content. |
 | `CallToolResult Of(JobReport report, Func<JobReport, CallToolResult> said)` | The tool result `said` makes of the report, with the report itself as its structured content. |
+| `CallToolResult Pending(JobReport report, JsonObject? beside = null, string? hint = null, JobAnswerOptions? options = null)` | The job still running, as the envelope: a success whose data is the report — its URI, its state, how far it has come — with the fields of `beside`, and the report as the structured content. |
 | `CallToolResult Result(JobReport report, JsonObject? running = null, string? hint = null, JobAnswerOptions? options = null)` | The job as the answer its tool gives when the tool's answer is the work's result: once it succeeded, the result itself as the data; once it failed, the failure its work answered; while it runs, the report with `running` beside it. The report is the structured content throughout. |
 
 ### class JobAnswerOptions
@@ -571,6 +572,17 @@ How `RefuseWhatWasNotGranted` holds a session to its grant.
 | `const string Hint` | What a refused caller does next, unless `HintOf` says otherwise: the hint of every refusal of type `NotGranted` the SDK writes. |
 | `const string NotGranted` | The type a refusal carries in the envelope: the one type of a call refused for want of a grant, whichever layer refuses it. |
 
+### interface IRootsDisk
+
+The disk `SessionRoots` reaches a path on: what is at a path, and where a link leads.
+
+| Member | Summary |
+| --- | --- |
+| `IRootsDisk Machine { get; }` | The disk of the machine the server runs on, every question answered by the system: what `Disk` is unless a server sets another. |
+| `bool IsFile(string path)` | Whether a file is at the path; false when nothing is. |
+| `bool IsFolder(string path)` | Whether a folder is at the path; false when nothing is. |
+| `string? LinkTarget(string path)` | Where the link at the path leads, as it is written — relative to the link's folder or absolute; null when the path is no link, or nothing is there. |
+
 ### interface ISessionAddress
 
 What the address the session was opened at says: `…/mcp?root=/workspaces/task&tool=read_file`.
@@ -626,7 +638,8 @@ A path as a session may use it, or why it may not.
 | `const string NotAFile` | The kind of a folder where a file must be. |
 | `const string NotAFolder` | The kind of a file where a folder must be. |
 | `const string Outside` | The kind of a path outside every root of the session. |
-| `const string Unfollowable` | The kind of a path whose links cannot be followed: a loop of them, or one that may not be read. |
+| `const string Unfollowable` | The kind of a path whose links cannot be followed: a loop of them, more than `MostLinks`. |
+| `const string Unreadable` | The kind of a path the disk failed on while it was reached: a folder this server may not read, a share that did not answer. |
 | `string? Hint { get; init; }` | What to do instead, when there is something. |
 | `string? Path { get; init; }` | The path with every link on it followed, when the session may use it. |
 | `string? Refusal { get; init; }` | Why it may not, in words the caller can act on; never null when `Path` is. |
@@ -639,7 +652,7 @@ Where a path really leads, every link on the way followed.
 | Member | Summary |
 | --- | --- |
 | `const int MostLinks` | How many links a walk follows before it gives up: Linux's own limit, `MAXSYMLINKS`. |
-| `string? Of(string path, int maxLinks = 40)` | The path with every link on it followed, or null when it cannot be: more than `maxLinks` links, or one that may not be read. |
+| `string? Of(string path, int maxLinks = 40, IRootsDisk? disk = null)` | The path with every link on it followed, or null when it cannot be: more than `maxLinks` links, or one that may not be read. |
 
 ### static class SessionAddress
 
@@ -695,6 +708,7 @@ The words `SessionRoots` refuses in where they are the server's own, and what a 
 
 | Member | Summary |
 | --- | --- |
+| `IRootsDisk Disk { get; set; }` | The disk a path is reached on — what is at it, where its links lead — the machine's (`Machine`) unless set. |
 | `SessionRootsOptions()` |  |
 | `bool ReachesEverywhereAsAProgram { get; set; }` | Whether a server started as a program, with no volume configured, reaches every path its process can; false unless set. |
 | `string? RootsSetting { get; set; }` | The setting that configures the server's roots — `SNAIL_MCP_DOCUMENTS_ROOTS__0` — named in the hint to a session that has none: "set …". |

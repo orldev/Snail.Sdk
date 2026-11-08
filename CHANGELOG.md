@@ -108,7 +108,8 @@ A change that a repository must act on says what to do.
   Blender) passes `type:` and says `type` instead of `data.type` in its instructions. Each server keeps its mappers from
   domain records to the fields of `data` in one static class of its `Tools`, `AnswerFields`, an overload per record
   (`AnswerFields.Of(report)`), passed to `ToolAnswer.From` and `Answer.Map`; a name ending in `Data` is S3L0006's.
-- `.ExplainFailures()` on `IMcpServerBuilder`: a tool that throws is answered with the failure envelope — its message, a
+- `.ExplainFailures()` on `IMcpServerBuilder`, in `Snail.Sdk.Mcp.Hosting` beside `McpHost` — its `FailureOptions` and
+  the envelope's other types stay in `.Answers`: a tool that throws is answered with the failure envelope — its message, a
   hint, `type` `internal` — and logged once with its trace, instead of the MCP SDK's bare "An error occurred invoking
   …"; and a result whose text is the envelope with `ok` false but no `isError` — a tool that returns the envelope as a
   string — is flagged. It goes first among the call filters wherever it is called; a call its client cancelled stays
@@ -135,7 +136,10 @@ A change that a repository must act on says what to do.
   answers none (Snail.MCP.Roslyn). Every server of the fleet answers in the envelope; `options.AnswersText = true` is for
   a server outside it whose answers are text a command, a hook or a person reads as it is, and answers what was thrown,
   arguments that did not bind, a `ToolRefusalException` and a thrown step of `run_tools` as `error — hint`, flagged
-  `isError`, no JSON (its type still decides what is logged).
+  `isError`, no JSON (its type still decides what is logged). Up to 0.5.0-local.7 it lived in
+  `Snail.Sdk.Mcp.Hosting.Answers`, so the host registration of every server of the fleet imported the envelope's
+  namespace for this one call: a server on a local version drops `using Snail.Sdk.Mcp.Hosting.Answers;` where it only
+  served `ExplainFailures` (IDE0005 names the file) and has `using Snail.Sdk.Mcp.Hosting;` there.
 - `JobAnswer.Envelope(report, beside, hint)`: a job in the envelope — the report as the text's data, with the fields of
   `beside` added there, and the report alone as the structured content a client of `Snail.Sdk.Mcp.JobClient` reads.
   Replaces `ToolResponse.Job(report)` of Snail.MCP.Security, BuildBridge, AfterEffects and Blender. A job that failed or
@@ -147,6 +151,13 @@ A change that a repository must act on says what to do.
   cancellation, read the log after a failure — and the error of a cancelled job, which was the SDK's alone; the report's
   own hint still wins, then `hint`. A server that worked its hint out before every call
   (`JobAnswer.Result(report, running, HintOf(report))`) keeps one `JobAnswerOptions` and passes it instead.
+  `JobAnswer.Pending(report, beside, hint, options)` is the answer of a job still running alone — a success whose data
+  is the report with the fields of `beside`, `hint` as the success's hint (where to read it, when to look again), the
+  report the structured content — the very answer `Envelope` and `Result` give a running job, which they now write
+  through it, to the byte. A tool that answers its result in a way of its own and a job in flight in the envelope takes
+  it rather than build the report, the fields beside it and the structured content by hand (#22). A report that has
+  ended already is answered as `Envelope` answers it, `hint` and `options` with it, a failure flagged as one. Nothing to
+  change: BuildBridge, AfterEffects and Blender (`Envelope`), E2E and Sandbox (`Result`) build no pending answer by hand.
 - Work that ends in an `Answer<T>` ends its job as the answer says: `Jobs.Start(kind, [owner,] work, typeInfo)` with
   work returning `Task<Answer<T>>` succeeds with the value as the result, and fails with the answer's error as the
   `Message` and its hint and type as `JobReport.Hint` and `JobReport.Type` — new `init` properties the JSON leaves out
@@ -352,7 +363,7 @@ A change that a repository must act on says what to do.
     `SNAIL_MCP_DOCUMENTS_ROOTS__0`, the first entry of the list, since the bare `SNAIL_MCP_DOCUMENTS_ROOTS` binds
     nothing to a list and an operator who set it still had a server serving nothing — in the hint to a session with no
     root ("or set …", instead of "or configure the server's roots"), there and at `RefuseSessionsItCannotServe`'s door. Every refusal carries its kind in
-    `Reached.Type` — `outside`, `noRoot`, `noPath`, `unfollowable`, `absent`, `notAFile`, `notAFolder` (constants on
+    `Reached.Type` — `outside`, `noRoot`, `noPath`, `unfollowable`, `unreadable`, `absent`, `notAFile`, `notAFolder` (constants on
     `Reached`) — and `reached.As<T>()` hands it on as a tool's failure with its words, hint and kind;
     `Reached.IsAllowed` tells the compiler that `Path` is set when it holds and `Refusal` when it does not, so
     Snail.MCP.FileSystem drops its `DiskRefusals.Refused`. A volume of `/` (or `C:\`) holds everything under it — its
@@ -365,6 +376,21 @@ A change that a repository must act on says what to do.
     follows a link whose target does not exist yet, which every fleet copy took for the end of the path — a write
     through such a link landed outside the root. `SessionAddress.None` is the address of a program, for a benchmark or a
     test that builds `SessionRoots` by hand: Snail.MCP.Documents drops its benchmark's `NoAddress`.
+  - `SessionRootsOptions.Disk`, an `IRootsDisk` — `IsFile(path)`, `IsFolder(path)`, `LinkTarget(path)`, what
+    `SessionRoots` and `RealPath` ask of a disk and nothing more — is the disk a path is reached on: the machine's
+    (`IRootsDisk.Machine`) unless a server sets its own. Snail.MCP.FileSystem put every disk access behind its
+    `IWorkingCopy` so its chaos tests could hand it a disk that fails, but `roots.Reach` ran on the real disk, so no
+    fault could be injected where `CopyReader`, `CopyWriter` and `CopyWalker` reach a path (#57). What the disk throws
+    while a path is reached — an `IOException`, an `UnauthorizedAccessException` — is a refusal of its own kind,
+    `Reached.Unreadable` (`unreadable`), in the disk's words with a hint, never an exception out of `Reach` that
+    `ExplainFailures` would answer as `internal`, "try once more"; a root the disk cannot answer for is among
+    `Absent`, and a folder gone between the door and the call is `absent`. `unfollowable` is a loop of links alone now.
+    `RealPath.Of(path, maxLinks, disk)` follows links on the disk given. On the machine's disk nothing changes: it
+    answers as before (`File.Exists`, `Directory.Exists`, `FileInfo.LinkTarget`). Snail.MCP.FileSystem plugs its
+    own disk in with `.WithSessionRoots(volumes, options => options.Disk = …)`: its `LocalDisk` already has `IsFile`
+    and `IsFolder` of the same meaning, so it implements `IRootsDisk` beside `IWorkingCopy` with `LinkTarget(path) =>
+    new FileInfo(path).LinkTarget`, or an adapter over its `IWorkingCopy` does, and `FailingDisk` fails `Reach` too
+    once it is that disk; the test's `SessionRoots` takes the same options. No other server has to change.
   - A path outside the roots is refused in words that follow where the roots came from. A session is told, as before,
     "'x' is outside this session, which works in /copy"; a request on a transport that keeps no sessions, which works
     in nothing, "'x' is outside this request's root /copy, which its address names" for the roots its `?root=` named,

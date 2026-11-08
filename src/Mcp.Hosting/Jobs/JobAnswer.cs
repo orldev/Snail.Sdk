@@ -53,7 +53,7 @@ public static class JobAnswer
     /// error. It answered <c>ok</c> true at first, and a model
     /// reads that as the work having been done (the s3l-mcp template, 0.5.0). Unlike other failures it keeps the report as
     /// its structured content: a job's tool has no output schema to break, and the job client finds the report nowhere
-    /// else. A running job is no failure: it answers as a success with its URI.
+    /// else. A running job is no failure: it answers as a success with its URI, as <see cref="Pending"/> writes it.
     /// </para>
     /// <para>
     /// The words of a failure are the server's where <paramref name="options"/> give them: a hint chosen for the report —
@@ -66,7 +66,40 @@ public static class JobAnswer
     {
         ArgumentNullException.ThrowIfNull(report);
 
+        if (report.IsRunning)
+            return Pending(report, beside);
+
         return Told(report, ReportWith(report, beside), hint, options);
+    }
+
+    /// <summary>The job still running, as the envelope: a success whose data is the report — its URI, its state, how far it has come — with the fields of <paramref name="beside"/>, and the report as the structured content.</summary>
+    /// <param name="report">The job as it stands, still running.</param>
+    /// <param name="beside">Fields the tool adds to the data of the text — a note, the file it will write; a field of the report's own name replaces it there.</param>
+    /// <param name="hint">What to do next: while the job runs, the success's hint — where to read it, when to look again; once it ended, what to do about a failure, as <see cref="Envelope"/> takes it.</param>
+    /// <param name="options">The server's words for a job that failed or was cancelled, used only when the report has already ended.</param>
+    /// <remarks>
+    /// <para>
+    /// The answer <see cref="Envelope"/> and <see cref="Result"/> give a running job, to the byte — they write it through
+    /// here, with no hint — for a tool that answers a job in flight in a way of its own and its result otherwise, rather
+    /// than build the report, the fields beside it and the structured content by hand.
+    /// </para>
+    /// <para>
+    /// A report that has already ended — the work finished between the wait and the answer — is no mistake of the caller's,
+    /// and is answered as <see cref="Envelope"/> answers it, with <paramref name="beside"/>, <paramref name="hint"/> and
+    /// <paramref name="options"/>: a failure flagged as one, never a success that says it runs.
+    /// </para>
+    /// </remarks>
+    public static CallToolResult Pending(JobReport report, JsonObject? beside = null, string? hint = null, JobAnswerOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+
+        if (!report.IsRunning)
+            return Envelope(report, beside, hint, options);
+
+        var answer = ToolAnswer.Ok(ReportWith(report, beside), AnswerShape.None, hint: hint);
+        answer.StructuredContent = JsonSerializer.SerializeToElement(report, JobJson.Default.JobReport);
+
+        return answer;
     }
 
     /// <summary>
@@ -104,7 +137,10 @@ public static class JobAnswer
             return answer;
         }
 
-        return Told(report, ReportWith(report, report.IsRunning ? running : null), hint, options);
+        if (report.IsRunning)
+            return Pending(report, running);
+
+        return Told(report, ReportWith(report, null), hint, options);
     }
 
     private static JsonObject ReportWith(JobReport report, JsonObject? beside)

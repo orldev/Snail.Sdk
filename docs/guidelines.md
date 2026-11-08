@@ -141,8 +141,9 @@ strictly as code.
   on comes back as an `Answer<T>`, never as an exception — `Answer.Failed("…")` without a type argument, what was
   learned before the failure as its `details` — a domain layer's own record handed on with `.WithDetails(value)` and
   written by the tool, `ToolAnswer.From(answer, data, details)`, never a mapper passed down — read with `TryGet`, handed on with `As<TOther>()` or `Map`, answered with
-  `ToolAnswer.From` or `ToolAnswer.Failed(answer)`, never field by field — and `.ExplainFailures()` answers what nobody
-  foresaw. The one exception is a caller's mistake found where no answer can carry it, thrown as
+  `ToolAnswer.From` or `ToolAnswer.Failed(answer)`, never field by field — and `.ExplainFailures()`
+  (`Snail.Sdk.Mcp.Hosting`, where the host is registered) answers what nobody foresaw. The one exception is a caller's
+  mistake found where no answer can carry it, thrown as
   `ToolRefusalException(error, hint, type)` and answered in its words. A picture is `result.WithImage(bytes, mime)`. No server writes the envelope itself, nor keeps a `JsonSerializerContext` only for a
   `JsonObject` (`ToolAnswer.ObjectInfo`). Every server of the fleet answers in the envelope
   ([S3L0011](rules/S3L0011.md)); a server outside it whose
@@ -160,7 +161,8 @@ strictly as code.
   subscription (`Snail.Sdk.Mcp.JobClient`). Work that can fail as the call's or the world's fault returns an
   `Answer<T>`, so its job ends failed with the answer's error, hint and type, never succeeded with a failure as its
   result; the tool answers with `JobAnswer.Envelope(report)`, or `JobAnswer.Result(report, running)` when its answer is
-  the work's result. No `*_status` tool — the resource is the status; one that says where
+  the work's result, and a job still in flight that it answers otherwise with `JobAnswer.Pending(report, beside, hint)`,
+  never the report written by hand. No `*_status` tool — the resource is the status; one that says where
   something else stands is named in `SnailStatusToolsBecause` with its reason — and no description that
   says "poll" or "call again": a model made a timer spends a turn on every look. Progress within the call stays
   `IProgress<ProgressNotificationValue>`. (S3LC0032; `ToolGuards` names a description that tells the model to poll)

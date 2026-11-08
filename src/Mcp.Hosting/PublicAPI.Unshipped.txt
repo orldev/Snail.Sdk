@@ -21,9 +21,9 @@ Snail.Sdk.Mcp.Hosting.Answers.AnswerShape.Data = 0 -> Snail.Sdk.Mcp.Hosting.Answ
 Snail.Sdk.Mcp.Hosting.Answers.AnswerShape.Envelope = 1 -> Snail.Sdk.Mcp.Hosting.Answers.AnswerShape
 Snail.Sdk.Mcp.Hosting.Answers.AnswerShape.None = 2 -> Snail.Sdk.Mcp.Hosting.Answers.AnswerShape
 Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer
-Snail.Sdk.Mcp.Hosting.Answers.ToolFailures
-Snail.Sdk.Mcp.Hosting.Answers.ToolFailures.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!)
-Snail.Sdk.Mcp.Hosting.Answers.ToolFailures.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).ExplainFailures() -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+Snail.Sdk.Mcp.Hosting.ToolFailures
+Snail.Sdk.Mcp.Hosting.ToolFailures.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!)
+Snail.Sdk.Mcp.Hosting.ToolFailures.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).ExplainFailures() -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
 Snail.Sdk.Mcp.Hosting.Answers.WordCase
 Snail.Sdk.Mcp.Hosting.Answers.WordCase.Camel = 1 -> Snail.Sdk.Mcp.Hosting.Answers.WordCase
 Snail.Sdk.Mcp.Hosting.Answers.WordCase.Lower = 0 -> Snail.Sdk.Mcp.Hosting.Answers.WordCase
@@ -51,7 +51,7 @@ static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.OkText(System.Text.Json.Nodes.Js
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.FailedText(string! error, string? hint = null, string? type = null, System.Text.Json.Nodes.JsonNode? data = null) -> string!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Wire.get -> System.Text.Json.JsonSerializerOptions!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Word<TEnum>(TEnum value, Snail.Sdk.Mcp.Hosting.Answers.WordCase casing = Snail.Sdk.Mcp.Hosting.Answers.WordCase.Lower) -> string!
-static Snail.Sdk.Mcp.Hosting.Answers.ToolFailures.ExplainFailures(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+static Snail.Sdk.Mcp.Hosting.ToolFailures.ExplainFailures(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure
 override Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.ToString() -> string!
 static Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.operator !=(Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure? left, Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure? right) -> bool
@@ -216,7 +216,7 @@ const Snail.Sdk.Mcp.Hosting.Sessions.Reached.NotAFolder = "notAFolder" -> string
 static Snail.Sdk.Mcp.Hosting.Sessions.Reached.Yes(string! path) -> Snail.Sdk.Mcp.Hosting.Sessions.Reached!
 static Snail.Sdk.Mcp.Hosting.Sessions.Reached.operator !=(Snail.Sdk.Mcp.Hosting.Sessions.Reached? left, Snail.Sdk.Mcp.Hosting.Sessions.Reached? right) -> bool
 static Snail.Sdk.Mcp.Hosting.Sessions.Reached.operator ==(Snail.Sdk.Mcp.Hosting.Sessions.Reached? left, Snail.Sdk.Mcp.Hosting.Sessions.Reached? right) -> bool
-static Snail.Sdk.Mcp.Hosting.Sessions.RealPath.Of(string! path, int maxLinks = 40) -> string?
+static Snail.Sdk.Mcp.Hosting.Sessions.RealPath.Of(string! path, int maxLinks = 40, Snail.Sdk.Mcp.Hosting.Sessions.IRootsDisk? disk = null) -> string?
 static Snail.Sdk.Mcp.Hosting.Sessions.SessionRegistration.RefuseWhatWasNotGranted(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, System.Action<Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
 static Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding.CallAsync(ModelContextProtocol.Server.RequestContext<ModelContextProtocol.Protocol.CallToolRequestParams!>! context, ModelContextProtocol.Server.McpServerTool! tool, System.Text.Json.Nodes.JsonObject? arguments, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<ModelContextProtocol.Protocol.CallToolResult!>
 static Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding.IsForwarder(ModelContextProtocol.Server.McpServerTool! tool) -> bool
@@ -411,7 +411,7 @@ Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.AnswersText.set -> void
 Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.Refuse<TException>(string! type, System.Func<TException!, string?>? hint = null) -> Snail.Sdk.Mcp.Hosting.Answers.FailureOptions!
 Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.FailureOptions() -> void
 Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.Hint.set -> void
-Snail.Sdk.Mcp.Hosting.Answers.ToolFailures.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).ExplainFailures(System.Action<Snail.Sdk.Mcp.Hosting.Answers.FailureOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+Snail.Sdk.Mcp.Hosting.ToolFailures.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).ExplainFailures(System.Action<Snail.Sdk.Mcp.Hosting.Answers.FailureOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
 Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Hint.get -> string?
 Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Hint.init -> void
 Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Type.get -> string?
@@ -426,7 +426,7 @@ static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Of(System.Text.Json.Nodes.JsonOb
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Ok<T>(T data, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T>! type) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Ok<T>(T data, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T>! type, Snail.Sdk.Mcp.Hosting.Answers.AnswerShape shape) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Text(ModelContextProtocol.Protocol.CallToolResult! result) -> string!
-static Snail.Sdk.Mcp.Hosting.Answers.ToolFailures.ExplainFailures(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, System.Action<Snail.Sdk.Mcp.Hosting.Answers.FailureOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+static Snail.Sdk.Mcp.Hosting.ToolFailures.ExplainFailures(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, System.Action<Snail.Sdk.Mcp.Hosting.Answers.FailureOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
 static Snail.Sdk.Mcp.Hosting.Jobs.JobAnswer.Envelope(Snail.Sdk.Mcp.Hosting.Jobs.JobReport! report, System.Text.Json.Nodes.JsonObject? beside = null, string? hint = null, Snail.Sdk.Mcp.Hosting.Jobs.JobAnswerOptions? options = null) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Jobs.JobAnswer.Result(Snail.Sdk.Mcp.Hosting.Jobs.JobReport! report, System.Text.Json.Nodes.JsonObject? running = null, string? hint = null, Snail.Sdk.Mcp.Hosting.Jobs.JobAnswerOptions? options = null) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.McpEndpoint.Read(Microsoft.Extensions.Configuration.IConfiguration! settings, System.Uri! defaultUrl, string! fallbackSection) -> Snail.Sdk.Mcp.Hosting.McpEndpoint!
@@ -480,3 +480,12 @@ Snail.Sdk.Mcp.Hosting.McpHost.extension(Microsoft.Extensions.DependencyInjection
 static Snail.Sdk.Mcp.Hosting.McpHost.AddStartRefusal(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Snail.Sdk.Mcp.Hosting.ServerSettings.NameOfSetting(string! name, string! key) -> string!
 static Snail.Sdk.Mcp.Hosting.ServerSettings.Bind(string! name, Microsoft.Extensions.Configuration.IConfiguration! settings, System.Action<Microsoft.Extensions.Configuration.IConfiguration!>! bind) -> void
+static Snail.Sdk.Mcp.Hosting.Jobs.JobAnswer.Pending(Snail.Sdk.Mcp.Hosting.Jobs.JobReport! report, System.Text.Json.Nodes.JsonObject? beside = null, string? hint = null, Snail.Sdk.Mcp.Hosting.Jobs.JobAnswerOptions? options = null) -> ModelContextProtocol.Protocol.CallToolResult!
+Snail.Sdk.Mcp.Hosting.Sessions.IRootsDisk
+Snail.Sdk.Mcp.Hosting.Sessions.IRootsDisk.IsFile(string! path) -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.IRootsDisk.IsFolder(string! path) -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.IRootsDisk.LinkTarget(string! path) -> string?
+Snail.Sdk.Mcp.Hosting.Sessions.IRootsDisk.Machine.get -> Snail.Sdk.Mcp.Hosting.Sessions.IRootsDisk!
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRootsOptions.Disk.get -> Snail.Sdk.Mcp.Hosting.Sessions.IRootsDisk!
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRootsOptions.Disk.set -> void
+const Snail.Sdk.Mcp.Hosting.Sessions.Reached.Unreadable = "unreadable" -> string!

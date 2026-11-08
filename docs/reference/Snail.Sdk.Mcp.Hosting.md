@@ -196,20 +196,20 @@ A value, or why there is none in words a caller can act on.
 | `T? Value { get; init; }` | What was asked for, when it was had. |
 | `bool IsSuccess { get; }` | Whether the value was had; `Error` says why not otherwise. |
 | `bool TryGet(out T value)` | The value, when the answer is a success: `if (!answer.TryGet(out var value)) return ToolAnswer.Failed(answer);`. |
-| `bool TryGetDetails<TDetails>(out TDetails details)` | The details a failure carries as the layer that failed gave them (`WithDetails1`), when they are a `TDetails`. |
+| `bool TryGetDetails<TDetails>(out TDetails details)` | The details a failure carries as the layer that failed gave them (`WithDetails<T>`), when they are a `TDetails`. |
 | `string? Error { get; init; }` | Why it was not, in words the model can act on; null on success. |
 | `string? Hint { get; init; }` | What to do about it, when there is something to do. |
 | `string? Type { get; init; }` | The kind of failure, a word a program can branch on, such as `timeout`. |
 
 ### class AnswerFailure
 
-A failure not yet of any answer's type: what `Failed` makes, and what becomes the `Answer1` expected where it is returned.
+A failure not yet of any answer's type: what `Failed` makes, and what becomes the `Answer<T>` expected where it is returned.
 
 | Member | Summary |
 | --- | --- |
 | `Answer<T> As<T>()` | The failure as an answer of `T`, its error, hint, type and details kept: where nothing implies the type — `var`, an argument of a generic method. |
 | `AnswerFailure WithDetails<TDetails>(TDetails details)` | The same failure carrying `details` as they are, for the tool to write as its `data`: `return Answer.Failed("…").WithDetails(duplicate);`. |
-| `AnswerFailure(string Error, string? Hint = null, string? Type = null)` | A failure not yet of any answer's type: what `Failed` makes, and what becomes the `Answer1` expected where it is returned. |
+| `AnswerFailure(string Error, string? Hint = null, string? Type = null)` | A failure not yet of any answer's type: what `Failed` makes, and what becomes the `Answer<T>` expected where it is returned. |
 | `JsonNode? Details { get; init; }` | What the work learned before it stopped, answered as the failure's `data`. |
 | `string Error { get; init; }` | Why there is no value, in words the model can act on. |
 | `string? Hint { get; init; }` | What to do about it, when there is something to do. |
@@ -266,7 +266,7 @@ A tool's answer as every Snail server gives it: one text block holding the envel
 | `CallToolResult From<T>(Answer<T> answer, AnswerShape shape)` | An answer whose value is JSON already as a tool result, with the structured content `shape` names. |
 | `CallToolResult From<T>(Answer<T> answer, Func<T, JsonNode> data)` | An answer as a tool result: its value through `data`, or its failure with its details as the data. |
 | `CallToolResult From<T>(Answer<T> answer, Func<T, JsonNode> data, AnswerShape shape)` | An answer as a tool result: its value through `data` with the structured content `shape` names, or its failure with its details as the data. |
-| `CallToolResult From<T>(Answer<T> answer, JsonTypeInfo<T> type)` | An answer of typed data as a tool result: its value written from its generated type, as `Ok1` writes it, or its failure with its details as the data. |
+| `CallToolResult From<T>(Answer<T> answer, JsonTypeInfo<T> type)` | An answer of typed data as a tool result: its value written from its generated type, as `Ok<T>` writes it, or its failure with its details as the data. |
 | `CallToolResult From<T>(Answer<T> answer, JsonTypeInfo<T> type, AnswerShape shape)` | An answer of typed data as a tool result, with the structured content `shape` names. |
 | `CallToolResult Of(JsonObject envelope, AnswerShape shape = 0)` | The tool result a stored envelope stands for: a success with its data, or a failure with its error, hint, type and data, flagged as an error. |
 | `CallToolResult Ok(JsonNode data)` | A successful answer: the data in the envelope as the text, and as the structured content when it is an object. |
@@ -512,8 +512,8 @@ The jobs of a server: started by its tools, read as resources, watched by subscr
 | --- | --- |
 | `IReadOnlyList<Job> InFlight { get; }` | Every job still running. |
 | `IReadOnlyList<Job> Recent { get; }` | The ended jobs still kept, newest first: up to `Kept` of each owner and `KeptInAll` in all. |
-| `Job Start<T>(string kind, Func<IProgress<JobProgress>, CancellationToken, Task<Answer<T>>> work, JsonTypeInfo<T> resultType)` | Starts work that answers an `Answer1` and answers with its job at once: a success ends the job succeeded with the value as its result, a failure ends it failed with the answer's error, hint and type. |
-| `Job Start<T>(string kind, string? owner, Func<IProgress<JobProgress>, CancellationToken, Task<Answer<T>>> work, JsonTypeInfo<T> resultType)` | Starts work that answers an `Answer1` for an owner and answers with its job at once: a success ends the job succeeded with the value as its result, a failure ends it failed with the answer's error, hint and type. |
+| `Job Start<T>(string kind, Func<IProgress<JobProgress>, CancellationToken, Task<Answer<T>>> work, JsonTypeInfo<T> resultType)` | Starts work that answers an `Answer<T>` and answers with its job at once: a success ends the job succeeded with the value as its result, a failure ends it failed with the answer's error, hint and type. |
+| `Job Start<T>(string kind, string? owner, Func<IProgress<JobProgress>, CancellationToken, Task<Answer<T>>> work, JsonTypeInfo<T> resultType)` | Starts work that answers an `Answer<T>` for an owner and answers with its job at once: a success ends the job succeeded with the value as its result, a failure ends it failed with the answer's error, hint and type. |
 | `Job Start<TResult>(string kind, Func<IProgress<JobProgress>, CancellationToken, Task<TResult>> work, JsonTypeInfo<TResult> resultType)` | Starts work of a kind and answers with its job at once; the work runs on, reporting its steps through the progress it is given and stopping on the token it is given. |
 | `Job Start<TResult>(string kind, string? owner, Func<IProgress<JobProgress>, CancellationToken, Task<TResult>> work, JsonTypeInfo<TResult> resultType)` | Starts work of a kind for an owner and answers with its job at once: only a client the server names that owner reads or watches it. A null owner leaves it to whoever holds its URI. |
 | `Job? Find(string uri)` | The job at a URI, or null when there is none: never started, or ended and forgotten. |
@@ -531,7 +531,7 @@ Puts a server's jobs on the protocol: a resource per job, subscriptions to it, a
 | Member | Summary |
 | --- | --- |
 | `IMcpServerBuilder WithJobs(this IMcpServerBuilder builder, string server)` | The jobs of the server named `server`: `Jobs` for its tools to start work on, each job readable at `job://<server>/<kind>/<id>`, every change sent to the sessions subscribed to it, and the server's running jobs cancelled when the host stops. |
-| `IMcpServerBuilder WithJobs(this IMcpServerBuilder builder, string server, Func<IServiceProvider, string?>? ownerOf)` | The jobs of the server named `server`, each read and watched only by a client of its owner: `ownerOf` names the owner of a request from the services it is served with, and a job started with an owner (`Start1`) is unknown to a request of another one. |
+| `IMcpServerBuilder WithJobs(this IMcpServerBuilder builder, string server, Func<IServiceProvider, string?>? ownerOf)` | The jobs of the server named `server`, each read and watched only by a client of its owner: `ownerOf` names the owner of a request from the services it is served with, and a job started with an owner (`Start<T>`) is unknown to a request of another one. |
 
 ## Snail.Sdk.Mcp.Hosting.Sessions
 
@@ -738,10 +738,10 @@ The working copy a root names under the workspaces folder and the task it belong
 
 ### class WorkspacePlace<TTask>
 
-A task's working copy under the workspaces folder and the task it belongs to: what a `WorkspaceCopy1` that is a copy names.
+A task's working copy under the workspaces folder and the task it belongs to: what a `WorkspaceCopy<T>` that is a copy names.
 
 | Member | Summary |
 | --- | --- |
 | `TTask Task { get; init; }` | The task, read from the copy's first folder under the workspaces folder. |
-| `WorkspacePlace(TTask Task, string Path)` | A task's working copy under the workspaces folder and the task it belongs to: what a `WorkspaceCopy1` that is a copy names. |
+| `WorkspacePlace(TTask Task, string Path)` | A task's working copy under the workspaces folder and the task it belongs to: what a `WorkspaceCopy<T>` that is a copy names. |
 | `string Path { get; init; }` | The copy itself — `/workspaces/<task>/step-3`. |

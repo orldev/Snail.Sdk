@@ -595,6 +595,8 @@ A change that a repository must act on says what to do.
 
 ### Fixed
 
+- The API reference writes a generic type or method a summary names as C# does — `Answer<T>`, `Ok<T>`,
+  `Pair<T1, T2>` — where it dropped the backtick of the compiler's id and left `Answer1` and `WorkspaceCopy1`.
 - The API reference names a static extension member by the type it extends and lists it under that type —
   `string? JobOwners.Session(IServiceProvider services)` in a section `static class JobOwners` of Snail.Sdk.Mcp.Http's
   page, which says the class is declared in Snail.Sdk.Mcp.Hosting and the member in `HttpSessions`; under the type's own

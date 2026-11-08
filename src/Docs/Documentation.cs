@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
@@ -119,8 +120,20 @@ internal sealed partial class Documentation
         var withoutParameters = name.Contains('(', StringComparison.Ordinal) ? name[..name.IndexOf('(', StringComparison.Ordinal)] : name;
         var shortName = withoutParameters[(withoutParameters.LastIndexOf('.') + 1)..];
 
-        return shortName.Replace("`", string.Empty, StringComparison.Ordinal);
+        return Arity().Replace(shortName, TypeParameters);
     }
+
+    /// <summary>A generic name as C# writes it: <c>Answer`1</c> and <c>Ok``1</c> read <c>Answer&lt;T&gt;</c> and <c>Ok&lt;T&gt;</c>.</summary>
+    /// <remarks>The id keeps only how many type parameters there are, not their names, so more than one are numbered.</remarks>
+    private static string TypeParameters(Match arity)
+    {
+        var count = int.Parse(arity.Groups[1].Value, CultureInfo.InvariantCulture);
+
+        return count == 1 ? "<T>" : $"<{string.Join(", ", Enumerable.Range(1, count).Select(index => $"T{index}"))}>";
+    }
+
+    [GeneratedRegex(@"`{1,2}(\d+)")]
+    private static partial Regex Arity();
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex Whitespace();

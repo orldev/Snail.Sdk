@@ -1,7 +1,9 @@
 using System.Text.Json;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using Microsoft.Extensions.DependencyInjection;
 using Snail.Sdk.Mcp.Hosting.Answers;
+using Snail.Sdk.Mcp.Hosting.Sessions;
 
 namespace Snail.Sdk.Mcp.Hosting.Discovery;
 
@@ -22,21 +24,30 @@ internal static class ArgumentCheck
     private const int Suggestions = 2;
 
     /// <summary>Why this call cannot be made, or null when its arguments fit the schema.</summary>
-    public static string? Refusal(string tool, JsonElement schema, IEnumerable<string>? sent)
+    /// <param name="tool">The tool's name.</param>
+    /// <param name="schema">The tool's input schema.</param>
+    /// <param name="sent">The names the call sent.</param>
+    /// <param name="accepted">Names the tool takes beside its schema, as <c>find_tool</c> takes <c>query</c>.</param>
+    /// <param name="synonyms">The parameters a wrong name may stand for (<see cref="ArgumentCheckOptions.Synonyms"/>).</param>
+    public static string? Refusal(string tool, JsonElement schema, IEnumerable<string>? sent, IEnumerable<string>? accepted = null, IDictionary<string, IReadOnlyList<string>>? synonyms = null)
     {
         if (schema.ValueKind != JsonValueKind.Object || !schema.TryGetProperty("properties", out var properties) || properties.ValueKind != JsonValueKind.Object)
             return null;
 
         var declared = properties.EnumerateObject().Select(property => property.Name).ToList();
+        var taken = new HashSet<string>([.. declared, .. accepted ?? []], StringComparer.Ordinal);
         var given = (sent ?? []).ToList();
         var missing = ToolCatalog.RequiredOf(schema).Where(name => !given.Contains(name, StringComparer.Ordinal)).ToList();
-        IReadOnlyList<string> unknown = IsOpen(schema) ? [] : [.. given.Where(name => !declared.Contains(name, StringComparer.Ordinal))];
+        IReadOnlyList<string> unknown = IsOpen(schema) ? [] : [.. given.Where(name => !taken.Contains(name))];
 
         if (missing.Count == 0 && unknown.Count == 0)
             return null;
 
-        return Sentence(tool, missing, unknown, declared);
+        return Sentence(tool, missing, unknown, declared, synonyms);
     }
+
+    /// <summary>The names a tool takes beside its schema, which its method declares with <see cref="AcceptsAttribute"/>.</summary>
+    public static IReadOnlyList<string> AcceptedBy(McpServerTool tool) => [.. tool.Metadata.OfType<AcceptsAttribute>().SelectMany(accepts => accepts.Names)];
 
     /// <summary>What the tool takes, for the hint of a refusal.</summary>
     public static string Takes(string tool, JsonElement schema)
@@ -74,7 +85,9 @@ internal static class ArgumentCheck
             var name = tool.ProtocolTool.Name;
             var schema = tool.ProtocolTool.InputSchema;
 
-            if (Refusal(name, schema, context.Params?.Arguments?.Keys) is { } wrong)
+            var synonyms = SessionRegistration.ServicesOf(context)?.GetService<Checked>()?.Options.Synonyms;
+
+            if (Refusal(name, schema, context.Params?.Arguments?.Keys, AcceptedBy(tool), synonyms) is { } wrong)
                 return ToolAnswer.Failed(wrong, Takes(name, schema), Type);
 
             return await next(context, cancellationToken).ConfigureAwait(false);
@@ -84,19 +97,33 @@ internal static class ArgumentCheck
     private static bool IsOpen(JsonElement schema) =>
         schema.TryGetProperty("additionalProperties", out var additional) && additional.ValueKind is JsonValueKind.True or JsonValueKind.Object;
 
-    private static string Sentence(string tool, IReadOnlyList<string> missing, IReadOnlyList<string> unknown, IReadOnlyList<string> declared)
+    private static string Sentence(string tool, IReadOnlyList<string> missing, IReadOnlyList<string> unknown, IReadOnlyList<string> declared, IDictionary<string, IReadOnlyList<string>>? synonyms)
     {
         var needs = missing.Count == 0 ? null : $"needs {Quoted(missing)}, which this call did not send";
-        var takes = unknown.Count == 0 ? null : $"takes no {string.Join(", ", unknown.Select(name => Described(name, declared)))}";
+        var takes = unknown.Count == 0 ? null : $"takes no {string.Join(", ", unknown.Select(name => Described(name, declared, synonyms)))}";
         var both = needs is null ? takes : takes is null ? needs : $"{needs}, and {takes}";
 
         return $"'{tool}' {both}.";
     }
 
-    private static string Described(string name, IReadOnlyList<string> declared) =>
-        Nearest(name, declared) is { Count: > 0 } nearest
+    private static string Described(string name, IReadOnlyList<string> declared, IDictionary<string, IReadOnlyList<string>>? synonyms) =>
+        Meant(name, declared, synonyms) is { Count: > 0 } nearest
             ? $"'{name}' (did you mean {string.Join(" or ", nearest.Select(hint => $"'{hint}'"))}?)"
             : $"'{name}'";
+
+    /// <summary>The parameters of the tool a wrong name stands for: its synonyms the tool takes, else the names nearest to it.</summary>
+    private static IReadOnlyList<string> Meant(string name, IReadOnlyList<string> declared, IDictionary<string, IReadOnlyList<string>>? synonyms)
+    {
+        if (synonyms is not null && synonyms.TryGetValue(name, out var meant))
+        {
+            List<string> taken = [.. meant.Where(synonym => declared.Contains(synonym, StringComparer.Ordinal)).Distinct(StringComparer.Ordinal).Take(Suggestions)];
+
+            if (taken.Count > 0)
+                return taken;
+        }
+
+        return Nearest(name, declared);
+    }
 
     private static string Quoted(IEnumerable<string> names) => string.Join(", ", names.Select(name => $"'{name}'"));
 
@@ -129,6 +156,17 @@ internal static class ArgumentCheck
         return previous[to.Length];
     }
 
-    /// <summary>The mark that the check is registered, which <c>run_tools</c> reads to check its steps alike.</summary>
-    internal sealed class Checked;
+    /// <summary>The mark that the check is registered, with its options, which <c>run_tools</c> reads to check its steps alike.</summary>
+    internal sealed class Checked(ArgumentCheckOptions options)
+    {
+        public ArgumentCheckOptions Options { get; } = options;
+    }
+}
+
+/// <summary>Names a tool takes beside the parameters of its schema, which the argument check lets through: <c>find_tool</c>'s <c>query</c>.</summary>
+/// <remarks>Declared in the schema, every name costs every session the bytes of its description; a name only some clients send is taken without it.</remarks>
+[AttributeUsage(AttributeTargets.Method)]
+internal sealed class AcceptsAttribute(params string[] names) : Attribute
+{
+    public IReadOnlyList<string> Names { get; } = names;
 }

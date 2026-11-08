@@ -7,8 +7,19 @@ internal static class ToolDescriptions
         "Finds tools of this server for a task in words, best first, with the parameters of each. "
         + "Ask it before deciding that no tool exists.";
 
-    public const string FindToolWithSkills =
-        FindTool + " It searches unloaded skills too: enable: true loads them, and run_tools runs their tools without loading.";
+    public const string FindToolWithSkills = FindTool + " It searches unloaded skills too: enable: true loads them.";
+
+    /// <summary>
+    /// The description of <c>find_tool</c> with skills, naming the ways the server registered to run a skill's tools
+    /// without loading it: <c>run_tools</c>, <c>run_program</c>, both or neither.
+    /// </summary>
+    public static string FindToolWithSkillsAnd(bool runTools, bool runProgram) => (runTools, runProgram) switch
+    {
+        (true, true) => $"{FindToolWithSkills[..^1]}, and run_tools or run_program runs their tools without loading.",
+        (true, false) => $"{FindToolWithSkills[..^1]}, and run_tools runs their tools without loading.",
+        (false, true) => $"{FindToolWithSkills[..^1]}, and run_program calls their commands without loading.",
+        _ => FindToolWithSkills,
+    };
 
     public const string Task = "What you are trying to do, in words.";
 

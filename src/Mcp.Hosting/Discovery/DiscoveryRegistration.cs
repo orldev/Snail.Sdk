@@ -23,13 +23,16 @@ public static class DiscoveryRegistration
         /// <para>
         /// The catalog is every tool the server registered — the skills' included, loaded or not — read from their input
         /// schemas when the tool is called, or <see cref="DiscoveryOptions.Catalog"/>. A tool the session may not call is
-        /// left out (<see cref="Sessions.IToolGate"/>). <c>intent</c> is taken for <c>task</c>. With
-        /// <see cref="WithSkills"/>, each tool carries its <c>skill</c> and <c>isLoaded</c>, and <c>enable: true</c> loads the
-        /// skills of the tools found. The answer is <see cref="Answers.ToolAnswer.Ok(System.Text.Json.Nodes.JsonNode, Answers.AnswerShape)"/>
+        /// left out (<see cref="Sessions.IToolGate"/>). <c>intent</c> and <c>query</c> are taken for <c>task</c>. With
+        /// <see cref="WithSkills"/>, each tool carries its <c>skill</c> and <c>isLoaded</c>, <c>enable: true</c> loads the
+        /// skills of the tools found, and the description names the ways the server registered to run their tools without
+        /// loading them — <c>run_tools</c> of <see cref="WithToolSequences"/>, <c>run_program</c>, both or neither. The answer
+        /// is <see cref="Answers.ToolAnswer.Ok(System.Text.Json.Nodes.JsonNode, Answers.AnswerShape)"/>
         /// of <c>{task, isMatched, note, tools:[{name, command, description, parameters:[{name, type, isRequired, description}]}]}</c>
-        /// in <see cref="DiscoveryOptions.Shape"/>; when nothing matches, every tool by its name and the first sentence of its
-        /// description, those of <see cref="DiscoveryOptions.Prefix"/> first. Once another tool of the server states an
-        /// output schema, <c>find_tool</c> states its own.
+        /// in <see cref="DiscoveryOptions.Shape"/>, the parameters of a tool with a command named as the command takes them
+        /// (<see cref="DiscoveryOptions.ParameterOf"/>); when nothing matches, every tool by its name and the first sentence
+        /// of its description, those of <see cref="DiscoveryOptions.Prefix"/> first. Once another tool of the server states
+        /// an output schema, <c>find_tool</c> states its own.
         /// </para>
         /// <para>Called twice, it registers once.</para>
         /// </remarks>
@@ -44,7 +47,7 @@ public static class DiscoveryRegistration
             builder.Services.AddSingleton(options);
             builder.Services.AddSingleton(new Discovery(options));
             builder.Services.AddSingleton<McpServerTool>(FindTool.Create);
-            builder.Services.PostConfigure<McpServerOptions>(server => FindTool.Fit(server, options));
+            builder.Services.AddOptions<McpServerOptions>().PostConfigure<IServiceProvider>((server, services) => FindTool.Fit(server, options, services));
 
             return builder;
         }
@@ -93,16 +96,23 @@ public static class DiscoveryRegistration
         /// <c>timeoutSeconds</c>), and none for a word like nothing the tool takes.
         /// </para>
         /// <para>
+        /// A name spelled like nothing it means is offered what <see cref="ArgumentCheckOptions.Synonyms"/> says it stands
+        /// for: <c>.WithArgumentCheck(options => options.Synonyms["query"] = ["task", "intent"])</c>.
+        /// </para>
+        /// <para>
         /// A filter in the order of registration: called after <c>RefuseWhatWasNotGranted</c>, a session learns nothing about
         /// a tool it may not call. Called twice, it registers once.
         /// </para>
         /// </remarks>
-        public IMcpServerBuilder WithArgumentCheck()
+        public IMcpServerBuilder WithArgumentCheck(Action<ArgumentCheckOptions>? configure = null)
         {
             if (builder.Services.Any(service => service.ServiceType == typeof(ArgumentCheck.Checked)))
                 return builder;
 
-            builder.Services.AddSingleton(new ArgumentCheck.Checked());
+            var options = new ArgumentCheckOptions();
+            configure?.Invoke(options);
+
+            builder.Services.AddSingleton(new ArgumentCheck.Checked(options));
             builder.WithRequestFilters(filters => filters.AddCallToolFilter(ArgumentCheck.Checking));
 
             return builder;

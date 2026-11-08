@@ -111,7 +111,8 @@ internal static partial class RunTools
 
         var schema = tool.ProtocolTool.InputSchema;
 
-        if (services.GetService<ArgumentCheck.Checked>() is not null && ArgumentCheck.Refusal(named, schema, step.Arguments?.Select(argument => argument.Key)) is { } wrong)
+        if (services.GetService<ArgumentCheck.Checked>() is { } check
+            && ArgumentCheck.Refusal(named, schema, step.Arguments?.Select(argument => argument.Key), ArgumentCheck.AcceptedBy(tool), check.Options.Synonyms) is { } wrong)
             return Step.Failed(named, wrong, ArgumentCheck.Takes(named, schema), ArgumentCheck.Type);
 
         CallToolResult result;

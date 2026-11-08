@@ -23,6 +23,18 @@ public sealed class DiscoveryOptions
     /// <remarks>Answered beside each tool as <c>command</c>, so a model that found a tool can send it through <c>run_program</c> at once.</remarks>
     public Func<string, string?>? CommandOf { get; set; }
 
+    /// <summary>What the command of a tool calls one of the tool's parameters, by the tool's name and the parameter's; null drops the parameter.</summary>
+    /// <remarks>
+    /// <para>
+    /// Applied to every tool that has a command (<see cref="CommandOf"/>), so <c>find_tool</c> names the parameters as a
+    /// program sends them. A bridge's commands took <c>light_type</c> where the tool took <c>lightType</c>, and a tool's
+    /// own <c>timeoutSeconds</c> went to no command at all: a program written from the answer sent <c>lightType</c>, which
+    /// the command ignored without a word (Snail.MCP.Blender, AfterEffects).
+    /// </para>
+    /// <para>A tool without a command keeps the names of its input schema, which is how a direct call or a step sends them.</para>
+    /// </remarks>
+    public Func<string, string, string?>? ParameterOf { get; set; }
+
     /// <summary>The tools searched, instead of the tools the server registered (<see cref="ToolCatalog"/>).</summary>
     /// <remarks>For a server whose tools are not all in its tool collection. Left unset, the catalog is what the server registered, skills included.</remarks>
     public IReadOnlyList<ToolEntry>? Catalog { get; set; }

@@ -227,7 +227,10 @@ A change that a repository must act on says what to do.
   `ServerHost.CreateStdioBuilder` repeated these lines; it may call this instead.
 - `builder.UseMcpEndpoint(endpoint)` of `McpHttpHost`: a whole `WebApplication.CreateBuilder` the server keeps — Razor
   pages, sign-in, antiforgery, which the empty builders leave out — listens where the endpoint says (given to Kestrel,
-  so `urls` cannot move it), logs on stderr at the levels its configuration names and trims the heap when idle.
+  so `urls` cannot move it), logs on stderr at the levels its configuration names and trims the heap when idle. The web
+  host's own addresses — `urls`, `http_ports`, `https_ports` — are emptied there, as on every builder of the host but the
+  stdio one, so the endpoint is the only address: in the aspnet image `ASPNETCORE_HTTP_PORTS=8080` had Kestrel log
+  "Overriding address(es) 'http://*:8080'" at every start (Snail.MCP.AfterEffects, Blender).
   Snail.MCP.Blender cleared `app.Urls` and wrote the address there by hand, without the rest; it may call this on its
   builder instead.
 - `app.UseBrowserRefusal(path = "/mcp", port = null)` of `McpHttpHost`: the refusal `MapLocalMcp` holds — 403 to a
@@ -300,8 +303,9 @@ A change that a repository must act on says what to do.
     the default — refuses in the fleet's words what a reading tool checked by hand after the call: "there is no file
     'x'" (hint "check the name and the folder it is in"), "'x' is not a file" (hint "that is a folder: name a file
     inside it"), and their twins for a folder. `SessionRootsOptions.RootsSetting` names the server's setting —
-    `SNAIL_MCP_DOCUMENTS_ROOTS` — in the hint to a session with no root ("or set …", instead of "or configure the
-    server's roots"), there and at `RefuseSessionsItCannotServe`'s door. Every refusal carries its kind in
+    `SNAIL_MCP_DOCUMENTS_ROOTS__0`, the first entry of the list, since the bare `SNAIL_MCP_DOCUMENTS_ROOTS` binds
+    nothing to a list and an operator who set it still had a server serving nothing — in the hint to a session with no
+    root ("or set …", instead of "or configure the server's roots"), there and at `RefuseSessionsItCannotServe`'s door. Every refusal carries its kind in
     `Reached.Type` — `outside`, `noRoot`, `noPath`, `unfollowable`, `absent`, `notAFile`, `notAFolder` (constants on
     `Reached`) — and `reached.As<T>()` hands it on as a tool's failure with its words, hint and kind;
     `Reached.IsAllowed` tells the compiler that `Path` is set when it holds and `Refusal` when it does not, so
@@ -320,7 +324,10 @@ A change that a repository must act on says what to do.
     `Malformed` (a `.` or `..` among its names) or `NotATask` — so a server maps the reason to its own words instead of
     checking the blank root itself first. `WorkspaceCopy.Of(root, workspaces, TaskEnvironment.Of)` reads
     the server's own task once, a value type among them, where Snail.MCP.E2E parsed the id twice. The answer,
-    `WorkspaceCopy<TTask>`, is the copy when `IsCopy` (`Task` and `Path` then set) and the reason in `Refusal`.
+    `WorkspaceCopy<TTask>`, is the copy when `IsCopy` (`Task` and `Path` then set) and the reason in `Refusal`. A task
+    that is a value, read as `T?` — `int?`, a struct of the server's — gives a `WorkspaceCopy<T>` whose `Task` is the
+    value itself, where it came out `Nullable<T>` and stayed so after `IsCopy` (Snail.MCP.E2E wrote `.Value` at every
+    use).
   - `JobOwners.TaskOfCopy(services => workspaces, isTaskId)` is the `ownerOf` of `.WithJobs(server, ownerOf)` for a
     server that owns its jobs by task — the task of the copy the session's address names, none for a session at no copy
     — which Snail.MCP.Security, Connector and E2E each wrote over their `SessionCopy`. A server that registers no

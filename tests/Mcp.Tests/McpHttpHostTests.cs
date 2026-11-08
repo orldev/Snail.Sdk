@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -283,6 +284,25 @@ public sealed class McpHttpHostTests : IAsyncLifetime
 
         Assert.Contains(builder.Services, service => service.ServiceType == typeof(McpActivity));
         Assert.Equal(HttpStatusCode.OK, await HealthAsync(builder, port));
+    }
+
+    /// <summary>#140: the aspnet image sets ASPNETCORE_HTTP_PORTS=8080, and Kestrel warned at every start that the endpoint overrode it.</summary>
+    [Fact]
+    public async Task UseMcpEndpoint_OverThePortsOfTheImage_IsTheOnlyAddress_WithNoWarning()
+    {
+        var port = FreePort();
+        var logged = new ToolFailuresTests.Collected();
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = ["--http_ports=8080", "--https_ports=8443"] });
+
+        builder.UseMcpEndpoint(new McpEndpoint(McpTransport.Http, new Uri($"http://127.0.0.1:{port}/"), ListensOnEveryInterface: false));
+        builder.Logging.AddProvider(logged);
+
+        await using var app = builder.Build();
+        await app.StartAsync();
+
+        Assert.Equal([$"http://127.0.0.1:{port}"], app.Urls);
+        Assert.DoesNotContain(logged.Entries, entry => entry.Message.Contains("Overriding", StringComparison.Ordinal));
+        await app.StopAsync();
     }
 
     [Fact]

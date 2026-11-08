@@ -182,12 +182,12 @@ public sealed class HttpSessionsTests
     [Fact]
     public async Task Door_TurnsAwayASessionWithNoRoot_NamingTheServersRootsSetting()
     {
-        await using var app = await StartAsync(builder => builder.WithLocalHttpTransport().WithSessionRoots(_ => [], options => options.RootsSetting = "SNAIL_MCP_NOTES_ROOTS"), _ => []);
+        await using var app = await StartAsync(builder => builder.WithLocalHttpTransport().WithSessionRoots(_ => [], options => options.RootsSetting = "SNAIL_MCP_NOTES_ROOTS__0"), _ => []);
 
         var (status, said) = await PostAsync(app, string.Empty, origin: null);
 
         Assert.Equal(HttpStatusCode.BadRequest, status);
-        Assert.EndsWith("/mcp?root=/path/to/the/copy, or set SNAIL_MCP_NOTES_ROOTS", said, StringComparison.Ordinal);
+        Assert.EndsWith("/mcp?root=/path/to/the/copy, or set SNAIL_MCP_NOTES_ROOTS__0", said, StringComparison.Ordinal);
     }
 
     /// <summary>Snail.MCP.Sandbox read the session's header itself to own its runs by session.</summary>

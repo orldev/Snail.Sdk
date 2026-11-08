@@ -92,5 +92,26 @@ public static class WorkspaceCopy
         return new WorkspaceCopy<TTask>(found, $"{under}/{string.Join('/', segments)}", CopyRefusal.None);
     }
 
+    /// <summary>The copy <paramref name="root"/> names strictly under <paramref name="workspaces"/> with its task as a value the server reads, or why it names none.</summary>
+    /// <remarks>
+    /// <see cref="Of{TTask}(string?, string, Func{string, TTask})"/> for a task that is a value — a number, a
+    /// <see cref="Guid"/>, a struct of the server's — read as null when the folder is none. Through the other overload the
+    /// task came out <c>Nullable&lt;T&gt;</c>, and stayed so after <see cref="WorkspaceCopy{TTask}.IsCopy"/>, which can vouch
+    /// for a reference but not unwrap a value: every use wrote <c>.Value</c> (Snail.MCP.E2E). Here the task is the value
+    /// itself, set when the root is a copy and the default otherwise.
+    /// </remarks>
+    /// <param name="root">The root the address named.</param>
+    /// <param name="workspaces">The folder every task's copies are under: <c>/workspaces</c>.</param>
+    /// <param name="task">The task a folder's name is, or null when it is none.</param>
+    public static WorkspaceCopy<TTask> Of<TTask>(string? root, string workspaces, Func<string, TTask?> task)
+        where TTask : struct
+    {
+        ArgumentNullException.ThrowIfNull(task);
+
+        var copy = Of<TTask?>(root, workspaces, folder => task(folder));
+
+        return copy.IsCopy ? new WorkspaceCopy<TTask>(copy.Task.Value, copy.Path, CopyRefusal.None) : Refused<TTask>(copy.Refusal);
+    }
+
     private static WorkspaceCopy<TTask> Refused<TTask>(CopyRefusal refusal) => new(default, null, refusal);
 }

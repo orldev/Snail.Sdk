@@ -48,6 +48,14 @@ public static class McpHttpHost
 
     private static readonly HealthAnswer Unhealthy = new(IsHealthy: false);
 
+    /// <summary>The web host's own addresses, each empty, so that the endpoint given to Kestrel is the only one.</summary>
+    private static readonly KeyValuePair<string, string?>[] HostAddresses =
+    [
+        new(WebHostDefaults.ServerUrlsKey, string.Empty),
+        new(WebHostDefaults.HttpPortsKey, string.Empty),
+        new(WebHostDefaults.HttpsPortsKey, string.Empty),
+    ];
+
     /// <summary>An empty web host listening on <paramref name="url"/>, log lines on stderr at the levels its settings name, the heap trimmed when idle.</summary>
     /// <remarks><c>localhost</c> is listened on at both loopback addresses, an address at that one alone.</remarks>
     /// <exception cref="ArgumentException">The address is not a loopback one, or not plain http, which is all the host serves.</exception>
@@ -156,10 +164,10 @@ public static class McpHttpHost
     {
         ArgumentNullException.ThrowIfNull(settings);
 
-        return Builder(args, static _ => { }, settings);
+        return Builder(args, listen: null, settings);
     }
 
-    private static WebApplicationBuilder Builder(string[] args, Action<KestrelServerOptions> listen, IConfiguration? settings = null)
+    private static WebApplicationBuilder Builder(string[] args, Action<KestrelServerOptions>? listen, IConfiguration? settings = null)
     {
         var builder = WebApplication.CreateEmptyBuilder(new WebApplicationOptions { Args = args });
 
@@ -175,11 +183,24 @@ public static class McpHttpHost
         return builder;
     }
 
-    /// <summary>Kestrel listening as <paramref name="listen"/> says, log lines on stderr at the levels the configuration names, the heap trimmed when idle.</summary>
-    private static void ServeAt(WebApplicationBuilder builder, Action<KestrelServerOptions> listen)
+    /// <summary>Kestrel listening as <paramref name="listen"/> says and nowhere else, log lines on stderr at the levels the configuration names, the heap trimmed when idle; with no listener, where the server tells Kestrel itself.</summary>
+    /// <remarks>
+    /// The web host's own addresses — <c>urls</c>, <c>http_ports</c>, <c>https_ports</c> — are emptied by a source added
+    /// last, so the endpoint is the only address: the aspnet image sets <c>ASPNETCORE_HTTP_PORTS=8080</c>, and Kestrel
+    /// warned "Overriding address(es) 'http://*:8080'" at every start of a server built on a whole web builder
+    /// (Snail.MCP.AfterEffects, Blender; 0.5.0-local.4). The values are left as they are in the sources before it. A
+    /// stdio server's host has no endpoint of this host's, and keeps the addresses it was given.
+    /// </remarks>
+    private static void ServeAt(WebApplicationBuilder builder, Action<KestrelServerOptions>? listen)
     {
         builder.Logging.UseStderr().UseLevelsFrom(builder.Configuration);
-        builder.WebHost.ConfigureKestrel(listen);
+
+        if (listen is not null)
+        {
+            builder.Configuration.AddInMemoryCollection(HostAddresses);
+            builder.WebHost.ConfigureKestrel(listen);
+        }
+
         builder.Services.AddIdleTrim();
     }
 
@@ -245,7 +266,9 @@ public static class McpHttpHost
         /// antiforgery, which the empty builders of this host leave out — behind a key of its own: Snail.MCP.Blender
         /// cleared <c>app.Urls</c> and wrote the address there by hand, with the stderr logging, the levels and the idle
         /// trim missing. The address is given to Kestrel itself, as the builders of this host give it, so a <c>urls</c>
-        /// setting or <c>ASPNETCORE_URLS</c> does not move it.
+        /// setting or <c>ASPNETCORE_URLS</c> does not move it; and the web host's own addresses — <c>urls</c>,
+        /// <c>http_ports</c>, <c>https_ports</c> — are emptied, so the endpoint is the only one, where the aspnet image's
+        /// <c>ASPNETCORE_HTTP_PORTS=8080</c> had Kestrel warn of overriding it at every start.
         /// </para>
         /// <para>
         /// The builder's configuration is the server's to fill: <c>builder.Configuration.AddConfiguration(settings)</c>

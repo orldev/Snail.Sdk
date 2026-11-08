@@ -86,10 +86,17 @@ public enum PathKind
 /// <summary>The words <see cref="SessionRoots"/> refuses in where they are the server's own, and what a program configured with nothing reaches.</summary>
 public sealed class SessionRootsOptions
 {
-    /// <summary>The setting that configures the server's roots — <c>SNAIL_MCP_DOCUMENTS_ROOTS</c> — named in the hint to a session that has none.</summary>
+    /// <summary>The setting that configures the server's roots — <c>SNAIL_MCP_DOCUMENTS_ROOTS__0</c> — named in the hint to a session that has none: "set …".</summary>
     /// <remarks>
+    /// <para>
     /// Null says "configure the server's roots". A hint that names the variable is one the operator can act on without
     /// reading the server's documentation (Snail.MCP.Documents named its own before it took these).
+    /// </para>
+    /// <para>
+    /// The roots are a list, and a variable sets one entry of it: <c>SNAIL_MCP_&lt;NAME&gt;_ROOTS__0</c>, then <c>__1</c>. The
+    /// bare <c>SNAIL_MCP_&lt;NAME&gt;_ROOTS</c> binds nothing to a list, so an operator who set the name a hint gave had a
+    /// server that still served nothing (Snail.MCP.Documents, 0.5.0-local.4): name the first entry.
+    /// </para>
     /// </remarks>
     public string? RootsSetting { get; set; }
 

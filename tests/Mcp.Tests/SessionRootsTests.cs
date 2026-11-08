@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Snail.Sdk.Mcp.Hosting.Sessions;
 using Snail.Sdk.Mcp.Testing;
@@ -296,6 +297,21 @@ public sealed class SessionRootsTests
         Assert.Equal(2, reads);
     }
 
+    /// <summary>#124: a task that is a value came out Nullable and stayed so after IsCopy, so every use wrote .Value; it is the value itself now.</summary>
+    [Fact]
+    public void WorkspaceCopy_OfATaskThatIsAValue_IsThatValue_AndTheDefaultWhenRefused()
+    {
+        static int? Number(string folder) => int.TryParse(folder, CultureInfo.InvariantCulture, out var number) ? number : null;
+
+        WorkspaceCopy<int> copy = WorkspaceCopy.Of("/workspaces/42/step-3", "/workspaces", Number);
+        WorkspaceCopy<int> refused = WorkspaceCopy.Of("/workspaces/not-a-number", "/workspaces", Number);
+
+        Assert.True(copy.IsCopy);
+        Assert.Equal(42, copy.Task);
+        Assert.Equal("/workspaces/42/step-3", copy.Path);
+        Assert.Equal(new WorkspaceCopy<int>(0, null, CopyRefusal.NotATask), refused);
+    }
+
     /// <summary>Snail.MCP.Documents' benchmark kept a <c>NoAddress</c> of its own to build the roots of a program.</summary>
     [Fact]
     public void Roots_WithNoAddress_AreTheVolumes()
@@ -349,10 +365,10 @@ public sealed class SessionRootsTests
     [Fact]
     public void Reach_WithNoRoot_NamesTheServersRootsSetting_WhenItGaveOne()
     {
-        var named = new SessionRoots(SessionAddress.None, [], new SessionRootsOptions { RootsSetting = "SNAIL_MCP_DOCUMENTS_ROOTS" });
+        var named = new SessionRoots(SessionAddress.None, [], new SessionRootsOptions { RootsSetting = "SNAIL_MCP_DOCUMENTS_ROOTS__0" });
         var unnamed = new SessionRoots(SessionAddress.None, []);
 
-        Assert.EndsWith("or set SNAIL_MCP_DOCUMENTS_ROOTS", named.Reach("notes.txt").Hint, StringComparison.Ordinal);
+        Assert.EndsWith("or set SNAIL_MCP_DOCUMENTS_ROOTS__0", named.Reach("notes.txt").Hint, StringComparison.Ordinal);
         Assert.EndsWith("or configure the server's roots", unnamed.Reach("notes.txt").Hint, StringComparison.Ordinal);
     }
 
@@ -499,12 +515,12 @@ public sealed class SessionRootsTests
         var volume = TestFolder.Create();
         var services = new ServiceCollection();
 
-        services.AddSessionRoots(_ => [volume], options => options.RootsSetting = "SNAIL_MCP_X_ROOTS");
+        services.AddSessionRoots(_ => [volume], options => options.RootsSetting = "SNAIL_MCP_X_ROOTS__0");
         services.AddSessionRoots(_ => ["/elsewhere"]);
         using var provider = services.BuildServiceProvider();
 
         Assert.Equal([volume], provider.GetRequiredService<SessionRoots>().All);
-        Assert.Equal("SNAIL_MCP_X_ROOTS", provider.GetRequiredService<SessionRootsOptions>().RootsSetting);
+        Assert.Equal("SNAIL_MCP_X_ROOTS__0", provider.GetRequiredService<SessionRootsOptions>().RootsSetting);
         Assert.Single(services, service => service.ServiceType == typeof(SessionRoots));
         Assert.Same(SessionAddress.None, provider.GetRequiredService<ISessionAddress>());
     }

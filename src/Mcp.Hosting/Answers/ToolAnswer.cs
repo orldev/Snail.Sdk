@@ -20,7 +20,7 @@ namespace Snail.Sdk.Mcp.Hosting.Answers;
 /// <para>
 /// A field without a value is left out: a null <c>hint</c>, <c>type</c> or <c>data</c> is not written, so every field the
 /// model reads says something. Fields inside the data are the server's, written as given, and so are fields a tool's
-/// contract keeps beside it at the top level, written after <c>data</c> (<see cref="Ok(JsonNode, AnswerShape, JsonObject)"/>).
+/// contract keeps beside it at the top level, written after <c>data</c> (<see cref="Ok(JsonNode, AnswerShape, JsonObject?, string?)"/>).
 /// </para>
 /// <para>
 /// A failure carries no structured content. A refusal is not the shape of what the tool answers, and a client of the
@@ -74,13 +74,13 @@ public static class ToolAnswer
     {
         ArgumentNullException.ThrowIfNull(data);
 
-        return Succeeded(writer => data.WriteTo(writer, Wire), shape, null);
+        return Succeeded(writer => data.WriteTo(writer, Wire), shape, null, null);
     }
 
     /// <summary>A successful answer: the data in the envelope as the text, and as the structured content when it is an object.</summary>
     public static CallToolResult Ok(JsonNode data) => Ok(data, AnswerShape.Data);
 
-    /// <summary>A successful answer with fields of the tool's own beside its data, at the top level of the envelope after <c>data</c>: <c>{"ok":true,"data":…,"fileKey":"…"}</c>.</summary>
+    /// <summary>A successful answer with fields of the tool's own beside its data, at the top level of the envelope after <c>data</c> — <c>{"ok":true,"data":…,"fileKey":"…"}</c> — and what to do next, when the success has something to say: <c>{"ok":true,"hint":"…","data":…}</c>.</summary>
     /// <remarks>
     /// <para>
     /// For a tool whose contract reads fields beside the data — the file and the node a read came from, where it came
@@ -93,18 +93,24 @@ public static class ToolAnswer
     /// The structured content of <see cref="AnswerShape.Data"/> is the data alone, without them; that of
     /// <see cref="AnswerShape.Envelope"/> is the text's whole object, with them.
     /// </para>
+    /// <para>
+    /// A success's <paramref name="hint"/> is the envelope's own field, in its place before <c>data</c> as a failure's is:
+    /// what to do next with what was answered — save a version, narrow a search that found too much. A field beside named
+    /// <c>hint</c> was refused, so Snail.MCP.Figma wrote the envelope of three tools by hand to keep the hint its contract
+    /// reads (<c>figma_save_version</c>, <c>figma_search_components</c>, <c>figma_search_team_components</c>).
+    /// </para>
     /// </remarks>
     /// <param name="data">What the tool answers.</param>
     /// <param name="shape">What goes beside the text as the structured content.</param>
-    /// <param name="beside">The fields written after <c>data</c>; none may take a name of the envelope's own.</param>
+    /// <param name="beside">The fields written after <c>data</c>, none when null; none may take a name of the envelope's own.</param>
+    /// <param name="hint">What to do next with the answer; left out when null.</param>
     /// <exception cref="ArgumentException">A field beside is named <c>ok</c>, <c>error</c>, <c>hint</c>, <c>type</c> or <c>data</c>.</exception>
-    public static CallToolResult Ok(JsonNode data, AnswerShape shape, JsonObject beside)
+    public static CallToolResult Ok(JsonNode data, AnswerShape shape, JsonObject? beside = null, string? hint = null)
     {
         ArgumentNullException.ThrowIfNull(data);
-        ArgumentNullException.ThrowIfNull(beside);
         RefuseEnvelopeNames(beside);
 
-        return Succeeded(writer => data.WriteTo(writer, Wire), shape, beside);
+        return Succeeded(writer => data.WriteTo(writer, Wire), shape, beside, hint);
     }
 
     /// <summary>The text of a successful answer, <c>{"ok":true,"data":…}</c>, for a tool that returns a string: no structured content, nothing escaped that JSON does not require.</summary>
@@ -120,17 +126,17 @@ public static class ToolAnswer
         return Envelope(true, writer => data.WriteTo(writer, Wire), null, null, null, null);
     }
 
-    /// <summary>The text of a successful answer with fields of the tool's own after its data, for a tool that returns a string.</summary>
+    /// <summary>The text of a successful answer with fields of the tool's own after its data, and what to do next, for a tool that returns a string.</summary>
     /// <param name="data">What the tool answers.</param>
-    /// <param name="beside">The fields written after <c>data</c>, as <see cref="Ok(JsonNode, AnswerShape, JsonObject)"/> writes them.</param>
+    /// <param name="beside">The fields written after <c>data</c>, as <see cref="Ok(JsonNode, AnswerShape, JsonObject?, string?)"/> writes them; none when null.</param>
+    /// <param name="hint">What to do next with the answer, the envelope's own field before <c>data</c>; left out when null.</param>
     /// <exception cref="ArgumentException">A field beside is named <c>ok</c>, <c>error</c>, <c>hint</c>, <c>type</c> or <c>data</c>.</exception>
-    public static string OkText(JsonNode data, JsonObject beside)
+    public static string OkText(JsonNode data, JsonObject? beside = null, string? hint = null)
     {
         ArgumentNullException.ThrowIfNull(data);
-        ArgumentNullException.ThrowIfNull(beside);
         RefuseEnvelopeNames(beside);
 
-        return Envelope(true, writer => data.WriteTo(writer, Wire), null, null, null, beside);
+        return Envelope(true, writer => data.WriteTo(writer, Wire), null, hint, null, beside);
     }
 
     /// <summary>The text of a failed answer, <c>{"ok":false,"error":…}</c>, for a tool that returns a string; <c>ExplainFailures</c> flags it <c>isError</c> on its way out.</summary>
@@ -165,7 +171,7 @@ public static class ToolAnswer
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(type);
 
-        return Succeeded(writer => JsonSerializer.Serialize(writer, data, type), shape, null);
+        return Succeeded(writer => JsonSerializer.Serialize(writer, data, type), shape, null, null);
     }
 
     /// <summary>A successful answer of typed data, written from its generated type straight into the text, with the data as the structured content when it is an object.</summary>
@@ -298,8 +304,9 @@ public static class ToolAnswer
     /// <remarks>
     /// The inverse of <see cref="Text"/>: an envelope kept as JSON — in a job's result, a file, a queue — answered again as
     /// the tool first answered it, written by the same rules, so a failure is text alone and <c>isError</c> whatever it
-    /// was stored as. Fields beside the envelope's own — written by <see cref="Ok(JsonNode, AnswerShape, JsonObject)"/>,
-    /// or by a server by hand — are kept, after <c>data</c>, a success's and a failure's alike; a null one is left out.
+    /// was stored as. Fields beside the envelope's own — written by <see cref="Ok(JsonNode, AnswerShape, JsonObject?, string?)"/>,
+    /// or by a server by hand — are kept, after <c>data</c>, a success's and a failure's alike; a null one is left out. A
+    /// success's <c>hint</c> is kept as well, where it was dropped.
     /// </remarks>
     /// <param name="envelope">The envelope, <c>{"ok":true,"data":…}</c> or <c>{"ok":false,"error":…}</c>.</param>
     /// <param name="shape">What a success carries beside the text as the structured content.</param>
@@ -321,7 +328,7 @@ public static class ToolAnswer
         {
             var data = envelope["data"]?.DeepClone() ?? throw new ArgumentException("A successful envelope carries its data; this one has none.", nameof(envelope));
 
-            return Succeeded(writer => data.WriteTo(writer, Wire), shape, beside);
+            return Succeeded(writer => data.WriteTo(writer, Wire), shape, beside, StringOf(envelope["hint"]));
         }
 
         var error = StringOf(envelope["error"]) ?? throw new ArgumentException("A failed envelope says why in its error; this one does not.", nameof(envelope));
@@ -373,11 +380,11 @@ public static class ToolAnswer
     }
 
     /// <summary>A success whose data <paramref name="data"/> writes, with the structured content <paramref name="shape"/> names read from the text's own bytes.</summary>
-    private static CallToolResult Succeeded(Action<Utf8JsonWriter> data, AnswerShape shape, JsonObject? beside)
+    private static CallToolResult Succeeded(Action<Utf8JsonWriter> data, AnswerShape shape, JsonObject? beside, string? hint)
     {
         var buffer = new ArrayBufferWriter<byte>();
 
-        var dataBytes = Write(buffer, true, data, null, null, null, beside);
+        var dataBytes = Write(buffer, true, data, null, hint, null, beside);
 
         var written = buffer.WrittenSpan;
         var structured = shape switch
@@ -469,9 +476,9 @@ public static class ToolAnswer
         return beside;
     }
 
-    private static void RefuseEnvelopeNames(JsonObject beside)
+    private static void RefuseEnvelopeNames(JsonObject? beside)
     {
-        foreach (var (name, _) in beside)
+        foreach (var (name, _) in beside ?? [])
         {
             if (IsEnvelopeName(name))
                 throw new ArgumentException($"A field beside the data cannot be named '{name}': ok, error, hint, type and data are the envelope's own.", nameof(beside));

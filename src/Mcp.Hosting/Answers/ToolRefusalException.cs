@@ -18,12 +18,17 @@ namespace Snail.Sdk.Mcp.Hosting.Answers;
 /// </remarks>
 public sealed class ToolRefusalException : Exception
 {
-    /// <summary>A refusal and why, in words the model can act on, with what to do about it and its kind.</summary>
+    /// <summary>A refusal and why, in words the model can act on, with what to do about it, its kind, and the failure that showed it, which the answer does not quote.</summary>
     /// <param name="error">Why the call was refused, in words the model can act on.</param>
     /// <param name="hint">What to do about it: <c>call load_solution first</c>.</param>
     /// <param name="type">The kind of refusal, a word a program can branch on: <c>notLoaded</c>.</param>
-    public ToolRefusalException(string error, string? hint = null, string? type = null)
-        : base(error ?? throw new ArgumentNullException(nameof(error)))
+    /// <param name="innerException">The failure that showed the call to be at fault, kept for the log and the debugger.</param>
+    /// <remarks>
+    /// A server that maps a failure of what it drives to a refusal in the caller's words kept the words or the cause, never
+    /// both: Snail.MCP.Roslyn mapped an MSBuild failure to <c>notLoaded</c> and lost the exception that said why.
+    /// </remarks>
+    public ToolRefusalException(string error, string? hint = null, string? type = null, Exception? innerException = null)
+        : base(error ?? throw new ArgumentNullException(nameof(error)), innerException)
     {
         Hint = hint;
         Type = type;

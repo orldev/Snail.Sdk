@@ -77,8 +77,13 @@ A change that a repository must act on says what to do.
   beside)` writes fields of the tool's own after `data` at the top level — Snail.MCP.Figma's contract reads `fileKey`,
   `nodeId`, `source`, `fileVersion`, `staleReason` and `metrics` there on 17 tools and wrote the envelope by hand for
   them; a field named as the envelope's own (`ok`, `error`, `hint`, `type`, `data`) is refused, a null one left out,
-  and `AnswerShape.Data` stays the data alone. `ToolAnswer.Of(envelope)` keeps such fields, a success's and a
-  failure's, where it dropped them. `ToolAnswer.OkText(data[, beside])` and `FailedText(error, hint, type, data)` are
+  and `AnswerShape.Data` stays the data alone. A success may carry a hint of its own, what to do next with the answer:
+  `ToolAnswer.Ok(data, shape, beside, hint)` and `OkText(data, beside, hint)` write it as the envelope's field, before
+  `data` as a failure's is — Snail.MCP.Figma wrote the envelope of `figma_save_version`, `figma_search_components` and
+  `figma_search_team_components` by hand to keep it (`SuccessHint.cs`), and may call these instead; its text now reads
+  `{"ok":true,"hint":"…","data":…}`. `ToolAnswer.Of(envelope)` keeps such fields, a success's and a failure's, and a
+  success's hint, where it dropped them; `answer.Hint()` of `Snail.Sdk.Mcp.Testing` reads a success's too.
+  `ToolAnswer.OkText(data[, beside, hint])` and `FailedText(error, hint, type, data)` are
   the envelope's text for a tool that returns a string (Figma's 136), which `.ExplainFailures()` flags `isError` on a
   failure. `ToolAnswer.From(answer, typeInfo[, shape])` answers an `Answer<T>` of typed data as `Ok(data, typeInfo)`
   writes it (Snail.MCP.Obsidian mapped its records to nodes for `From`); `From(answer, data[, shape])` is two overloads
@@ -107,7 +112,10 @@ A change that a repository must act on says what to do.
   held against the schema, and else against a trace through the SDK's parameter marshalling; anything else stays
   `internal`. A tool that throws `ToolRefusalException(error, hint, type)` — a caller's mistake found deep inside, "Solution
   'x' is not loaded" — is answered in its words, with its `Details` as the data, and not logged as the server's failure;
-  in a job it ends the job failed with its hint and type. `.ExplainFailures(options => …)` words a failure nobody
+  in a job it ends the job failed with its hint and type. `ToolRefusalException(error, hint, type, innerException)`
+  keeps the failure that showed the mistake as its cause, for the log and the debugger, and is answered in its own words
+  all the same: Snail.MCP.Roslyn mapped an MSBuild failure to `notLoaded` and lost the exception that said why.
+  `.ExplainFailures(options => …)` words a failure nobody
   foresaw — `FailureOptions.Error`, `Hint` and `Type`, each from the tool's name and the exception — for a server whose
   failures named the tool (Snail.MCP.Documents) and one that throws exceptions of its own for a caller's mistake
   (`options.Refuse<NotLoadedException>("notLoaded", e => "call load_solution first")`, the first refusal an exception
@@ -124,7 +132,12 @@ A change that a repository must act on says what to do.
   Replaces `ToolResponse.Job(report)` of Snail.MCP.Security, BuildBridge, AfterEffects and Blender. A job that failed or
   was cancelled within the wait answers as a failure (`ok` false, the report's hint or else `hint`, its type or else
   `failed` or `cancelled`, flagged an error) and still carries its report, so a model does not read a failed job as work
-  done.
+  done. A job its work threw out of is of the type `internal`, the server's failure, where it said `failed` as a refusal
+  that named no type of its own did. `options: new JobAnswerOptions { Hint = report => …, Cancelled = "…" }` on
+  `Envelope` and `Result` words a failure as the server does: a hint chosen for the report — start it again after a
+  cancellation, read the log after a failure — and the error of a cancelled job, which was the SDK's alone; the report's
+  own hint still wins, then `hint`. A server that worked its hint out before every call
+  (`JobAnswer.Result(report, running, HintOf(report))`) keeps one `JobAnswerOptions` and passes it instead.
 - Work that ends in an `Answer<T>` ends its job as the answer says: `Jobs.Start(kind, [owner,] work, typeInfo)` with
   work returning `Task<Answer<T>>` succeeds with the value as the result, and fails with the answer's error as the
   `Message` and its hint and type as `JobReport.Hint` and `JobReport.Type` — new `init` properties the JSON leaves out

@@ -395,6 +395,53 @@ public sealed class ToolAnswerTests
         Assert.Contains($"\"type\":\"{type}\"", answer.Text(), StringComparison.Ordinal);
     }
 
+    /// <summary>#132: one hint for a failure and a cancellation alike had a server work its hint out before every call.</summary>
+    [Theory]
+    [InlineData(JobState.Failed, "Read its log.")]
+    [InlineData(JobState.Cancelled, "Start it again.")]
+    public void Envelope_WithOptions_TakesTheHintChosenForTheReport(JobState state, string hint)
+    {
+        var report = new JobReport("job://sample/echo/1", state, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, null, "boom", null);
+        var options = new JobAnswerOptions { Hint = ended => ended.State == JobState.Cancelled ? "Start it again." : "Read its log." };
+
+        var answer = JobAnswer.Envelope(report, options: options);
+
+        Assert.Equal(hint, answer.Hint());
+        Assert.Equal(report, answer.Report());
+    }
+
+    /// <summary>#129: the error of a cancelled job was the SDK's alone; a server words it.</summary>
+    [Fact]
+    public void Result_WithOptions_WordsACancellationAsTheServerDoes()
+    {
+        var report = new JobReport("job://sample/scan/1", JobState.Cancelled, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, null, "cancelled", null);
+        var options = new JobAnswerOptions { Cancelled = "The scan was stopped before it ended." };
+
+        var answer = JobAnswer.Result(report, options: options);
+
+        Assert.True(answer.IsError);
+        Assert.Equal("The scan was stopped before it ended.", answer.Error());
+        Assert.Equal("cancelled", answer.Type());
+        Assert.Null(answer.Hint());
+    }
+
+    /// <summary>The hint the work's answer gave is the job's own and wins over the one the server chooses; a running job is not asked about.</summary>
+    [Fact]
+    public void Result_WithOptions_KeepsTheReportsOwnHint_AndAsksNothingOfARunningJob()
+    {
+        var asked = 0;
+        var options = new JobAnswerOptions { Hint = _ => $"asked {++asked}" };
+        var failed = new JobReport("job://sample/scan/1", JobState.Failed, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, null, "Host gone.", null) { Hint = "Check ssh." };
+        var running = new JobReport("job://sample/scan/2", JobState.Running, DateTimeOffset.UnixEpoch, null, null, null, null);
+
+        var answered = JobAnswer.Result(failed, options: options);
+        var runs = JobAnswer.Result(running, new JsonObject { ["note"] = "scanning" }, options: options);
+
+        Assert.Equal("Check ssh.", answered.Hint());
+        Assert.True(runs.IsOk());
+        Assert.Equal(0, asked);
+    }
+
     [Fact]
     public void Result_OfAJobThatSucceeded_IsItsResultAsTheData_WithTheReportBeside()
     {
@@ -638,6 +685,43 @@ public sealed class ToolAnswerTests
         var beside = new JsonObject { ["fileKey"] = "abc" };
 
         Assert.Equal(ToolAnswer.Text(ToolAnswer.Ok(data, AnswerShape.None, beside)), ToolAnswer.OkText(data, beside));
+    }
+
+    /// <summary>#142: three tools of Snail.MCP.Figma answer a success with what to do next, and wrote the envelope by hand since a hint beside was refused.</summary>
+    [Fact]
+    public void Ok_WithAHint_WritesItInItsPlaceBeforeTheData_AndTheEnvelopeShapeCarriesIt()
+    {
+        var data = new JsonObject { ["version"] = "42" };
+
+        var plain = ToolAnswer.Ok(data, AnswerShape.Data, hint: "Name the version next time.");
+        var shaped = ToolAnswer.Ok(data, AnswerShape.Envelope, new JsonObject { ["fileKey"] = "abc" }, "Name the version next time.");
+
+        Assert.Equal("""{"ok":true,"hint":"Name the version next time.","data":{"version":"42"}}""", plain.Text());
+        Assert.Equal("""{"version":"42"}""", plain.StructuredContent!.Value.GetRawText());
+        Assert.Equal("""{"ok":true,"hint":"Name the version next time.","data":{"version":"42"},"fileKey":"abc"}""", shaped.StructuredContent!.Value.GetRawText());
+        Assert.True(plain.IsOk());
+        Assert.Equal("Name the version next time.", plain.Hint());
+    }
+
+    [Fact]
+    public void OkText_WithAHint_IsTheTextOfTheAnswer()
+    {
+        var data = new JsonObject { ["found"] = 120 };
+
+        Assert.Equal(ToolAnswer.Text(ToolAnswer.Ok(data, AnswerShape.None, hint: "Narrow the query.")), ToolAnswer.OkText(data, hint: "Narrow the query."));
+        Assert.Equal("""{"ok":true,"hint":"Narrow the query.","data":{"found":120}}""", ToolAnswer.OkText(data, hint: "Narrow the query."));
+    }
+
+    /// <summary>A stored success kept its fields beside the data but dropped its hint.</summary>
+    [Fact]
+    public void Of_AStoredSuccessWithAHint_KeepsIt()
+    {
+        const string envelope = """{"ok":true,"hint":"Narrow the query.","data":{"found":120},"source":"rest"}""";
+
+        var answer = ToolAnswer.Of(JsonNode.Parse(envelope)!.AsObject());
+
+        Assert.Equal(envelope, answer.Text());
+        Assert.Equal("Narrow the query.", answer.Hint());
     }
 
     [Fact]

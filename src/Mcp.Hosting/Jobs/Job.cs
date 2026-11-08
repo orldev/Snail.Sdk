@@ -87,7 +87,7 @@ public sealed class Job
         }
         catch (Exception failure)
         {
-            End(new JobEnding(JobState.Failed, failure.Message), clock, kept);
+            End(new JobEnding(JobState.Failed, failure.Message, Type: ToolFailures.Internal), clock, kept);
         }
     }
 

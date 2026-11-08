@@ -224,17 +224,43 @@ public sealed class JobsTests
         Assert.Null(report.Result);
     }
 
+    /// <summary>#138: a refusal mapped from a failure of what the server drives keeps that failure as its cause and is still answered in its own words.</summary>
+    [Fact]
+    public async Task Job_WhoseWorkThrowsARefusalWithItsCause_FailsWithTheRefusalsWords()
+    {
+        var jobs = new Jobs("sample");
+        var cause = new InvalidOperationException("MSBuild could not evaluate a.csproj.");
+        var refusal = new ToolRefusalException("Solution 'a.sln' is not loaded.", "Call load_solution first.", "notLoaded", cause);
+
+        var report = await jobs.Start("index", (_, _) => Task.FromException<Outcome>(refusal), SampleJson.Default.Outcome).Completion.WaitAsync(Patience);
+
+        Assert.Same(cause, refusal.InnerException);
+        Assert.Equal(("Solution 'a.sln' is not loaded.", "Call load_solution first.", "notLoaded"), (report.Message, report.Hint, report.Type));
+    }
+
     [Fact]
     public async Task Report_WritesHintAndTypeOnlyWhenTheyHaveAValue()
     {
         var jobs = new Jobs("sample");
 
         var failed = await jobs.Start("bad", (_, _) => Task.FromResult(Answer.Failed<Outcome>("No.", type: "refused")), SampleJson.Default.Outcome).Completion.WaitAsync(Patience);
-        var thrown = await jobs.Start("bad", (_, _) => Task.FromException<Outcome>(new InvalidOperationException("no scene")), SampleJson.Default.Outcome).Completion.WaitAsync(Patience);
+        var succeeded = await jobs.Start("echo", (_, _) => Task.FromResult(new Outcome("built")), SampleJson.Default.Outcome).Completion.WaitAsync(Patience);
 
         Assert.EndsWith("\"message\":\"No.\",\"type\":\"refused\"}", failed.ToJson(), StringComparison.Ordinal);
-        Assert.DoesNotContain("hint", thrown.ToJson(), StringComparison.Ordinal);
-        Assert.DoesNotContain("type", thrown.ToJson(), StringComparison.Ordinal);
+        Assert.DoesNotContain("hint", succeeded.ToJson(), StringComparison.Ordinal);
+        Assert.DoesNotContain("type", succeeded.ToJson(), StringComparison.Ordinal);
+    }
+
+    /// <summary>#133: a job its work threw out of failed for the server, not for the caller, and said "failed" as a refusal that named no type of its own did.</summary>
+    [Fact]
+    public async Task Job_ThatThrows_IsOfTheTypeInternal_WithNoHintOfItsOwn()
+    {
+        var jobs = new Jobs("sample");
+
+        var thrown = await jobs.Start("bad", (_, _) => Task.FromException<Outcome>(new InvalidOperationException("no scene")), SampleJson.Default.Outcome).Completion.WaitAsync(Patience);
+
+        Assert.Equal(("no scene", null, "internal"), (thrown.Message, thrown.Hint, thrown.Type));
+        Assert.EndsWith("\"message\":\"no scene\",\"type\":\"internal\"}", thrown.ToJson(), StringComparison.Ordinal);
     }
 
     /// <summary>A report written before the hint and type existed, or by another server, reads as it did.</summary>

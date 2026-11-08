@@ -49,7 +49,7 @@ public static class ToolAnswers
         /// <exception cref="InvalidOperationException">The text is not the envelope.</exception>
         public string? Error() => EnvelopeOf(answer)["error"]?.GetValue<string>();
 
-        /// <summary>What the failure says to do about it; null when it says nothing.</summary>
+        /// <summary>What the answer says to do: a failure's hint, or the next step a success names (<c>ToolAnswer.Ok(data, shape, hint: …)</c>); null when it says nothing.</summary>
         /// <exception cref="InvalidOperationException">The text is not the envelope.</exception>
         public string? Hint() => EnvelopeOf(answer)["hint"]?.GetValue<string>();
 

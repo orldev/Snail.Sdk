@@ -291,8 +291,12 @@ Snail.Sdk.Mcp.Hosting.Discovery.SkillAttribute.SkillAttribute(string! name, stri
 Snail.Sdk.Mcp.Hosting.Discovery.SkillOptions
 Snail.Sdk.Mcp.Hosting.Discovery.SkillOptions.IdleTimeout.get -> System.TimeSpan
 Snail.Sdk.Mcp.Hosting.Discovery.SkillOptions.IdleTimeout.set -> void
-Snail.Sdk.Mcp.Hosting.Discovery.SkillOptions.Name.get -> string?
-Snail.Sdk.Mcp.Hosting.Discovery.SkillOptions.Name.set -> void
+Snail.Sdk.Mcp.Hosting.Discovery.SkillOptions.IsBusy.get -> System.Func<string!, System.IServiceProvider!, bool>?
+Snail.Sdk.Mcp.Hosting.Discovery.SkillOptions.IsBusy.set -> void
+Snail.Sdk.Mcp.Hosting.Discovery.SkillOptions.Prefix.get -> string?
+Snail.Sdk.Mcp.Hosting.Discovery.SkillOptions.Prefix.set -> void
+Snail.Sdk.Mcp.Hosting.Discovery.SkillOptions.SessionOf.get -> System.Func<System.IServiceProvider!, ModelContextProtocol.Server.McpServer?, string?>?
+Snail.Sdk.Mcp.Hosting.Discovery.SkillOptions.SessionOf.set -> void
 Snail.Sdk.Mcp.Hosting.Discovery.SkillOptions.SkillOptions() -> void
 Snail.Sdk.Mcp.Hosting.Discovery.ToolCatalog
 Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry

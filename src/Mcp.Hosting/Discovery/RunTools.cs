@@ -167,7 +167,7 @@ internal static partial class RunTools
     private static void Touch(RequestContext<CallToolRequestParams> context, McpServerTool tool)
     {
         if (SessionRegistration.ServicesOf(context)?.GetService<SkillSessions>() is { } sessions && ToolCatalog.SkillOf(tool) is { } skill)
-            sessions.Of(context.Server).Touch(skill, sessions.Time.GetUtcNow());
+            sessions.Of(context).Touch(skill, sessions.Time.GetUtcNow());
     }
 
     /// <summary>What one step answered: its data on success, why it failed otherwise.</summary>

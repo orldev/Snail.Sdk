@@ -47,9 +47,9 @@ internal sealed class SharedToolCollection
     }
 }
 
-/// <summary>Unloads the skills a session has not used for <see cref="SkillOptions.IdleTimeout"/>, and tells the sessions their list changed.</summary>
+/// <summary>Unloads the skills a session has not used for <see cref="SkillOptions.IdleTimeout"/> and that are not busy (<see cref="SkillOptions.IsBusy"/>), and tells the sessions their list changed.</summary>
 /// <remarks>A long session otherwise keeps every tool it ever loaded in the model's context. Nothing runs when the timeout is zero.</remarks>
-internal sealed partial class SkillExpiry(SkillSessions sessions, SkillOptions options, IOptions<McpServerOptions> server, ILogger<SkillExpiry>? logger = null) : BackgroundService
+internal sealed partial class SkillExpiry(SkillSessions sessions, SkillOptions options, IOptions<McpServerOptions> server, IServiceProvider services, ILogger<SkillExpiry>? logger = null) : BackgroundService
 {
     private readonly ILogger _logger = logger ?? (ILogger)NullLogger.Instance;
 
@@ -59,7 +59,7 @@ internal sealed partial class SkillExpiry(SkillSessions sessions, SkillOptions o
     /// <summary>Unloads what has expired in every session and, when anything was, tells the sessions.</summary>
     internal void Sweep()
     {
-        var expired = sessions.Expire(options.IdleTimeout);
+        var expired = sessions.Expire(options.IdleTimeout, options.IsBusy is { } isBusy ? skill => isBusy(skill, services) : null);
 
         if (expired.Count == 0)
             return;

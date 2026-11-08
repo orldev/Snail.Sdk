@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ModelContextProtocol;
@@ -91,6 +92,23 @@ public sealed class ListenStreamsTests
         Assert.DoesNotContain("render_image", listed);
     }
 
+    /// <summary>Two sessionless clients told apart by the server (AfterEffects: by the name of their key) keep a list each.</summary>
+    [Fact]
+    public async Task SessionlessClients_ToldApartBySessionOf_KeepAListEach()
+    {
+        await using var server = await StartAsync(jobs: true, skilled: options => options.SessionOf = (services, _) =>
+            services.GetService<IHttpContextAccessor>()?.HttpContext?.Request.Query["client"].FirstOrDefault());
+        await using var titles = await server.SessionAsync("client=titles", new McpClientOptions { ProtocolVersion = Sessionless });
+        await using var edit = await server.SessionAsync("client=edit", new McpClientOptions { ProtocolVersion = Sessionless });
+
+        await titles.CallToolAsync("sample_enable_skill", new Dictionary<string, object?> { ["name"] = "render" });
+        var titled = (await titles.ListToolsAsync()).Select(tool => tool.Name);
+        var edited = (await edit.ListToolsAsync()).Select(tool => tool.Name);
+
+        Assert.Contains("render_image", titled);
+        Assert.DoesNotContain("render_image", edited);
+    }
+
     /// <summary>A stream that asks for nothing a server declares is acknowledged with nothing, and told nothing when a skill loads.</summary>
     [Fact]
     public async Task Stream_ThatDidNotAskForTools_IsNotToldOfThem()
@@ -107,11 +125,18 @@ public sealed class ListenStreamsTests
     }
 
     /// <summary>A server of the sample tools over HTTP, serving a client of the sessionless revision as AfterEffects and Blender do.</summary>
-    private static Task<InProcessServer> StartAsync(bool jobs, ManualClock? clock = null, TimeSpan idle = default, HttpServerSessionMode mode = HttpServerSessionMode.StatefulForInitializeClients) =>
+    private static Task<InProcessServer> StartAsync(
+        bool jobs,
+        ManualClock? clock = null,
+        TimeSpan idle = default,
+        HttpServerSessionMode mode = HttpServerSessionMode.StatefulForInitializeClients,
+        Action<SkillOptions>? skilled = null) =>
         InProcessServer.StartAsync(builder =>
         {
             if (clock is not null)
                 builder.Services.AddSingleton<TimeProvider>(clock);
+
+            builder.Services.AddHttpContextAccessor();
 
             var server = builder.Services.AddMcpServer()
                 .WithHttpTransport(options => options.SessionMode = mode)
@@ -121,7 +146,11 @@ public sealed class ListenStreamsTests
             if (jobs)
                 server.WithJobs("sample");
 
-            server.WithSkills(options => (options.Name, options.IdleTimeout) = ("sample", idle));
+            server.WithSkills(options =>
+            {
+                (options.Prefix, options.IdleTimeout) = ("sample", idle);
+                skilled?.Invoke(options);
+            });
         });
 
     /// <summary>A listen request held open, with what it was granted and what reached it; ended when disposed.</summary>

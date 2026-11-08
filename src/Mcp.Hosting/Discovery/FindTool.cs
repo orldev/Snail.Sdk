@@ -130,7 +130,7 @@ internal static class FindTool
         CancellationToken cancellationToken = default)
     {
         var services = SessionRegistration.ServicesOf(context)!;
-        var loaded = services.GetRequiredService<SkillSessions>().Of(context.Server);
+        var loaded = services.GetRequiredService<SkillSessions>().Of(context);
         var asked = Asked(task, intent);
         IReadOnlyList<string> enabled = [];
 

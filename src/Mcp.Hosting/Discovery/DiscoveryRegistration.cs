@@ -122,12 +122,14 @@ public static class DiscoveryRegistration
         /// stream when it asked for <c>toolsListChanged</c> — a sessionless client over HTTP among them, whose listen stream
         /// this puts in place of the MCP SDK's, which grants such a client nothing. A call to a tool of a skill not loaded
         /// loads it; a step of <c>run_tools</c> does not.
-        /// Over stdio and for a sessionless client there is one set of loaded skills; each MCP session has its own.
+        /// Each MCP session has its own set of loaded skills; over stdio and for sessionless clients there is one, unless
+        /// <see cref="SkillOptions.SessionOf"/> tells them apart.
         /// </para>
         /// <para>
-        /// The tools are named by <see cref="SkillOptions.Name"/>, the server's short name. A skill unused for
-        /// <see cref="SkillOptions.IdleTimeout"/> is unloaded, and every session told its list changed — the MCP SDK's own
-        /// notice of a changed collection, which reaches a session outside any request. Called twice, it registers once.
+        /// The tools are named by <see cref="SkillOptions.Prefix"/>, the server's short name. A skill unused for
+        /// <see cref="SkillOptions.IdleTimeout"/> is unloaded unless <see cref="SkillOptions.IsBusy"/> says it is at work,
+        /// and every session told its list changed — the MCP SDK's own notice of a changed collection, which reaches a
+        /// session outside any request. Called twice, it registers once.
         /// </para>
         /// </remarks>
         /// <exception cref="InvalidOperationException">No short name is set and none is written into the entry assembly.</exception>
@@ -139,17 +141,18 @@ public static class DiscoveryRegistration
             var options = new SkillOptions();
             configure?.Invoke(options);
 
-            var name = options.Name ?? ServerSettings.NameOf(Assembly.GetEntryAssembly())
-                ?? throw new InvalidOperationException("skills are named by the server's short name, and none was found: set SkillOptions.Name");
+            var prefix = (options.Prefix ?? ServerSettings.NameOf(Assembly.GetEntryAssembly()))?.TrimEnd('_') is { Length: > 0 } named
+                ? named
+                : throw new InvalidOperationException("skills are named by the server's short name, and none was found: set SkillOptions.Prefix");
 
             builder.Services.TryAddSingleton(TimeProvider.System);
             builder.Services.AddSingleton(options);
-            builder.Services.AddSingleton(services => new SkillSessions(name, services.GetRequiredService<TimeProvider>()));
+            builder.Services.AddSingleton(services => new SkillSessions(prefix, services.GetRequiredService<TimeProvider>(), options.SessionOf));
             builder.Services.AddSingleton<SharedToolCollection>();
             builder.Services.AddHostedService<SkillExpiry>();
             ListenStreams.Register(builder.Services);
 
-            foreach (var tool in SkillTools.All(name))
+            foreach (var tool in SkillTools.All(prefix))
                 builder.Services.AddSingleton<McpServerTool>(tool);
 
             builder.Services.Configure<McpServerOptions>(Announcing);

@@ -311,12 +311,15 @@ A change that a repository must act on says what to do.
     invoking …" and an unknown one was dropped without a word. Register it after `.RefuseWhatWasNotGranted()`.
   - `.WithSkills(options => …)` with `[Skill(name, description)]` on a tool class: the skill's tools are registered like
     any other (`.WithTools<MaterialTools>()`) and left out of a session's list until it loads the skill with
-    `<short>_enable_skill` (`<short>_skills` lists, `<short>_disable_skill` unloads; `SkillOptions.Name`, else the
-    server's command). `find_tool` then answers `skill` and `isLoaded` per tool and takes `enable: true` to load the
+    `<short>_enable_skill` (`<short>_skills` lists, `<short>_disable_skill` unloads; `SkillOptions.Prefix`, `ae` or
+    `ae_`, else the server's command). `find_tool` then answers `skill` and `isLoaded` per tool and takes `enable: true` to load the
     skills of what it found; a direct call of an unloaded skill's tool loads it, a `run_tools` step does not. Each MCP
-    session has its own set, stdio and sessionless clients one; a change is told as `notifications/tools/list_changed`,
-    in the reply before the 2026-07-28 revision and through the client's subscription from it. `IdleTimeout` unloads a
-    skill unused that long. Nothing is built by reflection: the skills are read from `McpServerTool.Metadata`.
+    session has its own set, stdio and sessionless clients one, unless `SessionOf(services, server)` names whose set a
+    request belongs to (AfterEffects and Blender: the name of the client's key; null falls back to the session); a
+    change is told as `notifications/tools/list_changed`, in the reply before the 2026-07-28 revision and on the
+    client's `subscriptions/listen` stream from it. `IdleTimeout` unloads a skill unused that long, unless
+    `IsBusy(skill, services)` says it is at work — a farm render with no call of its tools for an hour — and then it
+    stays a whole timeout after. Nothing is built by reflection: the skills are read from `McpServerTool.Metadata`.
 
   To adopt, a server deletes its `DiscoveryTools`, `ToolIndex`, `Vocabulary`, `ToolEntry`/`ToolArgument` and their
   guard test of tool classes (Git, FileSystem, Sandbox, CleanUp, Roslyn; Blender's and AfterEffects' `Discovery/ToolIndex`

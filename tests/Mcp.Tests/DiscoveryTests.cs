@@ -723,6 +723,60 @@ public sealed class SkillsTests
         Assert.Contains(listed, tool => tool.Name == "render_image");
     }
 
+    /// <summary>A farm render runs for an hour with no call of the skill's tools; unloading it took the tools that follow the render away (Blender, AfterEffects).</summary>
+    [Fact]
+    public async Task Skill_Busy_StaysLoadedPastTheIdleTimeout_AndAWholeTimeoutAfter()
+    {
+        var busy = true;
+        await using var stand = await DiscoveryStand.StartAsync(idle: TimeSpan.FromMinutes(10), skilled: options => options.IsBusy = (skill, _) => busy && skill == "render");
+
+        await stand.Client.CallToolAsync("sample_enable_skill", new Dictionary<string, object?> { ["name"] = "render" });
+        stand.Clock.Advance(TimeSpan.FromMinutes(30));
+        stand.Expiry.Sweep();
+        var whileBusy = await stand.Client.ListToolsAsync();
+        busy = false;
+        stand.Clock.Advance(TimeSpan.FromMinutes(9));
+        stand.Expiry.Sweep();
+        var justAfter = await stand.Client.ListToolsAsync();
+        stand.Clock.Advance(TimeSpan.FromMinutes(2));
+        stand.Expiry.Sweep();
+        var later = await stand.Client.ListToolsAsync();
+
+        Assert.Contains(whileBusy, tool => tool.Name == "render_image");
+        Assert.Contains(justAfter, tool => tool.Name == "render_image");
+        Assert.DoesNotContain(later, tool => tool.Name == "render_image");
+    }
+
+    /// <summary>Clients without an MCP session — stdio, the sessionless revision — share one set unless the server tells them apart.</summary>
+    [Fact]
+    public async Task SessionOf_KeysTheSetOfLoadedSkills()
+    {
+        string? key = null;
+        await using var stand = await DiscoveryStand.StartAsync(skilled: options => options.SessionOf = (_, _) => Volatile.Read(ref key));
+
+        Volatile.Write(ref key, "titles");
+        await stand.Client.CallToolAsync("sample_enable_skill", new Dictionary<string, object?> { ["name"] = "render" });
+        var titles = await stand.Client.ListToolsAsync();
+        Volatile.Write(ref key, "edit");
+        var edit = await stand.Client.ListToolsAsync();
+        Volatile.Write(ref key, null);
+        var unkeyed = await stand.Client.ListToolsAsync();
+
+        Assert.Contains(titles, tool => tool.Name == "render_image");
+        Assert.DoesNotContain(edit, tool => tool.Name == "render_image");
+        Assert.DoesNotContain(unkeyed, tool => tool.Name == "render_image");
+    }
+
+    [Fact]
+    public async Task Prefix_NamesTheSkillTools_WithOrWithoutItsUnderscore()
+    {
+        await using var plain = await DiscoveryStand.StartAsync();
+        await using var underscored = await DiscoveryStand.StartAsync(skilled: options => options.Prefix = "sample_");
+
+        Assert.Contains(plain.Listed, tool => tool.Name == "sample_enable_skill");
+        Assert.Contains(underscored.Listed, tool => tool.Name == "sample_enable_skill");
+    }
+
     [Fact]
     public async Task Server_SaysItTellsOfAChangeToItsTools()
     {
@@ -790,7 +844,8 @@ internal sealed class DiscoveryStand : IAsyncDisposable
         Action<SequenceOptions>? sequences = null,
         TimeSpan idle = default,
         string? protocolVersion = null,
-        Action<IMcpServerBuilder>? tools = null)
+        Action<IMcpServerBuilder>? tools = null,
+        Action<SkillOptions>? skilled = null)
     {
         var toServer = new Pipe();
         var toClient = new Pipe();
@@ -814,7 +869,11 @@ internal sealed class DiscoveryStand : IAsyncDisposable
         (tools ?? WithSamples)(server);
 
         if (skills)
-            server.WithSkills(options => (options.Name, options.IdleTimeout) = ("sample", idle));
+            server.WithSkills(options =>
+            {
+                (options.Prefix, options.IdleTimeout) = ("sample", idle);
+                skilled?.Invoke(options);
+            });
 
         var host = builder.Build();
         await host.StartAsync();

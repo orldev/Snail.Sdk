@@ -338,6 +338,11 @@ A change that a repository must act on says what to do.
 
 ### Changed
 
+- The server libraries are built on ModelContextProtocol 2.3.1, the version the fleet pins: built on 2.3.0, a stdio
+  server's tests restored `ModelContextProtocol.AspNetCore` 2.3.0 through `Snail.Sdk.Mcp.Testing` → `Snail.Sdk.Mcp.Http`,
+  which asks for `ModelContextProtocol` 2.3.0 exactly, and failed on NU1608 beside the fleet's 2.3.1. The s3l-mcp
+  template pins 2.3.1 too.
+
 - `dotnet new s3l-mcp` is written on the 0.5.0 API: its tools answer through `ToolAnswer` (the job through
   `JobAnswer.Envelope`) beside `.ExplainFailures()`; over HTTP the host is `McpHttpHost.CreateBuilder(args,
   McpEndpoint.Read(…), settings)` over the settings it read once — the container builder chosen by the endpoint, no

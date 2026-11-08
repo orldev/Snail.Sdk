@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.Hosting;
 using Snail.Sdk.Mcp.Hosting.Answers;
@@ -150,7 +151,16 @@ public sealed class Jobs
 
         return answer.TryGet(out var value)
             ? new JobEnding(JobState.Succeeded, Result: JsonSerializer.SerializeToElement(value, resultType))
-            : new JobEnding(JobState.Failed, answer.Error, null, answer.Hint, answer.Type);
+            : new JobEnding(JobState.Failed, answer.Error, DetailsOf(answer.Details), answer.Hint, answer.Type);
+    }
+
+    /// <summary>What a failed work learned before it stopped, as the result of its failed job; null when it learned nothing.</summary>
+    internal static JsonElement? DetailsOf(JsonNode? details)
+    {
+        if (details is null)
+            return null;
+
+        return JsonSerializer.SerializeToElement(details, ToolAnswer.NodeInfo);
     }
 
     private Job Run(string kind, string? owner, Func<IProgress<JobProgress>, CancellationToken, Task<JobEnding>> work)

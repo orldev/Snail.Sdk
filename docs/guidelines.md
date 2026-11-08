@@ -138,9 +138,11 @@ strictly as code.
 - **One answer envelope.** A tool answers with `ToolAnswer` of `Snail.Sdk.Mcp.Hosting`: one text block,
   `{"ok":true,"data":…}` or `{"ok":false,"error":"…","hint":"…"}`, a failure flagged `isError` as well, since a model
   reads the shape it was given last and a refusal shaped otherwise is one it misreads as an answer. What a caller can act
-  on comes back as an `Answer<T>`, never as an exception — read with `TryGet`, handed on with `As<TOther>()` or `Map`,
-  answered with `ToolAnswer.From` or `ToolAnswer.Failed(answer)`, never field by field — and `.ExplainFailures()`
-  answers what nobody foresaw. No server writes the envelope itself, nor keeps a `JsonSerializerContext` only for a
+  on comes back as an `Answer<T>`, never as an exception — `Answer.Failed("…")` without a type argument, what was
+  learned before the failure as its `details`, read with `TryGet`, handed on with `As<TOther>()` or `Map`, answered with
+  `ToolAnswer.From` or `ToolAnswer.Failed(answer)`, never field by field — and `.ExplainFailures()` answers what nobody
+  foresaw. The one exception is a caller's mistake found where no answer can carry it, thrown as
+  `ToolRefusalException(error, hint, type)` and answered in its words. A picture is `result.WithImage(bytes, mime)`. No server writes the envelope itself, nor keeps a `JsonSerializerContext` only for a
   `JsonObject` (`ToolAnswer.ObjectInfo`).
 - **The fields of `data` are mapped in `AnswerFields`.** A server's mappers from its domain records to the JSON of an
   answer live in one static class of `Tools` named `AnswerFields`, an overload per record — `AnswerFields.Of(report)` —

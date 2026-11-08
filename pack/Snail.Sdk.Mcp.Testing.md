@@ -19,8 +19,8 @@ Contract tests of a Snail MCP server, over stdio, against the build a client run
   `SessionAsync(query)` opens a session on `/mcp`, and `HttpGuards.ProblemsAsync(server.Endpoint)` checks that a
   browser's request (one with `Origin`) is refused and an agent's is not.
 - `answer.Text()`: the text of a tool's answer.
-- `answer.IsOk()`, `Data()`, `Error()`, `Hint()`: the fields of the answer envelope; `Report()`: the job's report a tool
-  answered with.
+- `answer.IsOk()`, `Data()`, `Error()`, `Hint()`, `Type()`: the fields of the answer envelope; `Images()`: the pictures
+  after it; `Report()`: the job's report a tool answered with.
 - `FixedAddress`: a session's address for a test, `new FixedAddress(("tool", "read_file"), ("root", "/w/task"))`.
 - `ToolGuards.Problems(tools)`: every guard rule the listed tools break — snake-case unique names, descriptions in
   English for the tool and every parameter, the effect stated, every allowed value named.

@@ -37,6 +37,10 @@ public static partial class ToolFailures
         /// logged as a failure of the server. "Try once more" had the model repeat the call as it was.
         /// </para>
         /// <para>
+        /// A <see cref="ToolRefusalException"/> is the call's fault too, and the tool said so: it is answered in its own
+        /// words — its error, hint, type and details — and not logged as a failure of the server.
+        /// </para>
+        /// <para>
         /// The filter goes first, whenever it is called, so it sees what every other filter answers or throws. A call
         /// cancelled by its client stays cancelled, and an <see cref="McpProtocolException"/> stays the protocol error a tool
         /// threw it to be. Called twice, it registers once.
@@ -46,12 +50,13 @@ public static partial class ToolFailures
 
         /// <summary>
         /// Answers a tool that threw with the failure envelope, in the words <paramref name="configure"/> gives a failure
-        /// nobody foresaw: its error and its hint, the type staying <c>internal</c>.
+        /// nobody foresaw: its error, its hint and its type, each from the tool's name and what it threw.
         /// </summary>
         /// <remarks>
         /// As <c>ExplainFailures()</c>, for a server whose failures named the tool or pointed at its own log
-        /// (Snail.MCP.Documents' "read_file failed: …"). Called again, the filter stays one and each
-        /// <paramref name="configure"/> applies in turn.
+        /// (Snail.MCP.Documents' "read_file failed: …"), and for one that throws exceptions of its own for a caller's
+        /// mistake and words them as refusals (<see cref="FailureOptions.Type"/>). Called again, the filter stays one and
+        /// each <paramref name="configure"/> applies in turn.
         /// </remarks>
         public IMcpServerBuilder ExplainFailures(Action<FailureOptions> configure)
         {
@@ -86,16 +91,13 @@ public static partial class ToolFailures
             }
             catch (Exception failure) when (IsUnforeseen(failure, cancellationToken))
             {
+                if (failure is ToolRefusalException refusal)
+                    return ToolAnswer.Failed(refusal.Error, refusal.Hint, refusal.Type, refusal.Details);
+
                 if (ArgumentFaults.AnswerTo(request, failure) is { } refused)
                     return refused;
 
-                var tool = request.Params?.Name ?? "a tool";
-                var loggers = request.Services?.GetService<ILoggerFactory>() ?? request.Server.Services?.GetService<ILoggerFactory>();
-
-                if (loggers is not null)
-                    Failed(loggers.CreateLogger(typeof(ToolFailures)), failure, tool);
-
-                return ToolAnswer.Failed(words.Error?.Invoke(tool, failure) ?? failure.Message, words.Hint, Internal);
+                return Unforeseen(request, failure, words);
             }
 
             if (answer.IsError != true && ToolAnswer.IsFailure(answer))
@@ -104,11 +106,35 @@ public static partial class ToolFailures
             return answer;
         };
 
+    /// <summary>A failure the tool did not answer itself, in the server's words, logged as the server's own when its type is <c>internal</c>.</summary>
+    private static CallToolResult Unforeseen(RequestContext<CallToolRequestParams> request, Exception failure, FailureOptions words)
+    {
+        var tool = request.Params?.Name ?? "a tool";
+        var error = words.Error?.Invoke(tool, failure) ?? failure.Message;
+        var type = words.Type?.Invoke(tool, failure) ?? Internal;
+        var loggers = request.Services?.GetService<ILoggerFactory>() ?? request.Server.Services?.GetService<ILoggerFactory>();
+
+        if (loggers is not null)
+        {
+            var logger = loggers.CreateLogger(typeof(ToolFailures));
+
+            if (string.Equals(type, Internal, StringComparison.Ordinal))
+                Failed(logger, failure, tool);
+            else
+                Refused(logger, tool, type, error);
+        }
+
+        return ToolAnswer.Failed(error, words.Hint?.Invoke(tool, failure), type);
+    }
+
     private static bool IsUnforeseen(Exception failure, CancellationToken cancellationToken) =>
         failure is not McpProtocolException && !(failure is OperationCanceledException && cancellationToken.IsCancellationRequested);
 
     [LoggerMessage(EventId = 1, Level = LogLevel.Error, Message = "{Tool} failed inside the server")]
     private static partial void Failed(ILogger logger, Exception failure, string tool);
+
+    [LoggerMessage(EventId = 2, Level = LogLevel.Debug, Message = "{Tool} refused the call ({Type}): {Error}")]
+    private static partial void Refused(ILogger logger, string tool, string type, string error);
 
     /// <summary>The mark that the filter is registered, so a second call adds nothing.</summary>
     private sealed class Explained;

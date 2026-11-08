@@ -133,12 +133,24 @@ public sealed class ToolAnswerTests
     public void IsFailure_IsTheTopLevelOkBeingFalse(string text, bool isFailure) =>
         Assert.Equal(isFailure, ToolAnswer.IsFailure(new CallToolResult { Content = [new TextContentBlock { Text = text }] }));
 
+    /// <summary>A picture after the envelope (ToolAnswer.WithImage) leaves the failure what it is.</summary>
     [Fact]
-    public void IsFailure_OfMoreThanOneBlock_IsFalse()
+    public void IsFailure_OfTheEnvelopeFollowedByAPicture_IsTrue()
     {
         var answer = new CallToolResult
         {
             Content = [new TextContentBlock { Text = """{"ok":false,"error":"x"}""" }, new ImageContentBlock { Data = Encoding.UTF8.GetBytes("AAAA"), MimeType = "image/png" }],
+        };
+
+        Assert.True(ToolAnswer.IsFailure(answer));
+    }
+
+    [Fact]
+    public void IsFailure_OfAPictureFirst_IsFalse()
+    {
+        var answer = new CallToolResult
+        {
+            Content = [new ImageContentBlock { Data = Encoding.UTF8.GetBytes("AAAA"), MimeType = "image/png" }, new TextContentBlock { Text = """{"ok":false,"error":"x"}""" }],
         };
 
         Assert.False(ToolAnswer.IsFailure(answer));
@@ -421,6 +433,184 @@ public sealed class ToolAnswerTests
         Assert.Equal(report, answer.Report());
     }
 
+    /// <summary>What a page told before it refused travelled as a failed answer's value, which From dropped (Snail.MCP.Playwright's Stopped).</summary>
+    [Fact]
+    public void Failure_WithDetails_IsAnsweredWithThemAsItsData()
+    {
+        Answer<string> stopped = Answer.Failed("The page refused.", "Come back later.", "refused", new JsonObject { ["retryAfter"] = 30 });
+
+        var mapped = ToolAnswer.From(stopped, page => new JsonObject { ["page"] = page });
+        var whole = ToolAnswer.Failed(stopped);
+
+        Assert.Equal("""{"ok":false,"error":"The page refused.","hint":"Come back later.","type":"refused","data":{"retryAfter":30}}""", mapped.Text());
+        Assert.Equal(mapped.Text(), whole.Text());
+        Assert.True(mapped.IsError);
+        Assert.Null(mapped.StructuredContent);
+    }
+
+    [Fact]
+    public void Failure_WithDetails_OfAJsonValue_IsAnsweredWithThemAsItsData()
+    {
+        var stopped = Answer.Failed<JsonObject>("Step 2 failed.", details: new JsonObject { ["ran"] = new JsonArray("commit") });
+
+        var answer = ToolAnswer.From(stopped);
+
+        Assert.Equal("""{"ok":false,"error":"Step 2 failed.","data":{"ran":["commit"]}}""", answer.Text());
+    }
+
+    [Fact]
+    public void Failed_WithDataOfItsOwn_AnswersThatData_RatherThanTheDetails()
+    {
+        var stopped = Answer.Failed<int>("No.", details: new JsonObject { ["learned"] = 1 });
+
+        var answer = ToolAnswer.Failed(stopped, new JsonObject { ["told"] = 2 });
+
+        Assert.Equal(2, answer.Data()!["told"]!.GetValue<int>());
+        Assert.Null(answer.Data()!["learned"]);
+    }
+
+    [Fact]
+    public void Details_GoOnWithTheFailure_IntoAnAnswerOfAnotherType()
+    {
+        var stopped = Answer.Failed<int>("No.", "Ask again.", "refused", new JsonObject { ["learned"] = 1 });
+
+        var carried = stopped.As<string>();
+        var mapped = stopped.Map(count => new JsonObject { ["count"] = count });
+
+        Assert.Same(stopped.Details, carried.Details);
+        Assert.Same(stopped.Details, mapped.Details);
+        Assert.Equal(("No.", "Ask again.", "refused"), (mapped.Error, mapped.Hint, mapped.Type));
+    }
+
+    /// <summary>The type argument told the compiler nothing it did not know from the return type (Snail.MCP.CleanUp, 28 places).</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Failure_WithoutATypeArgument_IsAnAnswerOfTheTypeExpected(bool isFound)
+    {
+        Answer<JsonObject> answer = isFound ? Answer.Ok(new JsonObject { ["found"] = 1 }) : Answer.Failed("Not found.", "List first.", "missing");
+
+        Assert.Equal(isFound, answer.IsSuccess);
+        Assert.Equal(isFound ? null : "Not found.", answer.Error);
+        Assert.Equal(isFound ? null : "missing", answer.Type);
+    }
+
+    [Fact]
+    public void Failure_WithoutATypeArgument_EqualsTheOneWithIt()
+    {
+        static Answer<int> Count(string? text) => text is null ? Answer.Failed("No text.", type: "empty") : Answer.Ok(text.Length);
+
+        Assert.Equal(Answer.Failed<int>("No text.", type: "empty"), Count(null));
+        Assert.Equal(Answer.Ok(3), Count("abc"));
+        Assert.Equal(Answer.Failed<int>("No.", details: null), Answer.Failed("No.").As<int>());
+    }
+
+    [Fact]
+    public async Task Failure_WithoutATypeArgument_IsReturnedFromAnAsyncLambda()
+    {
+        Func<bool, Task<Answer<int>>> count = async isEmpty =>
+        {
+            await Task.Yield();
+
+            if (isEmpty)
+                return Answer.Failed("Nothing to count.");
+
+            return Answer.Ok(3);
+        };
+
+        Assert.Equal("Nothing to count.", (await count(true)).Error);
+        Assert.Equal(3, (await count(false)).Value);
+    }
+
+    /// <summary>Playwright, AfterEffects, Blender and Figma each added the picture by hand.</summary>
+    [Fact]
+    public void WithImage_AddsThePictureAfterTheEnvelope_WhichStaysTheText()
+    {
+        byte[] png = [0x89, 0x50, 0x4E, 0x47];
+
+        var answer = ToolAnswer.Ok(new JsonObject { ["title"] = "Home" }, AnswerShape.None).WithImage(png, "image/png");
+
+        Assert.Equal(2, answer.Content.Count);
+        Assert.Equal("""{"ok":true,"data":{"title":"Home"}}""", ToolAnswer.Text(answer));
+        Assert.Equal("""{"ok":true,"data":{"title":"Home"}}""", answer.Text());
+        var image = Assert.Single(answer.Images());
+        Assert.Equal("image/png", image.MimeType);
+        Assert.Equal(png, image.DecodedData.ToArray());
+        Assert.True(answer.IsOk());
+        Assert.False(ToolAnswer.IsFailure(answer));
+    }
+
+    [Fact]
+    public void WithImage_OnAFailure_StaysAFailure()
+    {
+        var answer = ToolAnswer.Failed("The page refused.").WithImage(new byte[] { 1 }, "image/jpeg");
+
+        Assert.True(answer.IsError);
+        Assert.True(ToolAnswer.IsFailure(answer));
+        Assert.Equal("The page refused.", answer.Error());
+    }
+
+    [Fact]
+    public void WithImage_WithoutBytesOrAType_IsRefused()
+    {
+        Assert.Throws<ArgumentException>(() => ToolAnswer.Ok(new JsonObject()).WithImage(ReadOnlyMemory<byte>.Empty, "image/png"));
+        Assert.Throws<ArgumentException>(() => ToolAnswer.Ok(new JsonObject()).WithImage(new byte[] { 1 }, " "));
+    }
+
+    [Fact]
+    public void IsFailure_OfAFailureFollowedByText_IsNot()
+    {
+        var answer = ToolAnswer.Failed("No.");
+        answer.Content.Add(new TextContentBlock { Text = "more" });
+
+        Assert.False(ToolAnswer.IsFailure(answer));
+    }
+
+    /// <summary>Snail.MCP.FileSystem kept Answered&lt;T&gt; for its output schemas; the envelope type is the SDK's now, and the same JSON.</summary>
+    [Fact]
+    public void Envelope_OfASuccess_IsTheStructuredContentAndTheTextOfAnEnvelopeAnswer()
+    {
+        var read = new FileRead("a.txt", 3);
+
+        var answer = ToolAnswer.Ok(JsonSerializer.SerializeToNode(read, EnvelopeJson.Default.FileRead)!, AnswerShape.Envelope);
+        var typed = JsonSerializer.Serialize(new Envelope<FileRead>(true, read), EnvelopeJson.Default.EnvelopeFileRead);
+
+        Assert.Equal(answer.Text(), typed);
+        Assert.Equal(typed, answer.StructuredContent!.Value.GetRawText());
+        Assert.Equal(new Envelope<FileRead>(true, read), JsonSerializer.Deserialize(answer.StructuredContent.Value, EnvelopeJson.Default.EnvelopeFileRead));
+    }
+
+    [Fact]
+    public void Envelope_OfAFailure_IsTheTextOfAFailedAnswer()
+    {
+        var answer = ToolAnswer.Failed("No such file.", "List the folder.", "missing");
+
+        var typed = JsonSerializer.Serialize(new Envelope<FileRead>(false, null, "No such file.", "List the folder.", "missing"), EnvelopeJson.Default.EnvelopeFileRead);
+
+        Assert.Equal(answer.Text(), typed);
+    }
+
+    [Fact]
+    public void Envelope_AsTheDeclaredOutput_PublishesItsSchema_OkFirst()
+    {
+        var method = typeof(ToolAnswerTests).GetMethod(nameof(ReadFile), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+
+        var tool = ModelContextProtocol.Server.McpServerTool.Create(method, (object?)null, new ModelContextProtocol.Server.McpServerToolCreateOptions { SerializerOptions = ToolJson.Options(EnvelopeJson.Default) });
+
+        var schema = tool.ProtocolTool.OutputSchema!.Value;
+        var properties = schema.GetProperty("properties");
+        Assert.Equal(["ok", "error", "hint", "type", "data"], properties.EnumerateObject().Select(property => property.Name));
+        Assert.Equal("boolean", properties.GetProperty("ok").GetProperty("type").GetString());
+        Assert.True(properties.GetProperty("data").ToString().Contains("\"lines\"", StringComparison.Ordinal));
+    }
+
+    [ModelContextProtocol.Server.McpServerTool(Name = "read_file", UseStructuredContent = true, OutputSchemaType = typeof(Envelope<FileRead>))]
+    [System.ComponentModel.Description("Reads a file.")]
+    private static CallToolResult ReadFile() => ToolAnswer.Ok(new JsonObject { ["path"] = "a.txt", ["lines"] = 3 }, AnswerShape.Envelope);
+
+    /// <summary>What a sample file tool answers.</summary>
+    public sealed record FileRead(string Path, int Lines);
+
     public enum Stage
     {
         Queued,
@@ -431,3 +621,8 @@ public sealed class ToolAnswerTests
 
 [JsonSerializable(typeof(int))]
 internal sealed partial class ToolJsonInts : JsonSerializerContext;
+
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(ToolAnswerTests.FileRead))]
+[JsonSerializable(typeof(Envelope<ToolAnswerTests.FileRead>))]
+internal sealed partial class EnvelopeJson : JsonSerializerContext;

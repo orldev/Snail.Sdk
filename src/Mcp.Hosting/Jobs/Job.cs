@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Snail.Sdk.Mcp.Hosting.Answers;
 
 namespace Snail.Sdk.Mcp.Hosting.Jobs;
 
@@ -79,6 +80,10 @@ public sealed class Job
         catch (OperationCanceledException) when (either.IsCancellationRequested)
         {
             End(new JobEnding(JobState.Cancelled, "cancelled"), clock, kept);
+        }
+        catch (ToolRefusalException refusal)
+        {
+            End(new JobEnding(JobState.Failed, refusal.Error, Jobs.DetailsOf(refusal.Details), refusal.Hint, refusal.Type), clock, kept);
         }
         catch (Exception failure)
         {

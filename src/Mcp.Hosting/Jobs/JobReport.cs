@@ -36,7 +36,7 @@ internal sealed class JobStateJson : JsonStringEnumConverter<JobState>
 /// <param name="EndedAt">When it ended, once it has.</param>
 /// <param name="Progress">How far it has got, 0 to 1, while the work reports it.</param>
 /// <param name="Message">The last step the work reported, or why it failed.</param>
-/// <param name="Result">The outcome, in the job's own type, once it succeeded.</param>
+/// <param name="Result">The outcome, in the job's own type, once it succeeded; once it failed, what its work learned before it stopped, when it said (an answer's details, a refusal's).</param>
 /// <remarks>
 /// A job whose work answers an <c>Answer&lt;T&gt;</c> ends failed when the answer is a failure: its error is the
 /// <see cref="Message"/>, and its hint and type are <see cref="Hint"/> and <see cref="Type"/>, which the JSON leaves out

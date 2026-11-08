@@ -28,7 +28,6 @@ Snail.Sdk.Mcp.Hosting.Answers.WordCase.Lower = 0 -> Snail.Sdk.Mcp.Hosting.Answer
 override Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Equals(object? obj) -> bool
 override Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.GetHashCode() -> int
 override Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.ToString() -> string!
-static Snail.Sdk.Mcp.Hosting.Answers.Answer.Failed<T>(string! error, string? hint = null, string? type = null) -> Snail.Sdk.Mcp.Hosting.Answers.Answer<T>!
 static Snail.Sdk.Mcp.Hosting.Answers.Answer.Ok<T>(T value) -> Snail.Sdk.Mcp.Hosting.Answers.Answer<T>!
 static Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.operator !=(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>? left, Snail.Sdk.Mcp.Hosting.Answers.Answer<T>? right) -> bool
 static Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.operator ==(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>? left, Snail.Sdk.Mcp.Hosting.Answers.Answer<T>? right) -> bool
@@ -42,6 +41,65 @@ static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Ok(System.Text.Json.Nodes.JsonNo
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Wire.get -> System.Text.Json.JsonSerializerOptions!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Word<TEnum>(TEnum value, Snail.Sdk.Mcp.Hosting.Answers.WordCase casing = Snail.Sdk.Mcp.Hosting.Answers.WordCase.Lower) -> string!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolFailures.ExplainFailures(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure
+override Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.ToString() -> string!
+static Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.operator !=(Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure? left, Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure? right) -> bool
+static Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.operator ==(Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure? left, Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure? right) -> bool
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Hint.get -> string?
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Hint.init -> void
+override Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.GetHashCode() -> int
+override Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Equals(object? obj) -> bool
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Equals(Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure? other) -> bool
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.<Clone>$() -> Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure!
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Deconstruct(out string! Error, out string? Hint, out string? Type) -> void
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Type.get -> string?
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Type.init -> void
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Error.get -> string!
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Error.init -> void
+Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>
+override Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.ToString() -> string!
+static Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.operator !=(Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>? left, Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>? right) -> bool
+static Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.operator ==(Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>? left, Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>? right) -> bool
+override Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.GetHashCode() -> int
+override Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Equals(object? obj) -> bool
+Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Equals(Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>? other) -> bool
+Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.<Clone>$() -> Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>!
+Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Deconstruct(out bool IsOk, out T? Data, out string? Error, out string? Hint, out string? Type) -> void
+Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.IsOk.get -> bool
+Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.IsOk.init -> void
+Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Data.get -> T?
+Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Data.init -> void
+Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Error.get -> string?
+Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Error.init -> void
+Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Hint.get -> string?
+Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Hint.init -> void
+Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Type.get -> string?
+Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Type.init -> void
+Snail.Sdk.Mcp.Hosting.Answers.ToolRefusalException
+static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.WithImage(this ModelContextProtocol.Protocol.CallToolResult! result, System.ReadOnlyMemory<byte> bytes, string! mimeType) -> ModelContextProtocol.Protocol.CallToolResult!
+Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.extension(ModelContextProtocol.Protocol.CallToolResult!)
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.AnswerFailure(string! Error, string? Hint = null, string? Type = null) -> void
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Details.get -> System.Text.Json.Nodes.JsonNode?
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Details.init -> void
+Snail.Sdk.Mcp.Hosting.Answers.ToolRefusalException.ToolRefusalException(string! error, string? hint = null, string? type = null) -> void
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.As<T>() -> Snail.Sdk.Mcp.Hosting.Answers.Answer<T>!
+Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Details.init -> void
+Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Details.get -> System.Text.Json.Nodes.JsonNode?
+Snail.Sdk.Mcp.Hosting.Answers.ToolRefusalException.ToolRefusalException() -> void
+static Snail.Sdk.Mcp.Hosting.Answers.Answer.Failed<T>(string! error, string? hint = null, string? type = null, System.Text.Json.Nodes.JsonNode? details = null) -> Snail.Sdk.Mcp.Hosting.Answers.Answer<T>!
+Snail.Sdk.Mcp.Hosting.Answers.ToolRefusalException.ToolRefusalException(string! error, System.Exception? innerException) -> void
+Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Envelope(bool IsOk, T? Data, string? Error = null, string? Hint = null, string? Type = null) -> void
+static Snail.Sdk.Mcp.Hosting.Answers.Answer.Failed(string! error, string? hint = null, string? type = null, System.Text.Json.Nodes.JsonNode? details = null) -> Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure!
+Snail.Sdk.Mcp.Hosting.Answers.ToolRefusalException.Error.get -> string!
+Snail.Sdk.Mcp.Hosting.Answers.ToolRefusalException.Hint.get -> string?
+Snail.Sdk.Mcp.Hosting.Answers.ToolRefusalException.Type.get -> string?
+Snail.Sdk.Mcp.Hosting.Answers.ToolRefusalException.Details.get -> System.Text.Json.Nodes.JsonNode?
+Snail.Sdk.Mcp.Hosting.Answers.ToolRefusalException.Details.init -> void
+Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.Hint.get -> System.Func<string!, System.Exception!, string?>?
+static Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.implicit operator Snail.Sdk.Mcp.Hosting.Answers.Answer<T>!(Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure! failure) -> Snail.Sdk.Mcp.Hosting.Answers.Answer<T>!
+Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.Type.set -> void
+Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.Type.get -> System.Func<string!, System.Exception!, string?>?
+Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.extension(ModelContextProtocol.Protocol.CallToolResult!).WithImage(System.ReadOnlyMemory<byte> bytes, string! mimeType) -> ModelContextProtocol.Protocol.CallToolResult!
 Snail.Sdk.Mcp.Hosting.McpEndpoint
 Snail.Sdk.Mcp.Hosting.McpEndpoint.<Clone>$() -> Snail.Sdk.Mcp.Hosting.McpEndpoint!
 Snail.Sdk.Mcp.Hosting.McpEndpoint.Deconstruct(out Snail.Sdk.Mcp.Hosting.McpTransport Transport, out System.Uri! Url, out bool ListensOnEveryInterface) -> void
@@ -290,7 +348,6 @@ Snail.Sdk.Mcp.Hosting.Answers.FailureOptions
 Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.Error.get -> System.Func<string!, System.Exception!, string!>?
 Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.Error.set -> void
 Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.FailureOptions() -> void
-Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.Hint.get -> string?
 Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.Hint.set -> void
 Snail.Sdk.Mcp.Hosting.Answers.ToolFailures.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).ExplainFailures(System.Action<Snail.Sdk.Mcp.Hosting.Answers.FailureOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
 Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Hint.get -> string?

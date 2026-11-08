@@ -54,6 +54,44 @@ public sealed class ToolAnswersTests
         Assert.Equal(report, answer.Report());
     }
 
+    /// <summary>Envelope and Result flagged a failed job, Of did not (Snail.MCP.CodeContext).</summary>
+    [Theory]
+    [InlineData(JobState.Failed, true)]
+    [InlineData(JobState.Cancelled, true)]
+    [InlineData(JobState.Succeeded, false)]
+    [InlineData(JobState.Running, false)]
+    public void Of_AJobThatFailedOrWasCancelled_IsFlagged_WhateverTheToolSaid(JobState state, bool isError)
+    {
+        var report = new JobReport("job://sample/index/1", state, DateTimeOffset.UnixEpoch, null, null, null, null);
+
+        var answer = JobAnswer.Of(report, ended => new CallToolResult { Content = [new TextContentBlock { Text = $"index {ended.State}" }] });
+
+        Assert.Equal(isError, answer.IsError == true);
+        Assert.Equal(report, answer.Report());
+    }
+
+    [Fact]
+    public void Type_IsTheKindOfFailure_OrNull()
+    {
+        Assert.Equal("missing", ToolAnswer.Failed("No.", type: "missing").Type());
+        Assert.Null(ToolAnswer.Failed("No.").Type());
+        Assert.Null(ToolAnswer.Ok(new JsonObject()).Type());
+    }
+
+    [Fact]
+    public void Images_OfAnAnswerWithoutPictures_AreNone() =>
+        Assert.Empty(ToolAnswer.Ok(new JsonObject()).Images());
+
+    [Fact]
+    public void Text_OfAnAnswerThatDoesNotOpenWithText_FailsTheTest()
+    {
+        var answer = new CallToolResult { Content = [ImageContentBlock.FromBytes(new byte[] { 1 }, "image/png")] };
+
+        var failure = Assert.Throws<InvalidOperationException>(() => answer.Text());
+
+        Assert.Contains("image", failure.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Report_OfAnAnswerThatIsNoJob_IsNull()
     {

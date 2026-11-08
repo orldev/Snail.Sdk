@@ -17,6 +17,11 @@ public static class JobAnswer
     /// <summary>The tool result <paramref name="said"/> makes of the report, with the report itself as its structured content.</summary>
     /// <param name="report">The job as it stands: ended within the wait, or still running.</param>
     /// <param name="said">What the model reads: the tool's own answer once the job ended, or where to read the job while it runs.</param>
+    /// <remarks>
+    /// A job that failed or was cancelled is flagged an error whatever <paramref name="said"/> flagged, as
+    /// <see cref="Envelope"/> and <see cref="Result"/> flag it: a client that never reads the text still learns the work
+    /// was not done (Snail.MCP.CodeContext).
+    /// </remarks>
     public static CallToolResult Of(JobReport report, Func<JobReport, CallToolResult> said)
     {
         ArgumentNullException.ThrowIfNull(report);
@@ -24,6 +29,9 @@ public static class JobAnswer
 
         var answer = said(report);
         answer.StructuredContent = JsonSerializer.SerializeToElement(report, JobJson.Default.JobReport);
+
+        if (report.State is JobState.Failed or JobState.Cancelled)
+            answer.IsError = true;
 
         return answer;
     }

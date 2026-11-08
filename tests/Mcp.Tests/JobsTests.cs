@@ -8,6 +8,7 @@ using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using Snail.Sdk.Mcp.Hosting.Answers;
 using Snail.Sdk.Mcp.Hosting.Jobs;
+using Snail.Sdk.Mcp.Testing;
 
 namespace Snail.Sdk.Mcp.Tests;
 
@@ -194,6 +195,33 @@ public sealed class JobsTests
         Assert.Null(report.Result);
         Assert.Equal(0.5, report.Progress);
         Assert.Equal(report, JobReport.FromJson(report.ToJson()));
+    }
+
+    /// <summary>What the work learned before it stopped is the failed job's result, and the tool's data (Snail.MCP.Playwright, Git).</summary>
+    [Fact]
+    public async Task Job_WhoseWorkAnswersAFailureWithDetails_KeepsThemAsItsResult()
+    {
+        var jobs = new Jobs("sample");
+
+        var report = await jobs.Start("run", (_, _) => Task.FromResult(Answer.Failed<Outcome>("Step 2 failed.", type: "step", details: new JsonObject { ["ran"] = new JsonArray("commit") })), SampleJson.Default.Outcome).Completion.WaitAsync(Patience);
+        var answer = JobAnswer.Result(report);
+
+        Assert.Equal(JobState.Failed, report.State);
+        Assert.Equal("""{"ran":["commit"]}""", report.Result!.Value.GetRawText());
+        Assert.True(answer.IsError);
+        Assert.Equal("commit", answer.Data()!["result"]!["ran"]![0]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Job_WhoseWorkThrowsARefusal_FailsWithItsHintAndType()
+    {
+        var jobs = new Jobs("sample");
+
+        var report = await jobs.Start("index", (_, _) => Task.FromException<Outcome>(new ToolRefusalException("No codebase to index.", "Pass a path.", "noCodebase")), SampleJson.Default.Outcome).Completion.WaitAsync(Patience);
+
+        Assert.Equal(JobState.Failed, report.State);
+        Assert.Equal(("No codebase to index.", "Pass a path.", "noCodebase"), (report.Message, report.Hint, report.Type));
+        Assert.Null(report.Result);
     }
 
     [Fact]

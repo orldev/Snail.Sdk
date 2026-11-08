@@ -209,7 +209,10 @@ A change that a repository must act on says what to do.
     `ToolForwarding.CallAsync`, so the grant holds and no forwarder is a step; the run stops at the first step that fails
     and answers its error, hint and type with the steps before it as data; each step's answer is unwrapped from its
     envelope; past `OutputBudget` (50 000 characters) an answer is left out and its step flagged `isOmitted`; at most
-    `MaxSteps` (20). A step that names no tool is answered with the nearest name.
+    `MaxSteps` (20). A step that names no tool is answered with the nearest name. A step that throws is a failed step —
+    type `arguments` when the MCP SDK could not bind its arguments, otherwise `internal`, logged, in the words of
+    `FailureOptions` — and the steps before it keep their answers (Roslyn lost them to one `internal` failure of the
+    run).
   - `.WithArgumentCheck()` refuses, before the tool runs, a call that leaves out a required parameter or sends one the
     tool does not take — `ToolAnswer.Failed` with `type` `arguments`, the parameter it probably meant (within a third of
     its length in edits, or a short form: `timeout` → `timeoutSeconds`, `path` → `remotePath`) and what the tool takes

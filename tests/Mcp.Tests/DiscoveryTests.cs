@@ -22,7 +22,7 @@ public sealed class ToolCatalogTests
         var entries = ToolCatalog.Of(typeof(FileSample));
         var read = entries.Single(entry => entry.Name == "read_file");
 
-        Assert.Equal(["list_files", "read_file", "write_file", "fail_always", "big_answer"], entries.Select(entry => entry.Name));
+        Assert.Equal(["list_files", "read_file", "write_file", "fail_always", "big_answer", "break_down"], entries.Select(entry => entry.Name));
         Assert.Equal("Reads the text of a file.", read.Description);
         Assert.Equal(new ToolParameter("path", "string", true, "The file's path."), read.Parameters[0]);
         Assert.Equal(("timeoutSeconds", "integer", false), (read.Parameters[1].Name, read.Parameters[1].Type, read.Parameters[1].IsRequired));
@@ -315,6 +315,36 @@ public sealed class RunToolsTests
 
         Assert.True(ran.IsOk());
         Assert.DoesNotContain(listed, tool => tool.Name == "render_image");
+    }
+
+    /// <summary>A step that threw failed the whole run as internal, and the answers of the steps before it were lost (Snail.MCP.Roslyn).</summary>
+    [Fact]
+    public async Task Step_ThatThrows_FailsTheRun_KeepingWhatTheStepsBeforeItAnswered()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var ran = await stand.RunAsync(Step("list_files"), Step("break_down"), Step("write_file", new JsonObject { ["path"] = "a", ["text"] = "x" }));
+        var data = ran.Data()!;
+
+        Assert.True(ran.IsError);
+        Assert.Equal("step 2 of 3 (break_down) failed: the disk is gone", ran.Error());
+        Assert.Equal("internal", JsonNode.Parse(ran.Text())!["type"]!.GetValue<string>());
+        Assert.Equal(2, data["ran"]!.GetValue<int>());
+        Assert.NotNull(data["steps"]![0]!["data"]);
+        Assert.Equal("internal", data["steps"]![1]!["type"]!.GetValue<string>());
+        Assert.Equal(0, stand.Writes.Count);
+    }
+
+    [Fact]
+    public async Task Step_WhoseArgumentsDoNotBind_FailsAsTheCallsFault()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var ran = await stand.RunAsync(Step("read_file", new JsonObject { ["path"] = "a", ["timeoutSeconds"] = "many" }));
+
+        Assert.True(ran.IsError);
+        Assert.Contains("'timeoutSeconds'", ran.Error(), StringComparison.Ordinal);
+        Assert.Equal("arguments", JsonNode.Parse(ran.Text())!["type"]!.GetValue<string>());
     }
 
     private static JsonObject Step(string tool, JsonObject? arguments = null) =>
@@ -655,6 +685,9 @@ internal sealed class FileSample
 
     [McpServerTool(Name = "big_answer", ReadOnly = true), Description("Answers at length.")]
     public static CallToolResult BigAnswer() => ToolAnswer.Ok(JsonValue.Create(new string('x', 500)));
+
+    [McpServerTool(Name = "break_down", ReadOnly = true), Description("Breaks down inside.")]
+    public static CallToolResult BreakDown() => throw new InvalidOperationException("the disk is gone");
 }
 
 [McpServerToolType]

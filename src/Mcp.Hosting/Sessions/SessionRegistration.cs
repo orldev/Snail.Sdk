@@ -22,9 +22,11 @@ public static class SessionRegistration
         /// <c>run_tools</c> committed and pushed through Snail.MCP.Git until its forwarders did.
         /// </para>
         /// <para>
-        /// Registers <see cref="SessionGrant"/>, the default gate, and an address that answers nothing unless the transport
-        /// gives one (<c>WithLocalHttpTransport</c> or <c>WithSessionAddress</c> of <c>Snail.Sdk.Mcp.Http</c>). A gate the
-        /// server registers itself, before or after, is the one asked. Called twice, it registers once.
+        /// Registers <see cref="SessionGrant"/>, the default gate, and an address that answers nothing
+        /// (<see cref="SessionAddress.None"/>) unless the transport gives one (<c>WithLocalHttpTransport</c> or
+        /// <c>WithSessionAddress</c> of <c>Snail.Sdk.Mcp.Http</c>). Called before or after those alike: the transport's
+        /// address replaces this one wherever it comes, and this one is added only where there is none. A gate the server
+        /// registers itself, before or after, is the one asked. Called twice, it registers once.
         /// </para>
         /// </remarks>
         public IMcpServerBuilder RefuseWhatWasNotGranted(Action<GrantOptions>? configure = null)
@@ -36,7 +38,7 @@ public static class SessionRegistration
             configure?.Invoke(options);
 
             builder.Services.AddSingleton(options);
-            builder.Services.TryAddSingleton<ISessionAddress>(_ => new NoAddress());
+            builder.Services.TryAddSingleton(SessionAddress.None);
             builder.Services.TryAddSingleton(provider => new SessionGrant(provider.GetRequiredService<ISessionAddress>()));
             builder.Services.TryAddSingleton<IToolGate>(provider => new GrantGate(provider.GetRequiredService<GrantOptions>()));
             builder.WithRequestFilters(filters =>
@@ -57,14 +59,25 @@ public static class SessionRegistration
         /// <remarks>
         /// The volumes are read once, when the roots are first asked for; the address on every question. The same function
         /// given to <c>RefuseSessionsItCannotServe</c> of <c>Snail.Sdk.Mcp.Http</c> turns away at the door a session whose
-        /// root this machine does not have or the volumes do not hold. Called twice, it registers once.
+        /// root this machine does not have or the volumes do not hold. Like <see cref="RefuseWhatWasNotGranted"/>, it is
+        /// called before or after <c>WithLocalHttpTransport</c> or <c>WithSessionAddress</c> alike. Called twice, it
+        /// registers once.
         /// </remarks>
-        public IMcpServerBuilder WithSessionRoots(Func<IServiceProvider, IReadOnlyList<string>> volumes)
+        /// <param name="volumes">The folders the server serves, read from its services: its options.</param>
+        /// <param name="configure">The server's own words — the setting that configures its roots — where the fleet's do not fit.</param>
+        public IMcpServerBuilder WithSessionRoots(Func<IServiceProvider, IReadOnlyList<string>> volumes, Action<SessionRootsOptions>? configure = null)
         {
             ArgumentNullException.ThrowIfNull(volumes);
 
-            builder.Services.TryAddSingleton<ISessionAddress>(_ => new NoAddress());
-            builder.Services.TryAddSingleton(provider => new SessionRoots(provider.GetRequiredService<ISessionAddress>(), volumes(provider)));
+            if (builder.Services.Any(service => service.ServiceType == typeof(SessionRoots)))
+                return builder;
+
+            var options = new SessionRootsOptions();
+            configure?.Invoke(options);
+
+            builder.Services.AddSingleton(options);
+            builder.Services.TryAddSingleton(SessionAddress.None);
+            builder.Services.AddSingleton(provider => new SessionRoots(provider.GetRequiredService<ISessionAddress>(), volumes(provider), options));
 
             return builder;
         }

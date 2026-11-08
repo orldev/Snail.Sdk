@@ -108,7 +108,6 @@ Snail.Sdk.Mcp.Hosting.Sessions.SessionGrant.SessionGrant(Snail.Sdk.Mcp.Hosting.S
 Snail.Sdk.Mcp.Hosting.Sessions.SessionRegistration
 Snail.Sdk.Mcp.Hosting.Sessions.SessionRegistration.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!)
 Snail.Sdk.Mcp.Hosting.Sessions.SessionRegistration.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).RefuseWhatWasNotGranted(System.Action<Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
-Snail.Sdk.Mcp.Hosting.Sessions.SessionRegistration.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).WithSessionRoots(System.Func<System.IServiceProvider!, System.Collections.Generic.IReadOnlyList<string!>!>! volumes) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
 Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots
 Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Absent.get -> System.Collections.Generic.IReadOnlyList<string!>!
 Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.All.get -> System.Collections.Generic.IReadOnlyList<string!>!
@@ -116,43 +115,66 @@ Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.IsAbsent.get -> bool
 Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.IsOutside.get -> bool
 Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Named.get -> System.Collections.Generic.IReadOnlyList<string!>!
 Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Outside.get -> System.Collections.Generic.IReadOnlyList<string!>!
-Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Reach(string? path) -> Snail.Sdk.Mcp.Hosting.Sessions.Reached!
 Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Relative(string! path) -> string!
-Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.SessionRoots(Snail.Sdk.Mcp.Hosting.Sessions.ISessionAddress! address, System.Collections.Generic.IReadOnlyList<string!>! volumes) -> void
 Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding
 Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy
-Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace
-Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.<Clone>$() -> Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace!
-Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.Deconstruct(out string! Task, out string! Path) -> void
-Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.Equals(Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace? other) -> bool
-Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.Path.get -> string!
-Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.Path.init -> void
-Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.Task.get -> string!
-Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.Task.init -> void
-Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.WorkspacePlace(string! Task, string! Path) -> void
 const Snail.Sdk.Mcp.Hosting.Sessions.RealPath.MostLinks = 40 -> int
 const Snail.Sdk.Mcp.Hosting.Sessions.SessionGrant.Parameter = "tool" -> string!
 const Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Parameter = "root" -> string!
 override Snail.Sdk.Mcp.Hosting.Sessions.Reached.Equals(object? obj) -> bool
 override Snail.Sdk.Mcp.Hosting.Sessions.Reached.GetHashCode() -> int
 override Snail.Sdk.Mcp.Hosting.Sessions.Reached.ToString() -> string!
-override Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.Equals(object? obj) -> bool
-override Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.GetHashCode() -> int
-override Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.ToString() -> string!
 static Snail.Sdk.Mcp.Hosting.Sessions.Reached.No(string! refusal, string? hint = null) -> Snail.Sdk.Mcp.Hosting.Sessions.Reached!
 static Snail.Sdk.Mcp.Hosting.Sessions.Reached.Yes(string! path) -> Snail.Sdk.Mcp.Hosting.Sessions.Reached!
 static Snail.Sdk.Mcp.Hosting.Sessions.Reached.operator !=(Snail.Sdk.Mcp.Hosting.Sessions.Reached? left, Snail.Sdk.Mcp.Hosting.Sessions.Reached? right) -> bool
 static Snail.Sdk.Mcp.Hosting.Sessions.Reached.operator ==(Snail.Sdk.Mcp.Hosting.Sessions.Reached? left, Snail.Sdk.Mcp.Hosting.Sessions.Reached? right) -> bool
 static Snail.Sdk.Mcp.Hosting.Sessions.RealPath.Of(string! path, int maxLinks = 40) -> string?
 static Snail.Sdk.Mcp.Hosting.Sessions.SessionRegistration.RefuseWhatWasNotGranted(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, System.Action<Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
-static Snail.Sdk.Mcp.Hosting.Sessions.SessionRegistration.WithSessionRoots(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, System.Func<System.IServiceProvider!, System.Collections.Generic.IReadOnlyList<string!>!>! volumes) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
 static Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding.CallAsync(ModelContextProtocol.Server.RequestContext<ModelContextProtocol.Protocol.CallToolRequestParams!>! context, ModelContextProtocol.Server.McpServerTool! tool, System.Text.Json.Nodes.JsonObject? arguments, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<ModelContextProtocol.Protocol.CallToolResult!>
 static Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding.IsForwarder(ModelContextProtocol.Server.McpServerTool! tool) -> bool
 static Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding.Refusal(ModelContextProtocol.Server.RequestContext<ModelContextProtocol.Protocol.CallToolRequestParams!>! context, string! tool) -> string?
-static Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy.Of(string? root, string! workspaces, System.Func<string!, bool>! isTaskId) -> Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace?
-static Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.operator !=(Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace? left, Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace? right) -> bool
-static Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace.operator ==(Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace? left, Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace? right) -> bool
 const Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.NotGranted = "notGranted" -> string!
+Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal
+Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal.Malformed = 3 -> Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal
+Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal.None = 0 -> Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal
+Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal.NoRoot = 1 -> Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal
+Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal.NotATask = 4 -> Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal
+Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal.Outside = 2 -> Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal
+Snail.Sdk.Mcp.Hosting.Sessions.JobOwners
+static Snail.Sdk.Mcp.Hosting.Sessions.JobOwners.TaskOfCopy(System.Func<System.IServiceProvider!, string!>! workspaces, System.Func<string!, bool>! isTaskId) -> System.Func<System.IServiceProvider!, string?>!
+Snail.Sdk.Mcp.Hosting.Sessions.PathKind
+Snail.Sdk.Mcp.Hosting.Sessions.PathKind.Any = 0 -> Snail.Sdk.Mcp.Hosting.Sessions.PathKind
+Snail.Sdk.Mcp.Hosting.Sessions.PathKind.File = 1 -> Snail.Sdk.Mcp.Hosting.Sessions.PathKind
+Snail.Sdk.Mcp.Hosting.Sessions.PathKind.Folder = 2 -> Snail.Sdk.Mcp.Hosting.Sessions.PathKind
+Snail.Sdk.Mcp.Hosting.Sessions.SessionAddress
+static Snail.Sdk.Mcp.Hosting.Sessions.SessionAddress.None.get -> Snail.Sdk.Mcp.Hosting.Sessions.ISessionAddress!
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Reach(string? path, Snail.Sdk.Mcp.Hosting.Sessions.PathKind mustBe = Snail.Sdk.Mcp.Hosting.Sessions.PathKind.Any) -> Snail.Sdk.Mcp.Hosting.Sessions.Reached!
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.SessionRoots(Snail.Sdk.Mcp.Hosting.Sessions.ISessionAddress! address, System.Collections.Generic.IReadOnlyList<string!>! volumes, Snail.Sdk.Mcp.Hosting.Sessions.SessionRootsOptions? options = null) -> void
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRootsOptions
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRootsOptions.RootsSetting.get -> string?
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRootsOptions.RootsSetting.set -> void
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRootsOptions.SessionRootsOptions() -> void
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRegistration.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).WithSessionRoots(System.Func<System.IServiceProvider!, System.Collections.Generic.IReadOnlyList<string!>!>! volumes, System.Action<Snail.Sdk.Mcp.Hosting.Sessions.SessionRootsOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+static Snail.Sdk.Mcp.Hosting.Sessions.SessionRegistration.WithSessionRoots(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, System.Func<System.IServiceProvider!, System.Collections.Generic.IReadOnlyList<string!>!>! volumes, System.Action<Snail.Sdk.Mcp.Hosting.Sessions.SessionRootsOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.<Clone>$() -> Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>!
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.Deconstruct(out TTask? Task, out string? Path, out Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal Refusal) -> void
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.Equals(Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>? other) -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.IsCopy.get -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.Path.get -> string?
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.Path.init -> void
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.Refusal.get -> Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.Refusal.init -> void
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.Task.get -> TTask?
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.Task.init -> void
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.WorkspaceCopy(TTask? Task, string? Path, Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal Refusal) -> void
+override Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.Equals(object? obj) -> bool
+override Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.GetHashCode() -> int
+override Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.ToString() -> string!
+static Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.operator !=(Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>? left, Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>? right) -> bool
+static Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.operator ==(Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>? left, Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>? right) -> bool
+static Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy.Of(string? root, string! workspaces, System.Func<string!, bool>! isTaskId) -> Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<string!>!
+static Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy.Of<TTask>(string? root, string! workspaces, System.Func<string!, TTask?>! task) -> Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>!
 Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions
 Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions.Catalog.get -> System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry!>?
 Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions.Catalog.set -> void

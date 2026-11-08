@@ -87,21 +87,43 @@ A change that a repository must act on says what to do.
     out of the list (`GrantOptions.HidesWithheldTools`, true). A server whose answers have another shape sets
     `GrantOptions.Refusal`; one that must never serve a session
     without a grant sets `GrantOptions.RequiresGrant` (HTTP only: a program over stdio names no tool). A server with
-    scopes of its own — Snail.MCP.AfterEffects, Blender — registers an `IToolGate`, which the door asks instead.
+    scopes of its own — Snail.MCP.AfterEffects, Blender — registers an `IToolGate`, which the door asks instead. It is
+    called before or after `WithLocalHttpTransport()` / `WithSessionAddress()` alike: the address it registers,
+    `SessionAddress.None`, is added only where the transport has put none, and the transport's replaces it.
   - A forwarder — `run_tools`, `run_program` — carries `[Forwards]` and calls each step through
     `ToolForwarding.CallAsync(context, tool, arguments, cancellationToken)`: the step is held to the same gate and run as
     the protocol would, and a forwarder is never a step of another. A forwarder whose steps are commands rather than tools
     (Snail.MCP.Git) asks `ToolForwarding.Refusal(context, "git_status")` for each. Its own `Refusal` and `Invoke` go.
-  - `.WithSessionRoots(services => volumes)` registers `SessionRoots`: the roots the address names (`?root=`) inside the
-    configured volumes, or the volumes when it names none, and `Reach(path)`, which answers the path with every link on it
-    followed, or why it may not be used. `RealPath.Of(path)` is the walk alone, and follows a link whose target does not
-    exist yet, which every fleet copy took for the end of the path — a write through such a link landed outside the root.
-  - `WorkspaceCopy.Of(root, workspaces, isTaskId)` is the common core of the three `SessionCopy`: the task a copy under
-    the workspaces folder belongs to, or null.
+  - `.WithSessionRoots(services => volumes, options => …)` registers `SessionRoots`: the roots the address names
+    (`?root=`) inside the configured volumes, or the volumes when it names none, and `Reach(path, mustBe)`, which
+    answers the path with every link on it followed, or why it may not be used. `mustBe` — `PathKind.File`, `Folder`, or `Any`,
+    the default — refuses in the fleet's words what a reading tool checked by hand after the call: "there is no file
+    'x'" (hint "check the name and the folder it is in"), "'x' is not a file" (hint "that is a folder: name a file
+    inside it"), and their twins for a folder. `SessionRootsOptions.RootsSetting` names the server's setting —
+    `SNAIL_MCP_DOCUMENTS_ROOTS` — in the hint to a session with no root ("or set …", instead of "or configure the
+    server's roots"), there and at `RefuseSessionsItCannotServe`'s door. `RealPath.Of(path)` is the walk alone, and
+    follows a link whose target does not exist yet, which every fleet copy took for the end of the path — a write
+    through such a link landed outside the root. `SessionAddress.None` is the address of a program, for a benchmark or a
+    test that builds `SessionRoots` by hand: Snail.MCP.Documents drops its benchmark's `NoAddress`.
+  - `WorkspaceCopy.Of(root, workspaces, isTaskId)` is the common core of the three `SessionCopy`: the copy a root names
+    under the workspaces folder and its task, or why it names none — `CopyRefusal.NoRoot` (blank or absent), `Outside`,
+    `Malformed` (a `.` or `..` among its names) or `NotATask` — so a server maps the reason to its own words instead of
+    checking the blank root itself first. `WorkspaceCopy.Of(root, workspaces, TaskEnvironment.Of)` reads
+    the server's own task once, a value type among them, where Snail.MCP.E2E parsed the id twice. The answer,
+    `WorkspaceCopy<TTask>`, is the copy when `IsCopy` (`Task` and `Path` then set) and the reason in `Refusal`.
+  - `JobOwners.TaskOfCopy(services => workspaces, isTaskId)` is the `ownerOf` of `.WithJobs(server, ownerOf)` for a
+    server that owns its jobs by task — the task of the copy the session's address names, none for a session at no copy
+    — which Snail.MCP.Security, Connector and E2E each wrote over their `SessionCopy`. A server that registers no
+    `ISessionAddress` is told so rather than leaving every job to whoever holds its URI.
 - `WithSessionAddress()` of `Snail.Sdk.Mcp.Http` reads the session's address from the query of each request;
   `WithLocalHttpTransport()` adds it by itself, and a server on the MCP SDK's default transport calls it beside
-  `WithHttpTransport()`. `app.RefuseSessionsItCannotServe(services => volumes)` replaces the `RefuseASessionItCannotServe`
-  of Snail.MCP.FileSystem, Documents, Git and Roslyn, with their words: 400 for a root this machine does not have, a root
+  `WithHttpTransport()` — before or after `RefuseWhatWasNotGranted()` and `WithSessionRoots()`, alike.
+  `JobOwners.Session` owns a job by the MCP session of the request — `.WithJobs("<short>", JobOwners.Session)`, and
+  `JobOwners.Session(services)` for the tool that starts it — read from `HttpSessions.SessionHeader` (`Mcp-Session-Id`),
+  which the MCP SDK checks against a session it opened; a transport that keeps no sessions leaves the header unchecked,
+  so there it names nobody. Snail.MCP.Sandbox drops its `SessionOwner`.
+  `app.RefuseSessionsItCannotServe(services => volumes)` replaces the `RefuseASessionItCannotServe` of
+  Snail.MCP.FileSystem, Documents, Git and Roslyn, with their words: 400 for a root this machine does not have, a root
   outside the volumes, or no root where no volume is configured — after a 403 to a request with an `Origin`, whichever of
   it and `MapLocalMcp` is called first.
 - `FixedAddress` of `Snail.Sdk.Mcp.Testing`: a session's address in a test, `new FixedAddress(("tool", "read_file"))`.

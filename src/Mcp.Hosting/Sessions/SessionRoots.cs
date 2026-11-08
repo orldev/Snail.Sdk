@@ -16,6 +16,30 @@ public sealed record Reached(string? Path, string? Refusal, string? Hint)
     public static Reached No(string refusal, string? hint = null) => new(null, refusal, hint);
 }
 
+/// <summary>What a path must be for <see cref="SessionRoots.Reach"/> to allow it.</summary>
+public enum PathKind
+{
+    /// <summary>Anything, or nothing yet: a file about to be written.</summary>
+    Any,
+
+    /// <summary>A file that is there.</summary>
+    File,
+
+    /// <summary>A folder that is there.</summary>
+    Folder,
+}
+
+/// <summary>The words <see cref="SessionRoots"/> refuses in where they are the server's own.</summary>
+public sealed class SessionRootsOptions
+{
+    /// <summary>The setting that configures the server's roots — <c>SNAIL_MCP_DOCUMENTS_ROOTS</c> — named in the hint to a session that has none.</summary>
+    /// <remarks>
+    /// Null says "configure the server's roots". A hint that names the variable is one the operator can act on without
+    /// reading the server's documentation (Snail.MCP.Documents named its own before it took these).
+    /// </remarks>
+    public string? RootsSetting { get; set; }
+}
+
 /// <summary>The folders this session works in, read from the address it was opened at, and whether a path lies in them.</summary>
 /// <remarks>
 /// <para>
@@ -37,7 +61,8 @@ public sealed record Reached(string? Path, string? Refusal, string? Hint)
 /// </remarks>
 /// <param name="address">The address of the session.</param>
 /// <param name="volumes">The folders the server was configured to serve; empty when it serves whatever a session names.</param>
-public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> volumes)
+/// <param name="options">The server's own words; the fleet's when null.</param>
+public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> volumes, SessionRootsOptions? options = null)
 {
     /// <summary>What the address calls a root it hands over; repeated for more than one.</summary>
     public const string Parameter = "root";
@@ -84,11 +109,20 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
 
     /// <summary>The path as the session may use it — absolute, or relative to the first root, every link followed — or why it may not.</summary>
     /// <remarks>
+    /// <para>
     /// The resolved path rather than a yes or no: every caller needs it anyway, and resolving twice is how the check and
     /// the use drift apart — the check passing on one path and the write landing on another. A path that cannot be
     /// followed, a loop of links among them, is a refusal like any other.
+    /// </para>
+    /// <para>
+    /// <paramref name="mustBe"/> holds a reading tool to a file and a listing one to a folder, in the fleet's words — "there
+    /// is no file 'x'", "'x' is not a file" — which every server that reads wrote after this call by hand
+    /// (Snail.MCP.Documents, FileSystem). <see cref="PathKind.Any"/>, the default, allows a path where nothing is yet.
+    /// </para>
     /// </remarks>
-    public Reached Reach(string? path)
+    /// <param name="path">The path the caller named.</param>
+    /// <param name="mustBe">What must be there: a file, a folder, or anything or nothing.</param>
+    public Reached Reach(string? path, PathKind mustBe = PathKind.Any)
     {
         var roots = All;
 
@@ -107,9 +141,10 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
                 "a link on the path leads in a circle or somewhere this server may not look; name the path it leads to");
         }
 
-        return roots.Any(root => RealPath.Of(root) is { } inside && IsUnder(real, inside))
-            ? Reached.Yes(real)
-            : Reached.No($"'{asked}' is outside this session, which works in {string.Join(", ", roots)}");
+        if (!roots.Any(root => RealPath.Of(root) is { } inside && IsUnder(real, inside)))
+            return Reached.No($"'{asked}' is outside this session, which works in {string.Join(", ", roots)}");
+
+        return Kind(asked, real, mustBe);
     }
 
     /// <summary>The path as the caller should name it again: relative to the first root when it lies under it, whole otherwise.</summary>
@@ -129,6 +164,22 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
         return IsUnder(path, first) ? Path.GetRelativePath(first, path) : path;
     }
 
+    /// <summary>The reached path when it is what the caller needs there, or what it is instead.</summary>
+    private static Reached Kind(string asked, string real, PathKind mustBe)
+    {
+        bool isFile = File.Exists(real);
+        bool isFolder = Directory.Exists(real);
+
+        return mustBe switch
+        {
+            PathKind.File when isFolder => Reached.No($"'{asked}' is not a file", "that is a folder: name a file inside it"),
+            PathKind.File when !isFile => Reached.No($"there is no file '{asked}'", "check the name and the folder it is in"),
+            PathKind.Folder when isFile => Reached.No($"'{asked}' is not a folder", "that is a file: name the folder it is in"),
+            PathKind.Folder when !isFolder => Reached.No($"there is no folder '{asked}'", "check the name and the folder it is in"),
+            _ => Reached.Yes(real),
+        };
+    }
+
     private Reached Unrooted()
     {
         var named = Named;
@@ -137,8 +188,12 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
             return Reached.No($"this session named {string.Join(", ", named)}, which this server does not serve, so nothing is reachable");
 
         return Reached.No("this session was given no root, so nothing is reachable",
-            $"open the session at …?{Parameter}=/path/to/the/copy, or configure the server's roots");
+            $"open the session at …?{Parameter}=/path/to/the/copy, or {Configure(options)}");
     }
+
+    /// <summary>How the operator gives the server roots: the setting by its name when the server named it.</summary>
+    internal static string Configure(SessionRootsOptions? options) =>
+        options?.RootsSetting is { Length: > 0 } setting ? $"set {setting}" : "configure the server's roots";
 
     private static bool IsInside(string root, IReadOnlyList<string> configured) =>
         configured.Count == 0

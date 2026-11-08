@@ -11,6 +11,7 @@ One Snail MCP server for every session of the machine, over Streamable HTTP:
 - `WithSessionAddress()`: the session's address read from the query of each request — `WithLocalHttpTransport` adds it
   by itself — and `RefuseSessionsItCannotServe(volumes)`: 400 at the door for a session whose root this machine does
   not have or the volumes do not hold.
+- `JobOwners.Session`: a job owned by the MCP session that started it, `.WithJobs("<short>", JobOwners.Session)`.
 
 It is kept apart from [Snail.Sdk.Mcp.Hosting](https://www.nuget.org/packages/Snail.Sdk.Mcp.Hosting) so that a stdio
 server never references ASP.NET Core. A server built on [Snail.Sdk.Mcp](https://www.nuget.org/packages/Snail.Sdk.Mcp)

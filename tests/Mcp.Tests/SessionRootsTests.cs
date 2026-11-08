@@ -250,20 +250,112 @@ public sealed class SessionRootsTests
     [InlineData("/workspaces/task-1/step-3/", "task-1", "/workspaces/task-1/step-3")]
     [InlineData("/workspaces//task-1//step-3", "task-1", "/workspaces/task-1/step-3")]
     public void WorkspaceCopy_UnderTheWorkspaces_IsTheTasksCopy(string root, string task, string path) =>
-        Assert.Equal(new WorkspacePlace(task, path), WorkspaceCopy.Of(root, "/workspaces/", IsTask));
+        Assert.Equal(new WorkspaceCopy<string>(task, path, CopyRefusal.None), WorkspaceCopy.Of(root, "/workspaces/", IsTask));
 
+    /// <summary>Each server told a session that named no copy something else than one that named a folder elsewhere, and checked the blank root itself to tell them apart.</summary>
     [Theory]
-    [InlineData(null)]
-    [InlineData(" ")]
-    [InlineData("/workspaces")]
-    [InlineData("/workspaces/")]
-    [InlineData("/workspaces-other/task-1")]
-    [InlineData("/etc")]
-    [InlineData("/workspaces/task-1/../task-2")]
-    [InlineData("/workspaces/./task-1")]
-    [InlineData("/workspaces/Not_A_Task/step")]
-    public void WorkspaceCopy_ElsewhereOrMalformed_IsNone(string? root) =>
-        Assert.Null(WorkspaceCopy.Of(root, "/workspaces", IsTask));
+    [InlineData(null, CopyRefusal.NoRoot)]
+    [InlineData(" ", CopyRefusal.NoRoot)]
+    [InlineData("/workspaces", CopyRefusal.Outside)]
+    [InlineData("/workspaces/", CopyRefusal.Outside)]
+    [InlineData("/workspaces-other/task-1", CopyRefusal.Outside)]
+    [InlineData("/etc", CopyRefusal.Outside)]
+    [InlineData("/workspaces/task-1/../task-2", CopyRefusal.Malformed)]
+    [InlineData("/workspaces/./task-1", CopyRefusal.Malformed)]
+    [InlineData("/workspaces/Not_A_Task/step", CopyRefusal.NotATask)]
+    public void WorkspaceCopy_ElsewhereOrMalformed_SaysWhy(string? root, CopyRefusal why)
+    {
+        var copy = WorkspaceCopy.Of(root, "/workspaces", IsTask);
+
+        Assert.False(copy.IsCopy);
+        Assert.Equal(why, copy.Refusal);
+        Assert.Null(copy.Task);
+        Assert.Null(copy.Path);
+    }
+
+    /// <summary>Snail.MCP.E2E checked the id here and read its environment from it again: the task is read once, a value type among them.</summary>
+    [Fact]
+    public void WorkspaceCopy_OfTheServersOwnTask_IsReadOnce()
+    {
+        int reads = 0;
+        TaskLabel? Label(string folder)
+        {
+            reads++;
+
+            return IsTask(folder) ? new TaskLabel($"e2e-{folder}") : null;
+        }
+
+        var copy = WorkspaceCopy.Of("/workspaces/task-1/step-3", "/workspaces", Label);
+        var refused = WorkspaceCopy.Of("/workspaces/Not_A_Task", "/workspaces", Label);
+
+        Assert.True(copy.IsCopy);
+        Assert.Equal(new TaskLabel("e2e-task-1"), copy.Task);
+        Assert.Equal("/workspaces/task-1/step-3", copy.Path);
+        Assert.Equal(CopyRefusal.NotATask, refused.Refusal);
+        Assert.Equal(2, reads);
+    }
+
+    /// <summary>Snail.MCP.Documents' benchmark kept a <c>NoAddress</c> of its own to build the roots of a program.</summary>
+    [Fact]
+    public void Roots_WithNoAddress_AreTheVolumes()
+    {
+        var volume = TestFolder.Create();
+
+        var roots = new SessionRoots(SessionAddress.None, [volume]);
+
+        Assert.False(SessionAddress.None.IsPresent);
+        Assert.Empty(SessionAddress.None.Values(SessionRoots.Parameter));
+        Assert.Equal([volume], roots.All);
+    }
+
+    [Fact]
+    public void Reach_OfAFile_WhereAFileMustBe_IsAllowed_AndOfAFolderOrNothing_IsRefusedInTheFleetsWords()
+    {
+        var root = TestFolder.Create();
+        File.WriteAllText(Path.Combine(root, "notes.txt"), "the note");
+        Directory.CreateDirectory(Path.Combine(root, "docs"));
+        var roots = new SessionRoots(SessionAddress.None, [root]);
+
+        var file = roots.Reach("notes.txt", PathKind.File);
+        var folder = roots.Reach("docs", PathKind.File);
+        var nothing = roots.Reach("missing.txt", PathKind.File);
+
+        Assert.Equal(RealPath.Of(Path.Combine(root, "notes.txt")), file.Path);
+        Assert.Equal(("'docs' is not a file", "that is a folder: name a file inside it"), (folder.Refusal, folder.Hint));
+        Assert.Equal(("there is no file 'missing.txt'", "check the name and the folder it is in"), (nothing.Refusal, nothing.Hint));
+    }
+
+    [Fact]
+    public void Reach_OfAFolder_WhereAFolderMustBe_IsAllowed_AndOfAFileOrNothing_IsRefused()
+    {
+        var root = TestFolder.Create();
+        File.WriteAllText(Path.Combine(root, "notes.txt"), "the note");
+        Directory.CreateDirectory(Path.Combine(root, "docs"));
+        var roots = new SessionRoots(SessionAddress.None, [root]);
+
+        var folder = roots.Reach("docs", PathKind.Folder);
+        var file = roots.Reach("notes.txt", PathKind.Folder);
+        var nothing = roots.Reach("missing", PathKind.Folder);
+        var anything = roots.Reach("missing");
+
+        Assert.Equal(RealPath.Of(Path.Combine(root, "docs")), folder.Path);
+        Assert.Equal(("'notes.txt' is not a folder", "that is a file: name the folder it is in"), (file.Refusal, file.Hint));
+        Assert.Equal("there is no folder 'missing'", nothing.Refusal);
+        Assert.True(anything.IsAllowed);
+    }
+
+    /// <summary>A hint that names the variable is one the operator acts on without reading the server's documentation.</summary>
+    [Fact]
+    public void Reach_WithNoRoot_NamesTheServersRootsSetting_WhenItGaveOne()
+    {
+        var named = new SessionRoots(SessionAddress.None, [], new SessionRootsOptions { RootsSetting = "SNAIL_MCP_DOCUMENTS_ROOTS" });
+        var unnamed = new SessionRoots(SessionAddress.None, []);
+
+        Assert.EndsWith("or set SNAIL_MCP_DOCUMENTS_ROOTS", named.Reach("notes.txt").Hint, StringComparison.Ordinal);
+        Assert.EndsWith("or configure the server's roots", unnamed.Reach("notes.txt").Hint, StringComparison.Ordinal);
+    }
+
+    private readonly record struct TaskLabel(string Value);
 
     private static bool IsTask(string name) =>
         name.Length > 0 && name.All(letter => char.IsAsciiLetterLower(letter) || char.IsAsciiDigit(letter) || letter == '-');

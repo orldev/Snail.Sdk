@@ -327,7 +327,8 @@ And for the server project (no kind):
   with no turn of a model spent; one that cannot reads the resource when it wants. No `*_status` tool, no "poll" in a
   description (S3LC0032). A job's URI ends in a random id; a server many clients share gives its jobs an owner
   (`Jobs.Start(kind, owner, …)`, `.WithJobs("<short>", ownerOf)`), and a job of another owner is unknown to a client. A
-  tool that answers in words of its own returns `JobAnswer.Of(report, said)`: its text, with the report beside it. Work
+  tool that answers in words of its own returns `JobAnswer.Of(report, said)`: its text, with the report beside it,
+  flagged `isError` once the job failed or was cancelled. Work
   that returns an `Answer<T>` (`Jobs.Start(kind, owner, work, typeInfo)`) ends a failure as a failed job — the error its
   `Message`, the hint and type `JobReport.Hint` and `JobReport.Type` — and a tool whose answer is the work's result
   answers `JobAnswer.Result(report, running)`: the result as the data once succeeded, the failure flagged once failed,

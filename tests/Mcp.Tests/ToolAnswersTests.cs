@@ -54,6 +54,22 @@ public sealed class ToolAnswersTests
         Assert.Equal(report, answer.Report());
     }
 
+    /// <summary>Envelope and Result flagged a failed job, Of did not (Snail.MCP.CodeContext).</summary>
+    [Theory]
+    [InlineData(JobState.Failed, true)]
+    [InlineData(JobState.Cancelled, true)]
+    [InlineData(JobState.Succeeded, false)]
+    [InlineData(JobState.Running, false)]
+    public void Of_AJobThatFailedOrWasCancelled_IsFlagged_WhateverTheToolSaid(JobState state, bool isError)
+    {
+        var report = new JobReport("job://sample/index/1", state, DateTimeOffset.UnixEpoch, null, null, null, null);
+
+        var answer = JobAnswer.Of(report, ended => new CallToolResult { Content = [new TextContentBlock { Text = $"index {ended.State}" }] });
+
+        Assert.Equal(isError, answer.IsError == true);
+        Assert.Equal(report, answer.Report());
+    }
+
     [Fact]
     public void Type_IsTheKindOfFailure_OrNull()
     {

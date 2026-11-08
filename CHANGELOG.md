@@ -281,6 +281,9 @@ A change that a repository must act on says what to do.
 
 ### Fixed
 
+- `JobAnswer.Of(report, said)` flags a job that failed or was cancelled `isError` when `said` did not, as
+  `JobAnswer.Envelope` and `JobAnswer.Result` do: a client that never reads the text learned the work was done
+  (Snail.MCP.CodeContext).
 - Both hosts honour log levels. `McpHost.CreateBuilder` and the builders of `McpHttpHost` are empty builders, which bound
   no `Logging` section, so the `Logging__LogLevel__…` variables of an image were silently ignored and the MCP SDK wrote
   three lines at information for every call (Snail.MCP.Documents). They now call `UseLevelsFrom(builder.Configuration)`

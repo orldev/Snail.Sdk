@@ -116,7 +116,7 @@ public static class SessionRegistration
             if (context.Params?.Name is not { } tool || services?.GetService<IToolGate>()?.Refusal(tool, services) is not { } refusal)
                 return await next(context, cancellationToken).ConfigureAwait(false);
 
-            return services.GetRequiredService<GrantOptions>().Refused(tool, refusal);
+            return services.GetRequiredService<GrantOptions>().Refused(tool, refusal, services);
         };
 
     /// <summary>The list with every tool the gate would refuse left out.</summary>

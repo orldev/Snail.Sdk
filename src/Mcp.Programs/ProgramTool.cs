@@ -32,9 +32,9 @@ internal sealed class ProgramTool(ProgramOptions options, ProgramRunner runner, 
                 """;
             var rules = $"""
                 What the program returns comes back as result, log(…) writes lines that come back with it, and input is the object
-                passed alongside. A failed or refused command throws {"{"} error, hint, type {"}"}, which the program may catch and act
-                on; a command the server does not have stops the program with the names nearest to it. The program reaches nothing
-                but the commands: no files, no network, no clock but its own. The reply lists every command it sent.
+                passed alongside. A failed or refused command throws {"{"} error, message, hint, type, details {"}"}, which the program may
+                catch and act on; a command the server does not have stops the program with the names nearest to it. The program
+                reaches nothing but the commands: no files, no network, no clock but its own. The reply lists every command it sent.
                 """;
 
             return $"{purpose.Trim()}\n{rules}\n{options.Limits}";
@@ -62,6 +62,8 @@ internal sealed class ProgramTool(ProgramOptions options, ProgramRunner runner, 
         var timeout = timeoutSeconds is { } seconds ? TimeSpan.FromSeconds(seconds) : options.Timeout;
         var run = await runner.RunAsync(commands, code, input, timeout, tool => ToolForwarding.Refusal(context, tool), context, cancellationToken).ConfigureAwait(false);
         var data = Data(run);
+
+        options.Ran?.Invoke(run, (context.Services ?? context.Server.Services)!);
 
         return run.Failure is { } failure ? ToolAnswer.Failed(failure.Error, failure.Hint, failure.Type, data) : ToolAnswer.Ok(data);
     }

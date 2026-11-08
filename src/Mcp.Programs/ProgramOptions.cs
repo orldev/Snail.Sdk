@@ -58,6 +58,21 @@ public sealed partial class ProgramOptions
     /// <summary>What a program of this server is for, written ahead of the rules and limits the tool's description always states; a general sentence unless set.</summary>
     public string? Description { get; set; }
 
+    /// <summary>Called when a program of <c>run_program</c> has run, finished or stopped, with what it did and the services of its request; nothing unless set.</summary>
+    /// <remarks>
+    /// <para>
+    /// For what a server counts or records of its programs: Snail.MCP.Blender's traffic report counted a program at the
+    /// first command its catalog was sent — a program that sent none went uncounted, and a catalog had to keep state to
+    /// tell the first command from the rest. Here the whole run is in hand: its commands, its result, why it stopped.
+    /// </para>
+    /// <para>
+    /// Called once per run, before the answer is written, on the thread that writes it; not for a call refused before
+    /// anything ran (no code, a timeout out of range). It runs inside the call, so it should be quick, and an exception
+    /// it throws fails the call — after the program's commands, which stand either way.
+    /// </para>
+    /// </remarks>
+    public Action<ProgramRun, IServiceProvider>? Ran { get; set; }
+
     /// <summary>The bounds in the words the tool's description gives them.</summary>
     internal string Limits =>
         string.Create(

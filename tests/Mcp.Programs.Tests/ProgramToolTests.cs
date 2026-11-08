@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
+using Snail.Sdk.Mcp.Hosting.Answers;
 using Snail.Sdk.Mcp.Hosting.Sessions;
 using Snail.Sdk.Mcp.Testing;
 
@@ -228,6 +229,107 @@ public sealed partial class ProgramToolTests
         var answer = await stand.RunAsync("notes.run_tools();");
 
         Assert.Equal("noSuchCommand", Type(answer.Text()));
+    }
+
+    /// <summary>A refused command said "this session was not granted it" whatever the server's hint, and on a stateless server too.</summary>
+    [Fact]
+    public async Task WithheldCommand_CarriesTheFleetsHint_WhereTheServerSetNone()
+    {
+        var granted = new FixedAddress(("tool", "notes_read"), ("tool", "run_program"));
+        await using var stand = await ProgramStand.StartAsync(granted, server => server.WithPrograms<NoteCommands>(options => options.Global = "notes"));
+
+        var caught = await stand.RunAsync("try { notes.write({ text: 'x' }); } catch (e) { return e.hint; }");
+        var uncaught = await stand.RunAsync("notes.write({ text: 'x' });");
+
+        Assert.Equal(GrantOptions.Hint, caught.Data()!["result"]!.GetValue<string>());
+        Assert.Equal((GrantOptions.Hint, GrantOptions.NotGranted), (uncaught.Hint(), Type(uncaught.Text())));
+    }
+
+    /// <summary>Snail.MCP.Blender gave its door, its forwarders and its programs one scope hint, written three times; now it is set once.</summary>
+    [Fact]
+    public async Task WithheldCommand_CarriesTheHintTheServerSetOnce_InItsSubjectsWord()
+    {
+        var granted = new StatelessAddress(("tool", "notes_read"), ("tool", "run_program"));
+        await using var stand = await ProgramStand.StartAsync(
+            granted,
+            server => server.WithPrograms<NoteCommands>(options => options.Global = "notes"),
+            grant => grant.HintOf = (tool, address) => $"ask for {tool} in another {address.Subject}");
+
+        var answer = await stand.RunAsync("try { notes.write({ text: 'x' }); } catch (e) { return [e.type, e.error, e.hint]; }");
+
+        Assert.Equal(
+            """["notGranted","'notes_write' was not granted to this request, which may use notes_read, run_program","ask for notes_write in another request"]""",
+            answer.Data()!["result"]!.ToJsonString(ToolAnswer.Wire));
+    }
+
+    /// <summary>Snail.MCP.AfterEffects has 129 commands and a tool for few: a command that stands for no tool is granted under its own name.</summary>
+    [Fact]
+    public async Task CommandWithoutATool_IsGrantedUnderItsOwnName()
+    {
+        var granted = new FixedAddress(("tool", "layer_add"), ("tool", "run_program"));
+        await using var stand = await ProgramStand.StartAsync(granted, server =>
+        {
+            server.Services.AddSingleton<BridgeCommands>();
+
+            return server.WithPrograms<BridgeCommands>(options => options.Global = "ae");
+        });
+
+        var answer = await stand.RunAsync("ae.layer_add(); try { ae.layer_remove(); } catch (e) { return e.error; }");
+
+        Assert.Equal("'layer_remove' was not granted to this session, which may use layer_add, run_program", answer.Data()!["result"]!.GetValue<string>());
+    }
+
+    /// <summary>Snail.MCP.AfterEffects waited the longest a program may run for every command, since nothing told it the time left.</summary>
+    [Fact]
+    public async Task Command_IsSentTheTimeItsProgramHasLeft_AndTheRequest()
+    {
+        await using var stand = await ProgramStand.StartAsync(Everything, server =>
+        {
+            server.Services.AddSingleton<BridgeCommands>();
+
+            return server.WithPrograms<BridgeCommands>(options => options.Global = "ae");
+        });
+
+        var answer = await stand.RunAsync("return ae.remaining();", timeoutSeconds: 30);
+        var sent = answer.Data()!["result"]!;
+
+        Assert.True(answer.IsOk(), answer.Text());
+        Assert.InRange(sent["seconds"]!.GetValue<double>(), 25, 30);
+        Assert.True(sent["isAhead"]!.GetValue<bool>());
+        Assert.Equal("run_program", sent["tool"]!.GetValue<string>());
+    }
+
+    /// <summary>Snail.MCP.Blender counted a program at its first command, so a program that sent none went uncounted.</summary>
+    [Fact]
+    public async Task Ran_IsCalledOncePerProgram_WithTheRunAndTheServicesOfTheRequest()
+    {
+        var runs = new List<(ProgramRun Run, int Notes)>();
+        void Record(ProgramRun run, IServiceProvider services) => runs.Add((run, services.GetRequiredService<Notes>().Written.Count));
+        await using var stand = await ProgramStand.StartAsync(Everything, server => server.WithPrograms<NoteCommands>(options =>
+        {
+            options.Global = "notes";
+            options.Ran = Record;
+        }));
+
+        await stand.RunAsync("notes.write({ text: 'a' }); return notes.read().count;");
+        await stand.RunAsync("return 1;");
+        await stand.RunAsync("notes.wirte();");
+        await stand.RunAsync("  ");
+
+        Assert.Equal(3, runs.Count);
+        Assert.Equal((2, 1, 1), (runs[0].Run.Calls.Count, runs[0].Run.Result!.GetValue<int>(), runs[0].Notes));
+        Assert.Empty(runs[1].Run.Calls);
+        Assert.Equal(ProgramFailures.NoSuchCommand, runs[2].Run.Failure!.Type);
+    }
+
+    [Fact]
+    public async Task Description_NamesEveryFieldAFailedCommandThrows()
+    {
+        await using var stand = await ProgramStand.StartAsync(Everything, server => server.WithPrograms<NoteCommands>(options => options.Global = "notes"));
+
+        var tools = await stand.Client.ListToolsAsync();
+
+        Assert.Contains("throws { error, message, hint, type, details }", tools.Single(tool => tool.Name == "run_program").Description, StringComparison.Ordinal);
     }
 
     private static string Timeless(string json) => Milliseconds().Replace(json, "\"milliseconds\":0");

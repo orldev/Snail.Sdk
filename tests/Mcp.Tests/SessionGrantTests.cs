@@ -169,6 +169,37 @@ public sealed class SessionGrantTests
         Assert.DoesNotContain("session", GrantOptions.Hint, StringComparison.Ordinal);
     }
 
+    /// <summary>Snail.MCP.Blender set a whole <see cref="GrantOptions.Refusal"/> only to give the door its own hint.</summary>
+    [Fact]
+    public async Task Hint_SetOnce_IsTheDoorsHint_AndKnowsWhatTheRefusedOneIs()
+    {
+        await using var session = await SessionStand.StartAsync(new FixedAddress(("tool", "read_note")), options => options.HintOf = Hinted);
+        await using var request = await SessionStand.StartAsync(new StatelessAddress(("tool", "read_note")), options => options.HintOf = Hinted);
+
+        var bySession = await session.Client.CallToolAsync("write_note", new Dictionary<string, object?> { ["text"] = "x" });
+        var byRequest = await request.Client.CallToolAsync("write_note", new Dictionary<string, object?> { ["text"] = "x" });
+
+        Assert.Equal(("ask for write_note in another session", GrantOptions.NotGranted), (bySession.Hint(), TypeOf(bySession)));
+        Assert.Equal("ask for write_note in another request", byRequest.Hint());
+    }
+
+    /// <summary>A server that shapes the whole refusal keeps its shape; the hint it was given is read where it asks for it.</summary>
+    [Fact]
+    public async Task Hint_BesideARefusalOfTheServersShape_LeavesTheShapeAlone()
+    {
+        await using var stand = await SessionStand.StartAsync(new FixedAddress(("tool", "read_note")), options =>
+        {
+            options.HintOf = Hinted;
+            options.Refusal = (tool, words) => new CallToolResult { IsError = true, Content = [new TextContentBlock { Text = $"{tool}: {words}" }] };
+        });
+
+        var refused = await stand.Client.CallToolAsync("write_note", new Dictionary<string, object?> { ["text"] = "x" });
+
+        Assert.Equal("write_note: 'write_note' was not granted to this session, which may use read_note", refused.Text());
+    }
+
+    internal static string Hinted(string tool, ISessionAddress address) => $"ask for {tool} in another {address.Subject}";
+
     private sealed class ReadOnlyGate : IToolGate
     {
         public string? Refusal(string tool, IServiceProvider services) =>
@@ -274,6 +305,19 @@ public sealed class ToolForwardingTests
         Assert.StartsWith("git_push: 'git_push' was not granted", refused.Text(), StringComparison.Ordinal);
     }
 
+    /// <summary>Snail.MCP.Git kept a hint of its own for its catalog; set once, the hint is the catalog's as it is the door's.</summary>
+    [Fact]
+    public async Task Refused_OfACommandThatIsNoTool_CarriesTheHintTheServerSetOnce()
+    {
+        await using var stand = await SessionStand.StartAsync(new FixedAddress(("tool", "run_catalog"), ("tool", "run_answers")), options => options.HintOf = SessionGrantTests.Hinted);
+
+        var refused = await stand.Client.CallToolAsync("run_catalog", new Dictionary<string, object?> { ["command"] = "push" });
+        var answered = await stand.Client.CallToolAsync("run_answers", new Dictionary<string, object?> { ["command"] = "push" });
+
+        Assert.Equal("ask for git_push in another session", refused.Hint());
+        Assert.EndsWith("|ask for git_push in another session|notGranted", answered.Text(), StringComparison.Ordinal);
+    }
+
     /// <summary>A program branching on the type met <c>notGranted</c> from the catalog and <c>refused</c> from its runner: one refusal, one word.</summary>
     [Fact]
     public async Task Refused_AsAnAnswer_OfACommandThatIsNoTool_CarriesTheDoorsTypeAndHint()
@@ -286,6 +330,66 @@ public sealed class ToolForwardingTests
 
         Assert.Equal($"'git_push' was not granted to this session, which may use run_answers|{GrantOptions.Hint}|{GrantOptions.NotGranted}", refused.Text());
         Assert.Equal("ran push", allowed.Text());
+    }
+}
+
+/// <summary>The questions of <see cref="ToolForwarding"/> asked of a container, with no request: a forwarder handed services, a unit test.</summary>
+public sealed class ToolForwardingWithoutARequestTests
+{
+    [Fact]
+    public void Refusal_FromServices_AsksTheSameGate()
+    {
+        using var services = Services(new FixedAddress(("tool", "read_note")));
+
+        Assert.Null(ToolForwarding.Refusal(services, "read_note"));
+        Assert.Equal("'write_note' was not granted to this session, which may use read_note", ToolForwarding.Refusal(services, "write_note"));
+    }
+
+    [Fact]
+    public void Refused_FromServices_IsTheDoorsAnswer_WithTheServersHint()
+    {
+        using var services = Services(new StatelessAddress(("tool", "read_note")), options => options.HintOf = SessionGrantTests.Hinted);
+
+        var refused = ToolForwarding.Refused(services, "write_note")!;
+        var answer = ToolForwarding.Refused<JsonNode>(services, "write_note")!;
+
+        Assert.True(refused.IsError);
+        Assert.Equal(("'write_note' was not granted to this request, which may use read_note", "ask for write_note in another request", GrantOptions.NotGranted), (refused.Error(), refused.Hint(), TypeOf(refused)));
+        Assert.Equal(("ask for write_note in another request", GrantOptions.NotGranted), (answer.Hint, answer.Type));
+        Assert.Null(ToolForwarding.Refused(services, "read_note"));
+        Assert.Null(ToolForwarding.Refused<JsonNode>(services, "read_note"));
+    }
+
+    [Fact]
+    public void Hint_IsTheServersOne_AndTheFleetsWhereItSetNone()
+    {
+        using var hinted = Services(new FixedAddress(), options => options.HintOf = SessionGrantTests.Hinted);
+        using var plain = Services(new FixedAddress());
+        using var ungranted = new ServiceCollection().BuildServiceProvider();
+
+        Assert.Equal("ask for git_push in another session", ToolForwarding.Hint(hinted, "git_push"));
+        Assert.Equal(GrantOptions.Hint, ToolForwarding.Hint(plain, "git_push"));
+        Assert.Equal(GrantOptions.Hint, ToolForwarding.Hint(ungranted, "git_push"));
+    }
+
+    /// <summary>A server that holds no grant refuses nothing, with or without a request.</summary>
+    [Fact]
+    public void Refusal_FromServicesWithoutAGate_IsNone()
+    {
+        using var services = new ServiceCollection().BuildServiceProvider();
+
+        Assert.Null(ToolForwarding.Refusal(services, "write_note"));
+        Assert.Null(ToolForwarding.Refused(services, "write_note"));
+    }
+
+    private static ServiceProvider Services(ISessionAddress address, Action<GrantOptions>? configure = null)
+    {
+        var services = new ServiceCollection();
+
+        services.AddSingleton(address);
+        services.AddMcpServer().RefuseWhatWasNotGranted(configure);
+
+        return services.BuildServiceProvider();
     }
 }
 

@@ -137,6 +137,8 @@ Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions
 Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.GrantOptions() -> void
 Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.HidesWithheldTools.get -> bool
 Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.HidesWithheldTools.set -> void
+Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.HintOf.get -> System.Func<string!, Snail.Sdk.Mcp.Hosting.Sessions.ISessionAddress!, string!>?
+Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.HintOf.set -> void
 Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.Refusal.get -> System.Func<string!, string!, ModelContextProtocol.Protocol.CallToolResult!>?
 Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.Refusal.set -> void
 Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.RequiresGrant.get -> bool
@@ -205,6 +207,10 @@ static Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding.IsForwarder(ModelContextPro
 static Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding.Refusal(ModelContextProtocol.Server.RequestContext<ModelContextProtocol.Protocol.CallToolRequestParams!>! context, string! tool) -> string?
 static Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding.Refused(ModelContextProtocol.Server.RequestContext<ModelContextProtocol.Protocol.CallToolRequestParams!>! context, string! tool) -> ModelContextProtocol.Protocol.CallToolResult?
 static Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding.Refused<T>(ModelContextProtocol.Server.RequestContext<ModelContextProtocol.Protocol.CallToolRequestParams!>! context, string! tool) -> Snail.Sdk.Mcp.Hosting.Answers.Answer<T>?
+static Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding.Hint(System.IServiceProvider! services, string! tool) -> string!
+static Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding.Refusal(System.IServiceProvider! services, string! tool) -> string?
+static Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding.Refused(System.IServiceProvider! services, string! tool) -> ModelContextProtocol.Protocol.CallToolResult?
+static Snail.Sdk.Mcp.Hosting.Sessions.ToolForwarding.Refused<T>(System.IServiceProvider! services, string! tool) -> Snail.Sdk.Mcp.Hosting.Answers.Answer<T>?
 const Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.NotGranted = "notGranted" -> string!
 const Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions.Hint = "use only the tools that were granted; any other comes with a role the platform grants it to" -> string!
 Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal

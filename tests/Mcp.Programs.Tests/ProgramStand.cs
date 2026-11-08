@@ -28,8 +28,8 @@ internal sealed class ProgramStand : IAsyncDisposable
 
     public Notes Notes { get; }
 
-    /// <summary>A server whose programs call <paramref name="programs"/>' commands, its sessions at <paramref name="address"/>.</summary>
-    public static async Task<ProgramStand> StartAsync(ISessionAddress address, Func<IMcpServerBuilder, IMcpServerBuilder> programs)
+    /// <summary>A server whose programs call <paramref name="programs"/>' commands, its sessions at <paramref name="address"/>, its grant as <paramref name="grant"/> sets it.</summary>
+    public static async Task<ProgramStand> StartAsync(ISessionAddress address, Func<IMcpServerBuilder, IMcpServerBuilder> programs, Action<GrantOptions>? grant = null)
     {
         var toServer = new Pipe();
         var toClient = new Pipe();
@@ -41,7 +41,7 @@ internal sealed class ProgramStand : IAsyncDisposable
 
         var server = builder.Services.AddMcpServer()
             .WithStreamServerTransport(toServer.Reader.AsStream(), toClient.Writer.AsStream())
-            .RefuseWhatWasNotGranted()
+            .RefuseWhatWasNotGranted(grant)
             .ExplainFailures()
             .WithTools<NoteTools>();
 
@@ -134,6 +134,33 @@ internal sealed class NoteCommands(Notes notes) : IProgramCommands
     }
 }
 
+/// <summary>
+/// A catalog whose commands stand for no tool — as most of Snail.MCP.AfterEffects' bridge commands do — and that reads all
+/// it is sent with: the time its program has left and the request.
+/// </summary>
+internal sealed class BridgeCommands : IProgramCommands
+{
+    public IReadOnlyList<string> Names { get; } = ["layer_add", "layer_remove", "remaining"];
+
+    public string? ToolOf(string command) => null;
+
+    public Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, CancellationToken cancellationToken) =>
+        Task.FromResult(ProgramAnswer.Failed("called without what it was sent with", "run_program sends every command a CommandCall", "noCall"));
+
+    public Task<ProgramAnswer> CallAsync(CommandCall call, CancellationToken cancellationToken)
+    {
+        var answer = new JsonObject
+        {
+            ["command"] = call.Command,
+            ["seconds"] = Math.Round(call.Remaining.TotalSeconds),
+            ["isAhead"] = call.Deadline > DateTimeOffset.UtcNow,
+            ["tool"] = call.Request?.Params?.Name,
+        };
+
+        return Task.FromResult(ProgramAnswer.Ok(answer));
+    }
+}
+
 /// <summary>A catalog registered once for the server, which reads the request of <c>run_program</c> each command came with.</summary>
 internal sealed class RequestCommands : IProgramCommands
 {
@@ -156,4 +183,14 @@ internal sealed class RequestCommands : IProgramCommands
 
         return Task.FromResult(ProgramAnswer.Ok(answer));
     }
+}
+
+/// <summary>An address that speaks for one request, as the address of a stateless transport does.</summary>
+internal sealed class StatelessAddress(params (string Parameter, string Value)[] values) : ISessionAddress
+{
+    private readonly Snail.Sdk.Mcp.Testing.FixedAddress _fixed = new(values);
+
+    public string Subject => "request";
+
+    public IReadOnlyList<string> Values(string parameter) => _fixed.Values(parameter);
 }

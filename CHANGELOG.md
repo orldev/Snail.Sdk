@@ -183,6 +183,23 @@ A change that a repository must act on says what to do.
   start that moves it. A server may drop its own `ServerFolders.MoveFromSnailNames` call from `Program.cs`; one that
   keeps it moves nothing more.
 
+### Fixed
+
+- Both hosts honour log levels. `McpHost.CreateBuilder` and the builders of `McpHttpHost` are empty builders, which bound
+  no `Logging` section, so the `Logging__LogLevel__…` variables of an image were silently ignored and the MCP SDK wrote
+  three lines at information for every call (Snail.MCP.Documents). They now call `UseLevelsFrom(builder.Configuration)`
+  of `Snail.Sdk.Mcp.Hosting`, which reads `Logging:LogLevel:<category>` from the plain `Logging__LogLevel__…` variables
+  an image sets as its defaults, then from the server's settings file, then from its
+  `SNAIL_MCP_<NAME>_LOGGING__LOGLEVEL__…` variables, each over the one before; without a level of their own
+  `ModelContextProtocol` and `Microsoft.AspNetCore` write from warnings up, over stdio too. The stderr logger writes
+  debug and trace when a level asks for them (`dbug`, `trce`), where it stopped at information. A server whose
+  `Dockerfile` sets `Logging__LogLevel__ModelContextProtocol=Warning` may drop the line; the rest of its levels now
+  take effect.
+- The HTTP hosts give their address to Kestrel itself (`Listen`, `ListenLocalhost`, `ListenAnyIP`) instead of the host's
+  `urls` setting, which the web host reads from the `IConfiguration` the services hold: a server that registered a
+  configuration of its own got Kestrel on localhost:5000 without a word (Snail.MCP.Documents). An `https` address is
+  refused, since the host serves plain HTTP.
+
 ## [0.4.2] - 2026-11-06
 
 ### Added

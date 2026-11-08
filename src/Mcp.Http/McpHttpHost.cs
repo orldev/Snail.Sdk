@@ -1,11 +1,12 @@
+using System.Net;
 using System.Reflection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using ModelContextProtocol.AspNetCore;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.AspNetCore;
 using Snail.Sdk.Mcp.Hosting;
 
 namespace Snail.Sdk.Mcp.Http;
@@ -22,6 +23,11 @@ namespace Snail.Sdk.Mcp.Http;
 /// in a browser always sends one, an agent's client never does, so no web page can reach the server, not even through a
 /// name rebound to 127.0.0.1.
 /// </para>
+/// <para>
+/// The address is given to Kestrel itself, not written into the host's configuration as <c>urls</c>: the web host reads
+/// <c>urls</c> from the <c>IConfiguration</c> the services hold, so a server that registered a configuration of its own
+/// got Kestrel's default, localhost:5000, without a word (Snail.MCP.Documents, 2026-11-07).
+/// </para>
 /// </remarks>
 public static class McpHttpHost
 {
@@ -33,8 +39,9 @@ public static class McpHttpHost
 
     private static readonly RequestDelegate Healthy = _ => Task.CompletedTask;
 
-    /// <summary>An empty web host listening on <paramref name="url"/>, log lines on stderr, a request a line only on warnings, the heap trimmed when idle.</summary>
-    /// <exception cref="ArgumentException">The address is not a loopback one.</exception>
+    /// <summary>An empty web host listening on <paramref name="url"/>, log lines on stderr at the levels its settings name, the heap trimmed when idle.</summary>
+    /// <remarks><c>localhost</c> is listened on at both loopback addresses, an address at that one alone.</remarks>
+    /// <exception cref="ArgumentException">The address is not a loopback one, or not plain http, which is all the host serves.</exception>
     public static WebApplicationBuilder CreateBuilder(string[] args, Uri url)
     {
         ArgumentNullException.ThrowIfNull(url);
@@ -42,7 +49,10 @@ public static class McpHttpHost
         if (!url.IsLoopback)
             throw new ArgumentException($"'{url}' is not a loopback address: the server would answer anyone who reaches it.", nameof(url));
 
-        return Builder(args, url.ToString());
+        if (url.Scheme != Uri.UriSchemeHttp)
+            throw new ArgumentException($"'{url}' is not an http address: the host serves plain HTTP on loopback.", nameof(url));
+
+        return Builder(args, kestrel => ListenOn(kestrel, url));
     }
 
     /// <summary>
@@ -61,7 +71,7 @@ public static class McpHttpHost
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(port);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(port, ushort.MaxValue);
 
-        return Builder(args, $"http://*:{port}");
+        return Builder(args, kestrel => kestrel.ListenAnyIP(port));
     }
 
     /// <summary>The host of the endpoint a server's settings ask for: on loopback at its URL, or on every interface at its port.</summary>
@@ -83,19 +93,27 @@ public static class McpHttpHost
             : CreateBuilder(args, endpoint.Url);
     }
 
-    private static WebApplicationBuilder Builder(string[] args, string url)
+    private static WebApplicationBuilder Builder(string[] args, Action<KestrelServerOptions> listen)
     {
         var builder = WebApplication.CreateEmptyBuilder(new WebApplicationOptions { Args = args });
 
         if (ServerSettings.NameOf(Assembly.GetEntryAssembly()) is { } name)
             builder.Configuration.AddServerSettings(name);
 
-        builder.Logging.UseStderr().AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
-        builder.WebHost.UseKestrelCore().UseUrls(url);
+        builder.Logging.UseStderr().UseLevelsFrom(builder.Configuration);
+        builder.WebHost.UseKestrelCore().ConfigureKestrel(listen);
         builder.Services.AddRoutingCore();
         builder.Services.AddIdleTrim();
 
         return builder;
+    }
+
+    private static void ListenOn(KestrelServerOptions kestrel, Uri url)
+    {
+        if (IPAddress.TryParse(url.DnsSafeHost, out var address))
+            kestrel.Listen(address, url.Port);
+        else
+            kestrel.ListenLocalhost(url.Port);
     }
 
     extension(IMcpServerBuilder builder)

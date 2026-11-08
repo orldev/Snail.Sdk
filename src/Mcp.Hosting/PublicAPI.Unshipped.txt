@@ -233,3 +233,5 @@ static Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry.operator !=(Snail.Sdk.Mcp.Hosti
 static Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry.operator ==(Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry? left, Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry? right) -> bool
 static Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.operator !=(Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter? left, Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter? right) -> bool
 static Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.operator ==(Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter? left, Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter? right) -> bool
+Snail.Sdk.Mcp.Hosting.McpHost.extension(Microsoft.Extensions.Logging.ILoggingBuilder!).UseLevelsFrom(Microsoft.Extensions.Configuration.IConfiguration! settings) -> Microsoft.Extensions.Logging.ILoggingBuilder!
+static Snail.Sdk.Mcp.Hosting.McpHost.UseLevelsFrom(this Microsoft.Extensions.Logging.ILoggingBuilder! logging, Microsoft.Extensions.Configuration.IConfiguration! settings) -> Microsoft.Extensions.Logging.ILoggingBuilder!

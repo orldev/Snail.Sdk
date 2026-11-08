@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Snail.Sdk.Mcp.Http;
 
@@ -127,22 +126,6 @@ public sealed class McpEndpointTests
 
         Assert.Contains(key, refusal.Message, StringComparison.Ordinal);
         Assert.Contains(value, refusal.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void CreateBuilder_ALoopbackEndpoint_ListensOnItsUrl()
-    {
-        var builder = McpHttpHost.CreateBuilder([], new McpEndpoint(McpTransport.Http, new Uri("http://127.0.0.1:9400/"), ListensOnEveryInterface: false));
-
-        Assert.Equal("http://127.0.0.1:9400/", builder.WebHost.GetSetting(WebHostDefaults.ServerUrlsKey));
-    }
-
-    [Fact]
-    public void CreateBuilder_AnEndpointOnEveryInterface_ListensOnItsPortEverywhere()
-    {
-        var builder = McpHttpHost.CreateBuilder([], new McpEndpoint(McpTransport.Http, new Uri("http://0.0.0.0:8826/"), ListensOnEveryInterface: true));
-
-        Assert.Equal("http://*:8826", builder.WebHost.GetSetting(WebHostDefaults.ServerUrlsKey));
     }
 
     [Fact]

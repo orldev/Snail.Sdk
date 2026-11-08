@@ -284,6 +284,10 @@ And for the server project (no kind):
 - Without profile-guided tiering when framework-dependent (`TieredPGO false` for `SnailMcpNative false`): measured
   on Snail.MCP.Roslyn 281 → 259 MB at rest and a quarter less CPU, on Snail.MCP.CodeContext 793 → 759 MB and a faster
   index, none slower. A native server has no JIT. A server that wants it sets `TieredPGO` in its project file.
+- Log levels from the server's settings: `McpHost.CreateBuilder` and `McpHttpHost.CreateBuilder` read
+  `Logging:LogLevel:<category>` from the plain `Logging__LogLevel__…` variables an image sets, then from the settings
+  file, then from `SNAIL_MCP_<SHORT>_LOGGING__LOGLEVEL__…` (`UseLevelsFrom`), and keep the MCP SDK's three lines a call
+  at information out of the log unless a level asks for them ([installing](installing.md#log-levels)).
 - The heap compacted when the server goes quiet: `McpHost.CreateBuilder` and `McpHttpHost.CreateBuilder` add the idle
   trim, which, once no MCP message has come for five minutes and the process has allocated 32 MB since the last trim,
   runs one compacting collection of every generation — at most once per quiet period. A burst of work leaves its

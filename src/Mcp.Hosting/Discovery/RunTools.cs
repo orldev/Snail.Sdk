@@ -70,7 +70,35 @@ internal static partial class RunTools
                 return ToolAnswer.Failed($"step {at + 1} of {steps.Length} ({step.Tool}) failed: {step.Error}", step.Hint, step.Type, run.Report());
         }
 
-        return ToolAnswer.Ok(run.Report());
+        return ToolAnswer.Ok(run.Report(), options.Shape);
+    }
+
+    /// <summary>Says of <c>run_tools</c> what its steps say of themselves, and states its output schema where the server states its own.</summary>
+    /// <remarks>
+    /// <para>
+    /// A run does what its steps do, so its hints are theirs: read-only when every tool that can be a step is, destructive
+    /// when any may be, open-world when any is or does not say. Written as always open-world, a server whose every tool is
+    /// closed (Snail.MCP.FileSystem) had one tool claiming to reach the world. A forwarder is no step and says nothing here;
+    /// a hint the protocol leaves unsaid is taken at its default, destructive and open-world.
+    /// </para>
+    /// <para>
+    /// Read once the server's tools are collected; a tool added to the collection later is not counted.
+    /// </para>
+    /// </remarks>
+    public static void Fit(McpServerOptions server, SequenceOptions options)
+    {
+        if (server.ToolCollection is not { } tools || !tools.TryGetPrimitive(Name, out var run))
+            return;
+
+        var steps = tools.Where(tool => !ToolForwarding.IsForwarder(tool)).Select(tool => tool.ProtocolTool.Annotations).ToList();
+        var annotations = run.ProtocolTool.Annotations ??= new ToolAnnotations();
+
+        annotations.ReadOnlyHint = steps.TrueForAll(step => step?.ReadOnlyHint == true);
+        annotations.DestructiveHint = steps.Exists(step => step?.ReadOnlyHint != true && step?.DestructiveHint != false);
+        annotations.OpenWorldHint = steps.Exists(step => step?.OpenWorldHint != false);
+
+        if (OutputSchemas.AreStated(tools))
+            run.ProtocolTool.OutputSchema = OutputSchemas.OfRunTools(options.Shape);
     }
 
     /// <summary>One step, run or refused.</summary>

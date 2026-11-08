@@ -182,12 +182,16 @@ Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions.Catalog.set -> void
 Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions.CommandOf.get -> System.Func<string!, string?>?
 Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions.CommandOf.set -> void
 Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions.DiscoveryOptions() -> void
+Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions.Examples.get -> System.Collections.Generic.IList<string!>!
+Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions.Examples.set -> void
 Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions.Meanings.get -> System.Collections.Generic.IDictionary<string!, string!>!
 Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions.Meanings.set -> void
 Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions.Noise.get -> System.Collections.Generic.ISet<string!>!
 Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions.Noise.set -> void
 Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions.Prefix.get -> string?
 Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions.Prefix.set -> void
+Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions.Shape.get -> Snail.Sdk.Mcp.Hosting.Answers.AnswerShape
+Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions.Shape.set -> void
 Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryRegistration
 Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryRegistration.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!)
 Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryRegistration.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).WithArgumentCheck() -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
@@ -200,6 +204,8 @@ Snail.Sdk.Mcp.Hosting.Discovery.SequenceOptions.MaxSteps.set -> void
 Snail.Sdk.Mcp.Hosting.Discovery.SequenceOptions.OutputBudget.get -> int
 Snail.Sdk.Mcp.Hosting.Discovery.SequenceOptions.OutputBudget.set -> void
 Snail.Sdk.Mcp.Hosting.Discovery.SequenceOptions.SequenceOptions() -> void
+Snail.Sdk.Mcp.Hosting.Discovery.SequenceOptions.Shape.get -> Snail.Sdk.Mcp.Hosting.Answers.AnswerShape
+Snail.Sdk.Mcp.Hosting.Discovery.SequenceOptions.Shape.set -> void
 Snail.Sdk.Mcp.Hosting.Discovery.SkillAttribute
 Snail.Sdk.Mcp.Hosting.Discovery.SkillAttribute.Description.get -> string!
 Snail.Sdk.Mcp.Hosting.Discovery.SkillAttribute.Name.get -> string!
@@ -249,6 +255,7 @@ static Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryRegistration.WithArgumentCheck(t
 static Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryRegistration.WithSkills(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, System.Action<Snail.Sdk.Mcp.Hosting.Discovery.SkillOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
 static Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryRegistration.WithToolDiscovery(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, System.Action<Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
 static Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryRegistration.WithToolSequences(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, System.Action<Snail.Sdk.Mcp.Hosting.Discovery.SequenceOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+static Snail.Sdk.Mcp.Hosting.Discovery.ToolCatalog.Find(System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry!>! entries, string? task, int limit, Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions? options = null) -> System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry!>!
 static Snail.Sdk.Mcp.Hosting.Discovery.ToolCatalog.Of(System.Collections.Generic.IEnumerable<ModelContextProtocol.Server.McpServerTool!>! tools, System.Func<string!, string?>? commandOf) -> System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry!>!
 static Snail.Sdk.Mcp.Hosting.Discovery.ToolCatalog.Of(System.Type! toolType, System.IServiceProvider? services = null, System.Text.Json.JsonSerializerOptions? json = null) -> System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry!>!
 static Snail.Sdk.Mcp.Hosting.Discovery.ToolCatalog.SkillOf(ModelContextProtocol.Server.McpServerTool! tool) -> string?

@@ -1,3 +1,5 @@
+using Snail.Sdk.Mcp.Hosting.Answers;
+
 namespace Snail.Sdk.Mcp.Hosting.Discovery;
 
 /// <summary>How much one <c>run_tools</c> call may do and bring back.</summary>
@@ -13,4 +15,12 @@ public sealed class SequenceOptions
     /// step ran and how to read its answer — call that tool alone — instead of filling the window with it.
     /// </remarks>
     public int OutputBudget { get; set; } = 50_000;
+
+    /// <summary>What a successful answer of <c>run_tools</c> carries as its structured content; the data alone unless set.</summary>
+    /// <remarks>
+    /// <see cref="AnswerShape.Envelope"/> for a server whose tools state the envelope as their output schema
+    /// (Snail.MCP.FileSystem). When any other tool of the server states an output schema, <c>run_tools</c> states the
+    /// schema of this shape too; <see cref="AnswerShape.None"/> states none.
+    /// </remarks>
+    public AnswerShape Shape { get; set; } = AnswerShape.Data;
 }

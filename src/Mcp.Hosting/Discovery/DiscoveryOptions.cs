@@ -1,3 +1,5 @@
+using Snail.Sdk.Mcp.Hosting.Answers;
+
 namespace Snail.Sdk.Mcp.Hosting.Discovery;
 
 /// <summary>How <c>find_tool</c> reads a server's tools: the words they are known by, the words that say nothing, and what a program calls them.</summary>
@@ -24,4 +26,20 @@ public sealed class DiscoveryOptions
     /// <summary>The tools searched, instead of the tools the server registered (<see cref="ToolCatalog"/>).</summary>
     /// <remarks>For a server whose tools are not all in its tool collection. Left unset, the catalog is what the server registered, skills included.</remarks>
     public IReadOnlyList<ToolEntry>? Catalog { get; set; }
+
+    /// <summary>Tasks in the server's own words, shown as examples in the description of <c>task</c>: <c>["rename a symbol", "find unused code"]</c>.</summary>
+    /// <remarks>
+    /// A model asks in the words it is shown. The SDK's own example, "push the branch", was Snail.MCP.Git's and steered a
+    /// model at a file system or a renderer towards words no tool of theirs uses; without examples the description shows
+    /// none. Two or three short ones: every session reads them.
+    /// </remarks>
+    public IList<string> Examples { get; set; } = [];
+
+    /// <summary>What a successful answer of <c>find_tool</c> carries as its structured content; the data alone unless set.</summary>
+    /// <remarks>
+    /// <see cref="AnswerShape.Envelope"/> for a server whose tools state the envelope as their output schema
+    /// (Snail.MCP.FileSystem). When any other tool of the server states an output schema, <c>find_tool</c> states the
+    /// schema of this shape too; <see cref="AnswerShape.None"/> states none.
+    /// </remarks>
+    public AnswerShape Shape { get; set; } = AnswerShape.Data;
 }

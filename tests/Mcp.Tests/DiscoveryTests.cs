@@ -1,8 +1,11 @@
 using System.ComponentModel;
 using System.IO.Pipelines;
+using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -22,7 +25,7 @@ public sealed class ToolCatalogTests
         var entries = ToolCatalog.Of(typeof(FileSample));
         var read = entries.Single(entry => entry.Name == "read_file");
 
-        Assert.Equal(["list_files", "read_file", "write_file", "fail_always", "big_answer", "break_down"], entries.Select(entry => entry.Name));
+        Assert.Equal(["list_files", "read_file", "write_file", "fail_always", "big_answer", "break_down", "tag_files"], entries.Select(entry => entry.Name));
         Assert.Equal("Reads the text of a file.", read.Description);
         Assert.Equal(new ToolParameter("path", "string", true, "The file's path."), read.Parameters[0]);
         Assert.Equal(("timeoutSeconds", "integer", false), (read.Parameters[1].Name, read.Parameters[1].Type, read.Parameters[1].IsRequired));
@@ -57,6 +60,54 @@ public sealed class ToolCatalogTests
         var entries = ToolCatalog.Of(tools, name => name == "read_file" ? "read" : null);
 
         Assert.Equal(["read"], entries.Select(entry => entry.Command).OfType<string>());
+    }
+
+    /// <summary>"array" told a model nothing about what to put in it; Snail.MCP.CleanUp's own index had written string[].</summary>
+    [Theory]
+    [InlineData("""{"type":"array","items":{"type":"string"}}""", "string[]")]
+    [InlineData("""{"type":["array","null"],"items":{"type":"integer"}}""", "integer[]")]
+    [InlineData("""{"type":"array","items":{"type":"array","items":{"type":"number"}}}""", "number[][]")]
+    [InlineData("""{"type":"array","items":{"type":"object","properties":{"x":{"type":"integer"}}}}""", "object[]")]
+    [InlineData("""{"type":"array","items":{"properties":{"x":{"type":"integer"}}}}""", "object[]")]
+    [InlineData("""{"type":"array","items":{"enum":["a","b"]}}""", "string[]")]
+    [InlineData("""{"type":"array","items":{}}""", "array")]
+    [InlineData("""{"type":"array"}""", "array")]
+    [InlineData("""{"enum":["a","b"]}""", "string")]
+    [InlineData("""{}""", "object")]
+    public void Type_OfAnArray_IsNamedByItsItems(string property, string type)
+    {
+        var schema = JsonElement.Parse($$"""{"type":"object","properties":{"p": {{property}} } }""");
+
+        Assert.Equal(type, ToolCatalog.ParametersOf(schema)[0].Type);
+    }
+
+    [Fact]
+    public void Type_OfAnArrayParameter_IsItsItemsAsTheSdkWritesTheSchema()
+    {
+        var tag = ToolCatalog.Of(typeof(FileSample)).Single(entry => entry.Name == "tag_files");
+
+        Assert.Equal("string[]", tag.Parameters[0].Type);
+    }
+
+    /// <summary>Snail.MCP.Git needed a host to test that its words find its tools; the ranking is public over entries.</summary>
+    [Fact]
+    public void Find_RanksEntriesWithoutAServer_AsFindToolDoes()
+    {
+        IReadOnlyList<ToolEntry> entries =
+        [
+            new("git_status", "Shows the state of the working tree.", null, null, []),
+            new("git_push", "Sends commits to the remote.", null, null, []),
+            new("git_log", "Shows the history of commits.", null, null, []),
+        ];
+        var options = new DiscoveryOptions { Prefix = "git_" };
+        options.Meanings["git_push"] = "publish upload";
+
+        var found = ToolCatalog.Find(entries, "publish my commits", 5, options);
+
+        Assert.Equal(["git_push", "git_log"], found.Select(entry => entry.Name));
+        Assert.Equal(["git_log"], ToolCatalog.Find(entries, "git history", 1, options).Select(entry => entry.Name));
+        Assert.Empty(ToolCatalog.Find(entries, "the git", 5, options));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ToolCatalog.Find(entries, "push", 0));
     }
 }
 
@@ -138,8 +189,106 @@ public sealed class FindToolTests
 
         Assert.False(found["isMatched"]!.GetValue<bool>());
         Assert.Contains("nothing in this server's words matches", found["note"]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.Contains("ask again", found["note"]!.GetValue<string>(), StringComparison.Ordinal);
         Assert.Equal(stand.Listed.Count, Names(found).Count);
     }
+
+    /// <summary>An empty find_tool answered with every tool's parameters weighed 70 357 characters in Snail.MCP.Roslyn.</summary>
+    [Fact]
+    public async Task Listing_OfEveryTool_NamesEachWithTheFirstSentence_AndNoParameters()
+    {
+        await using var stand = await DiscoveryStand.StartAsync(skills: false);
+
+        var found = await stand.FindAsync(new() { ["task"] = "" });
+        var find = found["tools"]!.AsArray().Single(tool => tool!["name"]!.GetValue<string>() == "find_tool")!;
+
+        Assert.StartsWith("no task was given", found["note"]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.All(found["tools"]!.AsArray(), tool => Assert.Null(tool!["parameters"]));
+        Assert.Equal(ToolDescriptions.FindTool[..(ToolDescriptions.FindTool.IndexOf(". ", StringComparison.Ordinal) + 1)], find["description"]!.GetValue<string>());
+    }
+
+    /// <summary>In the order of registration, find_tool and run_tools opened Snail.MCP.CleanUp's list before any tool of its own.</summary>
+    [Fact]
+    public async Task Listing_OfEveryTool_PutsTheToolsOfThePrefixFirst()
+    {
+        await using var stand = await DiscoveryStand.StartAsync(skills: false, discovery: options => options.Prefix = "render_");
+
+        var found = await stand.FindAsync(new() { ["task"] = "teleport a cat" });
+
+        Assert.Equal("render_image", Names(found)[0]);
+        Assert.Equal(["find_tool", "run_tools"], Names(found).Skip(1).Take(2));
+    }
+
+    [Theory]
+    [InlineData("Reads a file. Then more.", "Reads a file.")]
+    [InlineData("Reads a file\nwith more.", "Reads a file")]
+    [InlineData("  Reads v1.2 files.  ", "Reads v1.2 files.")]
+    public void Summary_IsTheFirstSentence(string description, string summary) =>
+        Assert.Equal(summary, Discovery.Summary(description));
+
+    [Fact]
+    public void Summary_OfALongSentence_IsCutAtAWord()
+    {
+        var summary = Discovery.Summary(string.Join(' ', Enumerable.Repeat("word", 60)));
+
+        Assert.EndsWith("word…", summary, StringComparison.Ordinal);
+        Assert.True(summary.Length <= 161, summary);
+    }
+
+    /// <summary>The SDK's example "push the branch" was Snail.MCP.Git's; a server gives its own words, or none is shown.</summary>
+    [Fact]
+    public async Task Examples_AreTheServersOwn_AndNoneByDefault()
+    {
+        await using var plain = await DiscoveryStand.StartAsync(skills: false);
+        await using var given = await DiscoveryStand.StartAsync(skills: false, discovery: options => options.Examples = ["rename a symbol", "find unused code"]);
+
+        Assert.Equal("What you are trying to do, in words.", TaskDescription(plain.Listed));
+        Assert.Equal("What you are trying to do, in words: 'rename a symbol', 'find unused code'.", TaskDescription(given.Listed));
+        Assert.True((await given.FindAsync(new() { ["task"] = "read a file" }))["isMatched"]!.GetValue<bool>());
+    }
+
+    /// <summary>The descriptions had grown to 844 and 1028 bytes against the fleet's 518 and 657: every session reads them.</summary>
+    [Fact]
+    public async Task Listing_OfFindToolAndRunTools_StaysShort()
+    {
+        await using var stand = await DiscoveryStand.StartAsync(skills: false);
+
+        Assert.InRange(ListedBytes(stand.Listed, "find_tool"), 1, 600);
+        Assert.InRange(ListedBytes(stand.Listed, "run_tools"), 1, 680);
+    }
+
+    /// <summary>A server whose tools state output schemas (Snail.MCP.FileSystem, every tool) gets find_tool and run_tools stating theirs, in its shape.</summary>
+    [Fact]
+    public async Task Server_ThatStatesOutputSchemas_GetsTheirsStated_InTheShapeItChose()
+    {
+        await using var plain = await DiscoveryStand.StartAsync(skills: false);
+        await using var data = await DiscoveryStand.StartAsync(skills: false, tools: DiscoveryStand.WithStatedSchema);
+        await using var envelope = await DiscoveryStand.StartAsync(
+            skills: false,
+            discovery: options => options.Shape = AnswerShape.Envelope,
+            sequences: options => options.Shape = AnswerShape.Envelope,
+            tools: DiscoveryStand.WithStatedSchema);
+
+        var foundData = await data.Client.CallToolAsync("find_tool", new Dictionary<string, object?> { ["task"] = "read a file" });
+        var foundEnvelope = await envelope.Client.CallToolAsync("find_tool", new Dictionary<string, object?> { ["task"] = "read a file" });
+        var ranEnvelope = await envelope.RunAsync(new JsonObject { ["tool"] = "list_files" });
+
+        Assert.All(plain.Listed.Where(tool => tool.Name is "find_tool" or "run_tools"), tool => Assert.Null(tool.ProtocolTool.OutputSchema));
+        Assert.True(Schema(data.Listed, "find_tool").GetProperty("properties").TryGetProperty("isMatched", out _));
+        Assert.True(Schema(data.Listed, "run_tools").GetProperty("properties").TryGetProperty("steps", out _));
+        Assert.True(foundData.StructuredContent!.Value.TryGetProperty("isMatched", out _));
+        Assert.True(Schema(envelope.Listed, "find_tool").GetProperty("properties").GetProperty("data").GetProperty("properties").TryGetProperty("tools", out _));
+        Assert.True(foundEnvelope.StructuredContent!.Value.GetProperty("ok").GetBoolean());
+        Assert.Equal(1, ranEnvelope.StructuredContent!.Value.GetProperty("data").GetProperty("ran").GetInt32());
+    }
+
+    private static string TaskDescription(IList<McpClientTool> listed) =>
+        listed.Single(tool => tool.Name == "find_tool").ProtocolTool.InputSchema.GetProperty("properties").GetProperty("task").GetProperty("description").GetString()!;
+
+    private static int ListedBytes(IList<McpClientTool> listed, string name) =>
+        Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(listed.Single(tool => tool.Name == name).ProtocolTool, McpJsonUtilities.DefaultOptions));
+
+    private static JsonElement Schema(IList<McpClientTool> listed, string name) => listed.Single(tool => tool.Name == name).ProtocolTool.OutputSchema!.Value;
 
     /// <summary>Blender's and AfterEffects' find_tool took intent, and their logs show clients sending task: either spelling is answered.</summary>
     [Fact]
@@ -346,6 +495,22 @@ public sealed class RunToolsTests
         Assert.Contains("'timeoutSeconds'", ran.Error(), StringComparison.Ordinal);
         Assert.Equal("arguments", JsonNode.Parse(ran.Text())!["type"]!.GetValue<string>());
     }
+
+    /// <summary>run_tools said it reached the world on a server whose every tool is closed (Snail.MCP.FileSystem).</summary>
+    [Fact]
+    public async Task Hints_AreThoseOfTheToolsItCanRun()
+    {
+        await using var open = await DiscoveryStand.StartAsync();
+        await using var closed = await DiscoveryStand.StartAsync(skills: false, tools: server => server.WithTools<NoteSample>());
+
+        var wide = Annotations(open.Listed);
+        var narrow = Annotations(closed.Listed);
+
+        Assert.Equal((false, true, true), (wide.ReadOnlyHint, wide.DestructiveHint, wide.OpenWorldHint));
+        Assert.Equal((true, false, false), (narrow.ReadOnlyHint, narrow.DestructiveHint, narrow.OpenWorldHint));
+    }
+
+    private static ToolAnnotations Annotations(IList<McpClientTool> listed) => listed.Single(tool => tool.Name == "run_tools").ProtocolTool.Annotations!;
 
     private static JsonObject Step(string tool, JsonObject? arguments = null) =>
         arguments is null ? new JsonObject { ["tool"] = tool } : new JsonObject { ["tool"] = tool, ["arguments"] = arguments };
@@ -583,7 +748,8 @@ internal sealed class DiscoveryStand : IAsyncDisposable
         Action<DiscoveryOptions>? discovery = null,
         Action<SequenceOptions>? sequences = null,
         TimeSpan idle = default,
-        string? protocolVersion = null)
+        string? protocolVersion = null,
+        Action<IMcpServerBuilder>? tools = null)
     {
         var toServer = new Pipe();
         var toClient = new Pipe();
@@ -602,9 +768,9 @@ internal sealed class DiscoveryStand : IAsyncDisposable
             .RefuseWhatWasNotGranted()
             .WithArgumentCheck()
             .WithToolDiscovery(discovery)
-            .WithToolSequences(sequences)
-            .WithTools<FileSample>()
-            .WithTools<RenderSample>();
+            .WithToolSequences(sequences);
+
+        (tools ?? WithSamples)(server);
 
         if (skills)
             server.WithSkills(options => (options.Name, options.IdleTimeout) = ("sample", idle));
@@ -615,6 +781,26 @@ internal sealed class DiscoveryStand : IAsyncDisposable
         var listed = await client.ListToolsAsync();
 
         return new DiscoveryStand(host, client, writes, clock, listed);
+    }
+
+    /// <summary>The sample tools every stand has unless a test gives its own.</summary>
+    public static void WithSamples(IMcpServerBuilder server) => server.WithTools<FileSample>().WithTools<RenderSample>();
+
+    /// <summary>The samples and a tool that states an output schema, as every tool of Snail.MCP.FileSystem does.</summary>
+    public static void WithStatedSchema(IMcpServerBuilder server)
+    {
+        var options = new McpServerToolCreateOptions
+        {
+            Name = "stat_file",
+            Description = "States the size of a file.",
+            ReadOnly = true,
+            OpenWorld = false,
+            UseStructuredContent = true,
+            OutputSchema = JsonElement.Parse("""{"type":"object","properties":{"size":{"type":"integer"}},"required":["size"]}"""),
+        };
+
+        WithSamples(server);
+        server.Services.AddSingleton(McpServerTool.Create(() => ToolAnswer.Ok(new JsonObject { ["size"] = 1 }), options));
     }
 
     /// <summary>The data of find_tool's answer to these arguments.</summary>
@@ -688,6 +874,19 @@ internal sealed class FileSample
 
     [McpServerTool(Name = "break_down", ReadOnly = true), Description("Breaks down inside.")]
     public static CallToolResult BreakDown() => throw new InvalidOperationException("the disk is gone");
+
+    [McpServerTool(Name = "tag_files", Destructive = false), Description("Tags files.")]
+    public static CallToolResult TagFiles([Description("The files' paths.")] string[] paths) => ToolAnswer.Ok(new JsonObject { ["tagged"] = paths.Length });
+}
+
+[McpServerToolType]
+internal sealed class NoteSample
+{
+    [McpServerTool(Name = "peek_note", ReadOnly = true, OpenWorld = false), Description("Shows a note.")]
+    public static CallToolResult PeekNote() => ToolAnswer.Ok(new JsonObject { ["note"] = "n" });
+
+    [McpServerTool(Name = "count_notes", ReadOnly = true, OpenWorld = false), Description("Counts the notes.")]
+    public static CallToolResult CountNotes() => ToolAnswer.Ok(new JsonObject { ["count"] = 1 });
 }
 
 [McpServerToolType]

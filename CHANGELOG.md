@@ -201,10 +201,17 @@ A change that a repository must act on says what to do.
     at — 4 for a word of the name or of `DiscoveryOptions.Meanings`, 2.5 for a form of one (four letters shared), 1 for
     a word of the description, English glue, `Noise` and the words of `Prefix` dropped — and answers
     `{task, isMatched, note, tools:[{name, command, description, parameters:[{name, type, isRequired, description}]}]}`
-    read from each tool's input schema, every tool with `isMatched` false when nothing matched. A tool the session may
-    not call (`IToolGate`) is not named. `CommandOf` names a tool's command for `run_program`; `Catalog` replaces the
-    registered tools for a server that keeps some outside its collection. `ToolCatalog.Of(typeof(X))` reads one class
-    without a server, for a guard test.
+    read from each tool's input schema, an array typed by its items (`string[]`, `integer[][]`; CleanUp's own index
+    wrote `string[]`, not `array`). When nothing matched, or no task was given, `isMatched` is false and every tool is
+    listed by its name and the first sentence of its description alone, the tools of `Prefix` first, with a note to ask
+    again in their words: an empty `find_tool` that listed every tool's parameters weighed 70 357 characters in Roslyn.
+    A tool the session may not call (`IToolGate`) is not named. `CommandOf` names a tool's command for `run_program`;
+    `Catalog` replaces the registered tools for a server that keeps some outside its collection; `Examples` shows the
+    server's own example tasks in the description of `task`, which shows none otherwise (the SDK's "push the branch"
+    was Git's); `Shape` is the structured content of a success (`AnswerShape`, the data by default).
+    `ToolCatalog.Of(typeof(X))` reads one class without a server, for a guard test, and
+    `ToolCatalog.Find(entries, task, limit, options)` ranks entries as `find_tool` does, so a server tests its words
+    without a host (Git).
   - `.WithToolSequences(options => …)` adds `run_tools(steps:[{tool, arguments}])`, `[Forwards]`: each step runs through
     `ToolForwarding.CallAsync`, so the grant holds and no forwarder is a step; the run stops at the first step that fails
     and answers its error, hint and type with the steps before it as data; each step's answer is unwrapped from its
@@ -212,7 +219,13 @@ A change that a repository must act on says what to do.
     `MaxSteps` (20). A step that names no tool is answered with the nearest name. A step that throws is a failed step —
     type `arguments` when the MCP SDK could not bind its arguments, otherwise `internal`, logged, in the words of
     `FailureOptions` — and the steps before it keep their answers (Roslyn lost them to one `internal` failure of the
-    run).
+    run). Its hints are its steps': read-only when every tool that can be a step is, destructive when any may be,
+    open-world when any is or does not say (it was always open-world, FileSystem's closed tools included); `Shape` as
+    for `find_tool`.
+  - `find_tool` and `run_tools` state an output schema, in their `Shape`, once any other tool of the server states one
+    (FileSystem gives every tool one); a server that states none keeps its tool list as it was. Their descriptions are
+    shorter, as a client lists them: `find_tool` 591 bytes (869 before), 822 with skills (1 223), `run_tools` 659
+    (1 083), against the fleet's own 518 and 657.
   - `.WithArgumentCheck()` refuses, before the tool runs, a call that leaves out a required parameter or sends one the
     tool does not take — `ToolAnswer.Failed` with `type` `arguments`, the parameter it probably meant (within a third of
     its length in edits, or a short form: `timeout` → `timeoutSeconds`, `path` → `remotePath`) and what the tool takes

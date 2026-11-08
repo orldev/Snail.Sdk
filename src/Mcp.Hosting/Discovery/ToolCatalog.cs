@@ -15,7 +15,8 @@ namespace Snail.Sdk.Mcp.Hosting.Discovery;
 /// </para>
 /// <para>
 /// <c>find_tool</c> reads the tools the server registered, which is what a server needs. <see cref="Of(Type, IServiceProvider?, JsonSerializerOptions?)"/>
-/// reads one class without a server — for a guard test, or a catalog of tools the server does not register.
+/// reads one class without a server — for a guard test, or a catalog of tools the server does not register — and
+/// <see cref="Find(IReadOnlyList{ToolEntry}, string?, int, DiscoveryOptions?)"/> ranks a catalog against a task as <c>find_tool</c> does, for a test of the server's words.
 /// </para>
 /// </remarks>
 public static class ToolCatalog
@@ -60,6 +61,52 @@ public static class ToolCatalog
         return tool.Metadata.OfType<SkillAttribute>().FirstOrDefault()?.Name;
     }
 
+    /// <summary>The entries that answer a task, best first and at most <paramref name="limit"/>: the ranking of <c>find_tool</c>, without a server.</summary>
+    /// <remarks>
+    /// <para>
+    /// For a server's test of its own words: that "publish the branch" finds <c>git_push</c> first is a fact about its
+    /// <see cref="DiscoveryOptions.Meanings"/> and descriptions, and asking it of <c>find_tool</c> took a host
+    /// (Snail.MCP.Git). <c>find_tool</c> answers with this ranking, over the tools the session may call.
+    /// </para>
+    /// <para>
+    /// Empty when the task holds no word that says something, or no entry answers it. Ties go by name, so an answer is
+    /// the same on every run.
+    /// </para>
+    /// </remarks>
+    /// <param name="entries">The catalog: <see cref="Of(IEnumerable{McpServerTool}, Func{string, string?})"/>, <see cref="Of(Type, IServiceProvider?, JsonSerializerOptions?)"/> or the server's own.</param>
+    /// <param name="task">The task in words, as a model sends it.</param>
+    /// <param name="limit">The most entries answered, one or more.</param>
+    /// <param name="options">The server's prefix, noise and meanings, as <c>WithToolDiscovery</c> takes them; none when null.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="limit"/> is below one.</exception>
+    public static IReadOnlyList<ToolEntry> Find(IReadOnlyList<ToolEntry> entries, string? task, int limit, DiscoveryOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+
+        var words = options ?? new DiscoveryOptions();
+
+        return Find(entries, task, limit, new Vocabulary(words.Noise, words.Prefix), words.Meanings);
+    }
+
+    /// <summary>The entries that answer a task, scored by <paramref name="vocabulary"/>, best first and at most <paramref name="limit"/>.</summary>
+    internal static IReadOnlyList<ToolEntry> Find(IReadOnlyList<ToolEntry> entries, string? task, int limit, Vocabulary vocabulary, IDictionary<string, string> meanings)
+    {
+        var asked = vocabulary.Asked(task);
+
+        if (asked.Count == 0)
+            return [];
+
+        var answering = entries
+            .Select(entry => (Entry: entry, Score: vocabulary.Score(asked, entry.Name, meanings.TryGetValue(entry.Name, out var meant) ? meant : null, entry.Description)))
+            .Where(scored => scored.Score > 0);
+        var best = answering
+            .OrderByDescending(scored => scored.Score)
+            .ThenBy(scored => scored.Entry.Name, StringComparer.Ordinal)
+            .Take(limit);
+
+        return [.. best.Select(scored => scored.Entry)];
+    }
+
     /// <summary>The parameters an input schema declares, in its order.</summary>
     internal static IReadOnlyList<ToolParameter> ParametersOf(JsonElement schema)
     {
@@ -90,19 +137,39 @@ public static class ToolCatalog
     private static object NeverCreated(RequestContext<CallToolRequestParams> request) =>
         throw new NotSupportedException("a catalog describes its tools and never invokes one");
 
-    /// <summary>The JSON type of a property: its <c>type</c>, the first that is not null of several, a string for an enum, an object otherwise.</summary>
-    private static string TypeOf(JsonElement property)
+    /// <summary>The JSON type of a property: its <c>type</c>, the first that is not null of several, a string for an enum, an object otherwise; an array named by its items.</summary>
+    /// <remarks>
+    /// An array is <c>string[]</c> rather than <c>array</c>, and an array of arrays <c>integer[][]</c>: "array" told a model
+    /// nothing about what to put in it, and Snail.MCP.CleanUp's own index had written <c>string[]</c> before the SDK's.
+    /// An array whose items say nothing stays <c>array</c>.
+    /// </remarks>
+    private static string TypeOf(JsonElement property) => KindOf(property) ?? (property.ValueKind == JsonValueKind.Object && property.TryGetProperty("enum", out _) ? "string" : "object");
+
+    /// <summary>The type a schema states, or null when it states none.</summary>
+    private static string? KindOf(JsonElement schema)
     {
-        if (property.ValueKind != JsonValueKind.Object)
-            return "object";
+        if (schema.ValueKind != JsonValueKind.Object || !schema.TryGetProperty("type", out var type))
+            return null;
 
-        if (property.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String)
-            return type.GetString()!;
+        var kind = type.ValueKind switch
+        {
+            JsonValueKind.String => type.GetString(),
+            JsonValueKind.Array => type.EnumerateArray().Select(each => each.ValueKind == JsonValueKind.String ? each.GetString() : null).FirstOrDefault(each => each is not null and not "null"),
+            _ => null,
+        };
 
-        if (type.ValueKind == JsonValueKind.Array && type.EnumerateArray().Select(each => each.GetString()).FirstOrDefault(each => each is not null and not "null") is { } first)
-            return first;
+        return kind == "array" ? ArrayOf(schema) : kind;
+    }
 
-        return property.TryGetProperty("enum", out _) ? "string" : "object";
+    /// <summary>An array named by its items, <c>string[]</c>; <c>array</c> when the items say nothing of their type.</summary>
+    private static string ArrayOf(JsonElement schema)
+    {
+        if (!schema.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Object)
+            return "array";
+
+        var item = KindOf(items) ?? (items.TryGetProperty("enum", out _) ? "string" : null) ?? (items.TryGetProperty("properties", out _) ? "object" : null);
+
+        return item is null ? "array" : $"{item}[]";
     }
 
     private static string? DescriptionOf(JsonElement property) =>

@@ -24,8 +24,11 @@ public static class DiscoveryRegistration
         /// schemas when the tool is called, or <see cref="DiscoveryOptions.Catalog"/>. A tool the session may not call is
         /// left out (<see cref="Sessions.IToolGate"/>). <c>intent</c> is taken for <c>task</c>. With
         /// <see cref="WithSkills"/>, each tool carries its <c>skill</c> and <c>isLoaded</c>, and <c>enable: true</c> loads the
-        /// skills of the tools found. The answer is <see cref="Answers.ToolAnswer.Ok(System.Text.Json.Nodes.JsonNode)"/> of
-        /// <c>{task, isMatched, note, tools:[{name, command, description, parameters:[{name, type, isRequired, description}]}]}</c>.
+        /// skills of the tools found. The answer is <see cref="Answers.ToolAnswer.Ok(System.Text.Json.Nodes.JsonNode, Answers.AnswerShape)"/>
+        /// of <c>{task, isMatched, note, tools:[{name, command, description, parameters:[{name, type, isRequired, description}]}]}</c>
+        /// in <see cref="DiscoveryOptions.Shape"/>; when nothing matches, every tool by its name and the first sentence of its
+        /// description, those of <see cref="DiscoveryOptions.Prefix"/> first. Once another tool of the server states an
+        /// output schema, <c>find_tool</c> states its own.
         /// </para>
         /// <para>Called twice, it registers once.</para>
         /// </remarks>
@@ -40,6 +43,7 @@ public static class DiscoveryRegistration
             builder.Services.AddSingleton(options);
             builder.Services.AddSingleton(new Discovery(options));
             builder.Services.AddSingleton<McpServerTool>(FindTool.Create);
+            builder.Services.PostConfigure<McpServerOptions>(server => FindTool.Fit(server, options));
 
             return builder;
         }
@@ -50,8 +54,13 @@ public static class DiscoveryRegistration
         /// A step is <c>{"tool": "…", "arguments": {…}}</c>, run through <see cref="Sessions.ToolForwarding.CallAsync"/>, so
         /// the session's grant holds for every step and no forwarder is a step. The answer is the envelope with each step's
         /// <c>{tool, ok, data}</c>, or the failure of the step that stopped the run with the steps before it as its data;
-        /// an answer past <see cref="SequenceOptions.OutputBudget"/> is left out and flagged <c>isOmitted</c>. With
-        /// <see cref="WithArgumentCheck"/>, each step's arguments are checked as a direct call's are.
+        /// an answer past <see cref="SequenceOptions.OutputBudget"/> is left out and flagged <c>isOmitted</c>. A step that
+        /// throws fails as a direct call answered by <c>ExplainFailures</c> would. With <see cref="WithArgumentCheck"/>,
+        /// each step's arguments are checked as a direct call's are.
+        /// </para>
+        /// <para>
+        /// The hints of <c>run_tools</c> are those of the tools it can run — read-only, destructive, open-world — read once
+        /// the server's tools are collected, and its output schema is stated once another tool states one.
         /// </para>
         /// <para>Called twice, it registers once.</para>
         /// </remarks>
@@ -65,6 +74,7 @@ public static class DiscoveryRegistration
 
             builder.Services.AddSingleton(options);
             builder.Services.AddSingleton<McpServerTool>(RunTools.Create);
+            builder.Services.PostConfigure<McpServerOptions>(server => RunTools.Fit(server, options));
 
             return builder;
         }

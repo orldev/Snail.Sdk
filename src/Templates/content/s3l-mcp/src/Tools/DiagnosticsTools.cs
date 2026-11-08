@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Reflection;
 using System.Text.Json.Nodes;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -17,11 +18,11 @@ public sealed class DiagnosticsTools
 {
     /// <summary>Reports the server's name, version and runtime.</summary>
     [McpServerTool(Name = "tmplshort_diagnose", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Say what state this server is in: its name, its version and the runtime it runs on. Changes nothing.")]
+    [Description(ToolDescriptions.Diagnose)]
     public static CallToolResult Diagnose()
     {
-        var assembly = typeof(DiagnosticsTools).Assembly.GetName();
-        var state = new JsonObject
+        AssemblyName assembly = typeof(DiagnosticsTools).Assembly.GetName();
+        JsonObject state = new()
         {
             ["server"] = assembly.Name,
             ["version"] = assembly.Version?.ToString(3),

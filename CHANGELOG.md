@@ -626,6 +626,10 @@ A change that a repository must act on says what to do.
 
 ### Changed
 
+- `dotnet new s3l-mcp` keeps its descriptions in `Tools/ToolDescriptions.cs`, as the guidelines ask, and `Program.cs`
+  holds no comment, which the analyzers do not see in top-level statements; `tmplshort_work` refuses a count outside 1
+  to `WorkTools.MostSteps` (type `arguments`) where it counted to the nearest bound without a word, and a guard test
+  holds its description to the constant. Its contract tests assert one behaviour each.
 - `MapLocalMcp` refuses a request with an `Origin` at the MCP endpoint — its path and the paths under it — rather than
   on the whole host. Snail.MCP.Figma's plugin calls the bridge of the same process with `Origin: null`, and the pages of
   Snail.MCP.AfterEffects post forms with an `Origin`, so each mapped the endpoint itself behind a refusal of its own;

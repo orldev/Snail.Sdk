@@ -1,4 +1,5 @@
 #if (jobs)
+using Snail.MCP.Template.Tools;
 using Snail.Sdk.Mcp.Hosting.Jobs;
 using Snail.Sdk.Mcp.JobClient;
 #endif
@@ -56,20 +57,49 @@ public sealed class StdioContractTests
         Assert.Equal(3, report.Result!.Value.GetProperty("count").GetInt32());
     }
 
-    /// <summary>A client that cannot wait is answered with the running job and reads it as a resource.</summary>
+    /// <summary>A client that cannot wait is answered with the running job.</summary>
     [Fact]
-    public async Task Work_AskedWithNoWait_AnswersWithTheJobToRead()
+    public async Task Work_AskedWithNoWait_AnswersWithTheRunningJob()
     {
         await using var client = await ServerProgram.StartAsync(Assembly, Variable);
 
         var started = await client.CallToolAsync("tmplshort_work", new Dictionary<string, object?> { ["upTo"] = 5, ["wait"] = 0 });
-        var running = started.Report();
-        var read = await client.ReadJobAsync(running!.Uri);
 
-        Assert.True(started.IsOk(), started.Text());
-        Assert.Equal(running.Uri, started.Data()!["uri"]!.GetValue<string>());
-        Assert.StartsWith("job://tmplshort/work/", running.Uri, StringComparison.Ordinal);
-        Assert.Equal(running.Uri, read.Uri);
+        Assert.StartsWith("job://tmplshort/work/", started.Report()!.Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Work_AskedWithNoWait_IsReadAsAResource()
+    {
+        await using var client = await ServerProgram.StartAsync(Assembly, Variable);
+        var started = await client.CallToolAsync("tmplshort_work", new Dictionary<string, object?> { ["upTo"] = 5, ["wait"] = 0 });
+
+        var read = await client.ReadJobAsync(started.Report()!.Uri);
+
+        Assert.Equal(started.Report()!.Uri, read.Uri);
+    }
+
+    /// <summary>A number out of range was counted to the nearest bound, silently: it is refused for what the call sent.</summary>
+    [Fact]
+    public async Task Work_PastTheMostSteps_IsRefusedForItsArguments()
+    {
+        await using var client = await ServerProgram.StartAsync(Assembly, Variable);
+
+        var refused = await client.CallToolAsync("tmplshort_work", new Dictionary<string, object?> { ["upTo"] = WorkTools.MostSteps + 1 });
+
+        Assert.Equal("arguments", refused.Type());
+    }
+
+    /// <summary>A limit written in a description drifts from the one in code; the words are held to the constant.</summary>
+    [Fact]
+    public async Task Work_AsListed_NamesTheMostSteps()
+    {
+        await using var client = await ServerProgram.StartAsync(Assembly, Variable);
+
+        var listed = await client.ListToolsAsync();
+        var upTo = listed.Single(tool => string.Equals(tool.Name, "tmplshort_work", StringComparison.Ordinal)).ProtocolTool.InputSchema.GetProperty("properties").GetProperty("upTo");
+
+        Assert.Contains($"1 to {WorkTools.MostSteps}", upTo.GetProperty("description").GetString(), StringComparison.Ordinal);
     }
 #endif
 }

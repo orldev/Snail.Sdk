@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using Snail.Sdk.Mcp.Hosting.Answers;
 using Snail.Sdk.Mcp.Hosting.Jobs;
 
 namespace Snail.MCP.Template.Tools;
@@ -17,29 +18,36 @@ namespace Snail.MCP.Template.Tools;
 [McpServerToolType]
 public sealed class WorkTools(Jobs jobs)
 {
+    /// <summary>The most a count goes to: a minute of steps a tenth of a second each.</summary>
+    public const int MostSteps = 600;
+
     /// <summary>Counts to a number, one step a tenth of a second, as a job.</summary>
+    /// <remarks>A number out of range is refused in the envelope, never counted to the nearest bound: a clamp did what was not asked and said nothing.</remarks>
     [McpServerTool(Name = "tmplshort_work", ReadOnly = false, Destructive = false, OpenWorld = false)]
-    [Description("Count to a number, a step every tenth of a second, as a job: answers with the count when it ends within the wait, or with the running job to read as a resource.")]
+    [Description(ToolDescriptions.Work)]
     public async Task<CallToolResult> WorkAsync(
-        [Description("The number to count to, 1 to 600.")] int upTo,
-        [Description("Seconds to wait for the count before answering with the job in flight; 0 answers at once.")] int wait = 60,
+        [Description(ToolDescriptions.WorkUpTo)] int upTo,
+        [Description(ToolDescriptions.WorkWait)] int wait = 60,
         CancellationToken cancellationToken = default)
     {
-        var steps = Math.Clamp(upTo, 1, 600);
-        var job = jobs.Start("work", async (progress, token) =>
-        {
-            for (var step = 1; step <= steps; step++)
-            {
-                await Task.Delay(100, token);
-                progress.Report(new JobProgress(step, steps, $"counted to {step}"));
-            }
+        if (upTo is < 1 or > MostSteps)
+            return ToolAnswer.Failed($"tmplshort_work counts to a number from 1 to {MostSteps}, not {upTo}", $"Send upTo from 1 to {MostSteps}.", "arguments");
 
-            return new Counted(steps);
-        }, WorkJson.Default.Counted);
-
-        var report = await job.ForAsync(TimeSpan.FromSeconds(wait), cancellationToken);
+        Job job = jobs.Start("work", (progress, token) => CountAsync(upTo, progress, token), WorkJson.Default.Counted);
+        JobReport report = await job.ForAsync(TimeSpan.FromSeconds(wait), cancellationToken);
 
         return JobAnswer.Envelope(report);
+    }
+
+    private static async Task<Counted> CountAsync(int upTo, IProgress<JobProgress> progress, CancellationToken cancellationToken)
+    {
+        for (int step = 1; step <= upTo; step++)
+        {
+            await Task.Delay(100, cancellationToken);
+            progress.Report(new JobProgress(step, upTo, $"counted to {step}"));
+        }
+
+        return new Counted(upTo);
     }
 }
 

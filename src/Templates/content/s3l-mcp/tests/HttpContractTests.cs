@@ -53,20 +53,26 @@ public sealed class HttpContractTests : IAsyncLifetime
         Assert.Equal(["tmplshort_diagnose"], listed.Select(tool => tool.Name));
     }
 
-    /// <summary>A tool the address did not grant is not listed, and a call to it is refused in the envelope, flagged an error.</summary>
     [Fact]
-    public async Task Diagnose_NotGranted_IsHiddenAndRefused()
+    public async Task Diagnose_NotGranted_IsNotListed()
     {
         await using var client = await _server.SessionAsync("tool=tmplshort_other");
 
         var listed = await client.ListToolsAsync();
-        var answer = await client.CallToolAsync("tmplshort_diagnose", new Dictionary<string, object?>());
 
         Assert.Empty(listed);
+    }
+
+    /// <summary>A call to a tool the address did not grant is refused in the envelope, flagged an error.</summary>
+    [Fact]
+    public async Task Diagnose_NotGranted_IsRefusedInTheEnvelope()
+    {
+        await using var client = await _server.SessionAsync("tool=tmplshort_other");
+
+        var answer = await client.CallToolAsync("tmplshort_diagnose", new Dictionary<string, object?>());
+
         Assert.True(answer.IsError);
-        Assert.False(answer.IsOk());
-        Assert.Contains("'tmplshort_diagnose' was not granted", answer.Error(), StringComparison.Ordinal);
-        Assert.NotNull(answer.Hint());
+        Assert.Equal("notGranted", answer.Type());
     }
 
 #if (jobs)

@@ -10,6 +10,11 @@ namespace Snail.MCP.Template.Extensions;
 public static class ServerHost
 {
     /// <summary>Runs the server until the client or the system ends it.</summary>
+    /// <remarks>
+    /// A setting the operator got wrong is a <see cref="Snail.Sdk.Mcp.Hosting.StartRefusedException"/>, which the
+    /// program writes to stderr as one line and exits with 1: thrown on, it was a crash with a trace and exit code 134.
+    /// </remarks>
+    /// <exception cref="Snail.Sdk.Mcp.Hosting.StartRefusedException">A setting holds what it cannot mean, or would open the endpoint beyond its reach.</exception>
     public static Task RunAsync(string[] args)
     {
 #if (IsBoth)

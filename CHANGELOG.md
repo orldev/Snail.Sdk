@@ -446,19 +446,19 @@ A change that a repository must act on says what to do.
   `.WithPrograms<TCommands>(options => options.Global = "git")` beside `AddMcpServer`. A program is JavaScript run on
   Jint 4.17.0 beside the server, whose global object holds the server's commands — `git.status()`,
   `blender.add_primitive({ … })` — so work that decides as it goes costs one call. `TCommands` is an `IProgramCommands`
-  (`Names`, `ToolOf(command)`, `CallAsync`, answering a `ProgramAnswer`; `CallAsync(command, arguments, context, …)`
-  hands a command the request of `run_program` — its session, services and progress token — and calls the one without
-  it unless a catalog overrides it; `CallAsync(CommandCall call, …)`, which the runner calls, hands it all at once —
-  `Command`, `Arguments`, `Request`, and the program's `Deadline` with `Remaining`, so a command that waits on a
-  bridge waits as long as its program has left, where Snail.MCP.AfterEffects waited `MaxTimeout` for every command —
-  and calls the other two unless a catalog overrides it, so a catalog written against either compiles unchanged), or
+  (`Names`, `ToolOf(command)` and one `CallAsync(CommandCall call, …)`, answering the fleet's `Answer<JsonNode?>`:
+  `call` holds `Command`, `Arguments`, `Request` — the request of `run_program`, its session, services and progress
+  token — and the program's `Deadline` with `Remaining`, so a command that waits on a bridge waits as long as its
+  program has left, where Snail.MCP.AfterEffects waited `MaxTimeout` for every command; what a command is sent with
+  grows on `CommandCall`, never as another overload), or
   `ToolCommands`, every tool of the server
   but the forwarders, `notes_read` called as `notes.read()`, through `ToolForwarding.CallAsync`. The tool is marked
   `[Forwards]`; before every command the session's gate is asked for the command's tool — or, where `ToolOf` answers
   null because the command stands for none (two of Snail.MCP.AfterEffects' 129), for the command's own name, which a
   scope gate judges as a command and the default gate grants as a tool; null never passes the gate — and a refusal,
   like any failed command, reaches the program as `{ error, message, hint, type, details }`, which it may catch, as
-  the description of `run_program` now says in full. A command the server
+  the description of `run_program` now says in full. A command that throws is a failed command too, in the words
+  `ExplainFailures` gives a tool that threw (`internal`), and stays in `calls`. A command the server
   does not have stops the program with the names nearest to it (`no command 'stauts'; the nearest: status`) instead of
   "is not a function"; `log(…)` is a global of the program only, so a command named `log` still runs (Snail.MCP.Git's
   collision). `ProgramOptions` bound a program — `Timeout` 120 s and `MaxTimeout` 600 s (raised to a `Timeout` set past
@@ -660,6 +660,11 @@ A change that a repository must act on says what to do.
 
 ### Fixed
 
+- A job whose work threw failed with the exception's message whatever words the server gave a failure: it is read as
+  `ExplainFailures` reads a tool that threw now — `FailureOptions.Error`, `Type` and `Refuse<TException>` hold for a job
+  as for a tool, so a path or a connection string the server keeps out of its answers stays out of its jobs, and a
+  failure of the server is logged once with its trace. Without words of the server's own it reads as before: its
+  message, type `internal`, no hint of its own.
 - The API reference writes a generic type or method a summary names as C# does — `Answer<T>`, `Ok<T>`,
   `Pair<T1, T2>` — where it dropped the backtick of the compiler's id and left `Answer1` and `WorkspaceCopy1`.
 - The API reference names a static extension member by the type it extends and lists it under that type —

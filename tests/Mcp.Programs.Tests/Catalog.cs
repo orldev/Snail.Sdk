@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Snail.Sdk.Mcp.Hosting.Answers;
 
 namespace Snail.Sdk.Mcp.Programs.Tests;
 
@@ -13,23 +14,25 @@ internal sealed class Catalog : IProgramCommands
 
     public string ToolOf(string command) => $"git_{command}";
 
-    public async Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, CancellationToken cancellationToken)
+    public async Task<Answer<JsonNode?>> CallAsync(CommandCall call, CancellationToken cancellationToken)
     {
         Interlocked.Increment(ref _sent);
 
-        switch (command)
+        JsonObject arguments = call.Arguments;
+
+        switch (call.Command)
         {
             case "slow":
                 await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
-                return ProgramAnswer.Ok(null);
+                return Answer.Ok<JsonNode?>(null);
             case "count":
-                return ProgramAnswer.Ok(new JsonObject { ["n"] = (arguments["n"]?.GetValue<int>() ?? 0) + 1 });
+                return Answer.Ok<JsonNode?>(new JsonObject { ["n"] = (arguments["n"]?.GetValue<int>() ?? 0) + 1 });
             case "fail":
-                return ProgramAnswer.Failed("the branch is gone", "list the branches first", "NotFound", new JsonObject { ["branch"] = "main" });
+                return Answer.Failed("the branch is gone", "list the branches first", "NotFound", new JsonObject { ["branch"] = "main" });
             case "log":
-                return ProgramAnswer.Ok(new JsonObject { ["history"] = new JsonArray("a1", "b2") });
+                return Answer.Ok<JsonNode?>(new JsonObject { ["history"] = new JsonArray("a1", "b2") });
             default:
-                return ProgramAnswer.Ok(new JsonObject { ["clean"] = true, ["given"] = arguments.DeepClone() });
+                return Answer.Ok<JsonNode?>(new JsonObject { ["clean"] = true, ["given"] = arguments.DeepClone() });
         }
     }
 }

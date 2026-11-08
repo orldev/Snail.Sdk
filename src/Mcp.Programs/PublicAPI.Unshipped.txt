@@ -1,28 +1,4 @@
 #nullable enable
-const Snail.Sdk.Mcp.Programs.ProgramFailures.Cancelled = "cancelled" -> string!
-const Snail.Sdk.Mcp.Programs.ProgramFailures.Invalid = "invalid" -> string!
-const Snail.Sdk.Mcp.Programs.ProgramFailures.NoSuchCommand = "noSuchCommand" -> string!
-const Snail.Sdk.Mcp.Programs.ProgramFailures.NotGranted = "notGranted" -> string!
-const Snail.Sdk.Mcp.Programs.ProgramFailures.ProgramTooLarge = "programTooLarge" -> string!
-const Snail.Sdk.Mcp.Programs.ProgramFailures.Runtime = "runtime" -> string!
-const Snail.Sdk.Mcp.Programs.ProgramFailures.Syntax = "syntax" -> string!
-const Snail.Sdk.Mcp.Programs.ProgramFailures.Timeout = "timeout" -> string!
-const Snail.Sdk.Mcp.Programs.ProgramFailures.TooManyCalls = "tooManyCalls" -> string!
-override Snail.Sdk.Mcp.Programs.CommandCall.Equals(object? obj) -> bool
-override Snail.Sdk.Mcp.Programs.CommandCall.GetHashCode() -> int
-override Snail.Sdk.Mcp.Programs.CommandCall.ToString() -> string!
-override Snail.Sdk.Mcp.Programs.ProgramAnswer.Equals(object? obj) -> bool
-override Snail.Sdk.Mcp.Programs.ProgramAnswer.GetHashCode() -> int
-override Snail.Sdk.Mcp.Programs.ProgramAnswer.ToString() -> string!
-override Snail.Sdk.Mcp.Programs.ProgramCall.Equals(object? obj) -> bool
-override Snail.Sdk.Mcp.Programs.ProgramCall.GetHashCode() -> int
-override Snail.Sdk.Mcp.Programs.ProgramCall.ToString() -> string!
-override Snail.Sdk.Mcp.Programs.ProgramFailure.Equals(object? obj) -> bool
-override Snail.Sdk.Mcp.Programs.ProgramFailure.GetHashCode() -> int
-override Snail.Sdk.Mcp.Programs.ProgramFailure.ToString() -> string!
-override Snail.Sdk.Mcp.Programs.ProgramRun.Equals(object? obj) -> bool
-override Snail.Sdk.Mcp.Programs.ProgramRun.GetHashCode() -> int
-override Snail.Sdk.Mcp.Programs.ProgramRun.ToString() -> string!
 Snail.Sdk.Mcp.Programs.CommandCall
 Snail.Sdk.Mcp.Programs.CommandCall.<Clone>$() -> Snail.Sdk.Mcp.Programs.CommandCall!
 Snail.Sdk.Mcp.Programs.CommandCall.Arguments.get -> System.Text.Json.Nodes.JsonObject!
@@ -34,56 +10,62 @@ Snail.Sdk.Mcp.Programs.CommandCall.Deadline.get -> System.DateTimeOffset
 Snail.Sdk.Mcp.Programs.CommandCall.Deadline.init -> void
 Snail.Sdk.Mcp.Programs.CommandCall.Deconstruct(out string! Command, out System.Text.Json.Nodes.JsonObject! Arguments, out ModelContextProtocol.Server.RequestContext<ModelContextProtocol.Protocol.CallToolRequestParams!>? Request, out System.DateTimeOffset Deadline) -> void
 Snail.Sdk.Mcp.Programs.CommandCall.Equals(Snail.Sdk.Mcp.Programs.CommandCall? other) -> bool
+override Snail.Sdk.Mcp.Programs.CommandCall.Equals(object? obj) -> bool
+override Snail.Sdk.Mcp.Programs.CommandCall.GetHashCode() -> int
 Snail.Sdk.Mcp.Programs.CommandCall.Remaining.get -> System.TimeSpan
 Snail.Sdk.Mcp.Programs.CommandCall.Request.get -> ModelContextProtocol.Server.RequestContext<ModelContextProtocol.Protocol.CallToolRequestParams!>?
 Snail.Sdk.Mcp.Programs.CommandCall.Request.init -> void
+override Snail.Sdk.Mcp.Programs.CommandCall.ToString() -> string!
+static Snail.Sdk.Mcp.Programs.CommandCall.operator !=(Snail.Sdk.Mcp.Programs.CommandCall? left, Snail.Sdk.Mcp.Programs.CommandCall? right) -> bool
+static Snail.Sdk.Mcp.Programs.CommandCall.operator ==(Snail.Sdk.Mcp.Programs.CommandCall? left, Snail.Sdk.Mcp.Programs.CommandCall? right) -> bool
 Snail.Sdk.Mcp.Programs.IProgramCommands
-Snail.Sdk.Mcp.Programs.IProgramCommands.CallAsync(Snail.Sdk.Mcp.Programs.CommandCall! call, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Programs.ProgramAnswer!>!
-Snail.Sdk.Mcp.Programs.IProgramCommands.CallAsync(string! command, System.Text.Json.Nodes.JsonObject! arguments, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Programs.ProgramAnswer!>!
-Snail.Sdk.Mcp.Programs.IProgramCommands.CallAsync(string! command, System.Text.Json.Nodes.JsonObject! arguments, ModelContextProtocol.Server.RequestContext<ModelContextProtocol.Protocol.CallToolRequestParams!>! context, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Programs.ProgramAnswer!>!
+Snail.Sdk.Mcp.Programs.IProgramCommands.CallAsync(Snail.Sdk.Mcp.Programs.CommandCall! call, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Hosting.Answers.Answer<System.Text.Json.Nodes.JsonNode?>!>!
 Snail.Sdk.Mcp.Programs.IProgramCommands.Names.get -> System.Collections.Generic.IReadOnlyList<string!>!
 Snail.Sdk.Mcp.Programs.IProgramCommands.ToolOf(string! command) -> string?
-Snail.Sdk.Mcp.Programs.ProgramAnswer
-Snail.Sdk.Mcp.Programs.ProgramAnswer.<Clone>$() -> Snail.Sdk.Mcp.Programs.ProgramAnswer!
-Snail.Sdk.Mcp.Programs.ProgramAnswer.Data.get -> System.Text.Json.Nodes.JsonNode?
-Snail.Sdk.Mcp.Programs.ProgramAnswer.Data.init -> void
-Snail.Sdk.Mcp.Programs.ProgramAnswer.Deconstruct(out System.Text.Json.Nodes.JsonNode? Data, out string? Error, out string? Hint, out string? Type, out System.Text.Json.Nodes.JsonNode? Details) -> void
-Snail.Sdk.Mcp.Programs.ProgramAnswer.Details.get -> System.Text.Json.Nodes.JsonNode?
-Snail.Sdk.Mcp.Programs.ProgramAnswer.Details.init -> void
-Snail.Sdk.Mcp.Programs.ProgramAnswer.Equals(Snail.Sdk.Mcp.Programs.ProgramAnswer? other) -> bool
-Snail.Sdk.Mcp.Programs.ProgramAnswer.Error.get -> string?
-Snail.Sdk.Mcp.Programs.ProgramAnswer.Error.init -> void
-Snail.Sdk.Mcp.Programs.ProgramAnswer.Hint.get -> string?
-Snail.Sdk.Mcp.Programs.ProgramAnswer.Hint.init -> void
-Snail.Sdk.Mcp.Programs.ProgramAnswer.IsSuccess.get -> bool
-Snail.Sdk.Mcp.Programs.ProgramAnswer.ProgramAnswer(System.Text.Json.Nodes.JsonNode? Data, string? Error = null, string? Hint = null, string? Type = null, System.Text.Json.Nodes.JsonNode? Details = null) -> void
-Snail.Sdk.Mcp.Programs.ProgramAnswer.Type.get -> string?
-Snail.Sdk.Mcp.Programs.ProgramAnswer.Type.init -> void
 Snail.Sdk.Mcp.Programs.ProgramCall
 Snail.Sdk.Mcp.Programs.ProgramCall.<Clone>$() -> Snail.Sdk.Mcp.Programs.ProgramCall!
 Snail.Sdk.Mcp.Programs.ProgramCall.Command.get -> string!
 Snail.Sdk.Mcp.Programs.ProgramCall.Command.init -> void
 Snail.Sdk.Mcp.Programs.ProgramCall.Deconstruct(out string! Command, out bool IsOk, out int Milliseconds) -> void
 Snail.Sdk.Mcp.Programs.ProgramCall.Equals(Snail.Sdk.Mcp.Programs.ProgramCall? other) -> bool
+override Snail.Sdk.Mcp.Programs.ProgramCall.Equals(object? obj) -> bool
+override Snail.Sdk.Mcp.Programs.ProgramCall.GetHashCode() -> int
 Snail.Sdk.Mcp.Programs.ProgramCall.IsOk.get -> bool
 Snail.Sdk.Mcp.Programs.ProgramCall.IsOk.init -> void
 Snail.Sdk.Mcp.Programs.ProgramCall.Milliseconds.get -> int
 Snail.Sdk.Mcp.Programs.ProgramCall.Milliseconds.init -> void
 Snail.Sdk.Mcp.Programs.ProgramCall.ProgramCall(string! Command, bool IsOk, int Milliseconds) -> void
+override Snail.Sdk.Mcp.Programs.ProgramCall.ToString() -> string!
+static Snail.Sdk.Mcp.Programs.ProgramCall.operator !=(Snail.Sdk.Mcp.Programs.ProgramCall? left, Snail.Sdk.Mcp.Programs.ProgramCall? right) -> bool
+static Snail.Sdk.Mcp.Programs.ProgramCall.operator ==(Snail.Sdk.Mcp.Programs.ProgramCall? left, Snail.Sdk.Mcp.Programs.ProgramCall? right) -> bool
 Snail.Sdk.Mcp.Programs.ProgramFailure
 Snail.Sdk.Mcp.Programs.ProgramFailure.<Clone>$() -> Snail.Sdk.Mcp.Programs.ProgramFailure!
 Snail.Sdk.Mcp.Programs.ProgramFailure.Deconstruct(out string! Type, out string! Error, out string? Hint, out System.Text.Json.Nodes.JsonNode? Details) -> void
 Snail.Sdk.Mcp.Programs.ProgramFailure.Details.get -> System.Text.Json.Nodes.JsonNode?
 Snail.Sdk.Mcp.Programs.ProgramFailure.Details.init -> void
 Snail.Sdk.Mcp.Programs.ProgramFailure.Equals(Snail.Sdk.Mcp.Programs.ProgramFailure? other) -> bool
+override Snail.Sdk.Mcp.Programs.ProgramFailure.Equals(object? obj) -> bool
 Snail.Sdk.Mcp.Programs.ProgramFailure.Error.get -> string!
 Snail.Sdk.Mcp.Programs.ProgramFailure.Error.init -> void
+override Snail.Sdk.Mcp.Programs.ProgramFailure.GetHashCode() -> int
 Snail.Sdk.Mcp.Programs.ProgramFailure.Hint.get -> string?
 Snail.Sdk.Mcp.Programs.ProgramFailure.Hint.init -> void
 Snail.Sdk.Mcp.Programs.ProgramFailure.ProgramFailure(string! Type, string! Error, string? Hint = null, System.Text.Json.Nodes.JsonNode? Details = null) -> void
+override Snail.Sdk.Mcp.Programs.ProgramFailure.ToString() -> string!
 Snail.Sdk.Mcp.Programs.ProgramFailure.Type.get -> string!
 Snail.Sdk.Mcp.Programs.ProgramFailure.Type.init -> void
+static Snail.Sdk.Mcp.Programs.ProgramFailure.operator !=(Snail.Sdk.Mcp.Programs.ProgramFailure? left, Snail.Sdk.Mcp.Programs.ProgramFailure? right) -> bool
+static Snail.Sdk.Mcp.Programs.ProgramFailure.operator ==(Snail.Sdk.Mcp.Programs.ProgramFailure? left, Snail.Sdk.Mcp.Programs.ProgramFailure? right) -> bool
 Snail.Sdk.Mcp.Programs.ProgramFailures
+const Snail.Sdk.Mcp.Programs.ProgramFailures.Cancelled = "cancelled" -> string!
+const Snail.Sdk.Mcp.Programs.ProgramFailures.Invalid = "invalid" -> string!
+const Snail.Sdk.Mcp.Programs.ProgramFailures.NoSuchCommand = "noSuchCommand" -> string!
+const Snail.Sdk.Mcp.Programs.ProgramFailures.NotGranted = "notGranted" -> string!
+const Snail.Sdk.Mcp.Programs.ProgramFailures.Runtime = "runtime" -> string!
+const Snail.Sdk.Mcp.Programs.ProgramFailures.Syntax = "syntax" -> string!
+const Snail.Sdk.Mcp.Programs.ProgramFailures.Timeout = "timeout" -> string!
+const Snail.Sdk.Mcp.Programs.ProgramFailures.TooLarge = "programTooLarge" -> string!
+const Snail.Sdk.Mcp.Programs.ProgramFailures.TooManyCalls = "tooManyCalls" -> string!
 Snail.Sdk.Mcp.Programs.ProgramOptions
 Snail.Sdk.Mcp.Programs.ProgramOptions.Description.get -> string?
 Snail.Sdk.Mcp.Programs.ProgramOptions.Description.set -> void
@@ -111,6 +93,7 @@ Snail.Sdk.Mcp.Programs.ProgramOptions.ResultBytes.set -> void
 Snail.Sdk.Mcp.Programs.ProgramOptions.Timeout.get -> System.TimeSpan
 Snail.Sdk.Mcp.Programs.ProgramOptions.Timeout.set -> void
 Snail.Sdk.Mcp.Programs.ProgramRegistration
+static Snail.Sdk.Mcp.Programs.ProgramRegistration.WithPrograms<TCommands>(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, System.Action<Snail.Sdk.Mcp.Programs.ProgramOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
 Snail.Sdk.Mcp.Programs.ProgramRegistration.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!)
 Snail.Sdk.Mcp.Programs.ProgramRegistration.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).WithPrograms<TCommands>(System.Action<Snail.Sdk.Mcp.Programs.ProgramOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
 Snail.Sdk.Mcp.Programs.ProgramRun
@@ -119,32 +102,23 @@ Snail.Sdk.Mcp.Programs.ProgramRun.Calls.get -> System.Collections.Generic.IReadO
 Snail.Sdk.Mcp.Programs.ProgramRun.Calls.init -> void
 Snail.Sdk.Mcp.Programs.ProgramRun.Deconstruct(out System.Text.Json.Nodes.JsonNode? Result, out System.Collections.Generic.IReadOnlyList<string!>! Log, out System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Programs.ProgramCall!>! Calls, out Snail.Sdk.Mcp.Programs.ProgramFailure? Failure) -> void
 Snail.Sdk.Mcp.Programs.ProgramRun.Equals(Snail.Sdk.Mcp.Programs.ProgramRun? other) -> bool
+override Snail.Sdk.Mcp.Programs.ProgramRun.Equals(object? obj) -> bool
 Snail.Sdk.Mcp.Programs.ProgramRun.Failure.get -> Snail.Sdk.Mcp.Programs.ProgramFailure?
 Snail.Sdk.Mcp.Programs.ProgramRun.Failure.init -> void
+override Snail.Sdk.Mcp.Programs.ProgramRun.GetHashCode() -> int
 Snail.Sdk.Mcp.Programs.ProgramRun.Log.get -> System.Collections.Generic.IReadOnlyList<string!>!
 Snail.Sdk.Mcp.Programs.ProgramRun.Log.init -> void
 Snail.Sdk.Mcp.Programs.ProgramRun.ProgramRun(System.Text.Json.Nodes.JsonNode? Result, System.Collections.Generic.IReadOnlyList<string!>! Log, System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Programs.ProgramCall!>! Calls, Snail.Sdk.Mcp.Programs.ProgramFailure? Failure) -> void
 Snail.Sdk.Mcp.Programs.ProgramRun.Result.get -> System.Text.Json.Nodes.JsonNode?
 Snail.Sdk.Mcp.Programs.ProgramRun.Result.init -> void
+override Snail.Sdk.Mcp.Programs.ProgramRun.ToString() -> string!
+static Snail.Sdk.Mcp.Programs.ProgramRun.operator !=(Snail.Sdk.Mcp.Programs.ProgramRun? left, Snail.Sdk.Mcp.Programs.ProgramRun? right) -> bool
+static Snail.Sdk.Mcp.Programs.ProgramRun.operator ==(Snail.Sdk.Mcp.Programs.ProgramRun? left, Snail.Sdk.Mcp.Programs.ProgramRun? right) -> bool
 Snail.Sdk.Mcp.Programs.ProgramRunner
 Snail.Sdk.Mcp.Programs.ProgramRunner.ProgramRunner(Snail.Sdk.Mcp.Programs.ProgramOptions! options) -> void
 Snail.Sdk.Mcp.Programs.ProgramRunner.RunAsync(Snail.Sdk.Mcp.Programs.IProgramCommands! commands, string! code, System.Text.Json.Nodes.JsonObject? input = null, System.TimeSpan? timeout = null, System.Func<string!, string?>? refusal = null, ModelContextProtocol.Server.RequestContext<ModelContextProtocol.Protocol.CallToolRequestParams!>? context = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Programs.ProgramRun!>!
 Snail.Sdk.Mcp.Programs.ToolCommands
-Snail.Sdk.Mcp.Programs.ToolCommands.CallAsync(string! command, System.Text.Json.Nodes.JsonObject! arguments, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Programs.ProgramAnswer!>!
+Snail.Sdk.Mcp.Programs.ToolCommands.CallAsync(Snail.Sdk.Mcp.Programs.CommandCall! call, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Hosting.Answers.Answer<System.Text.Json.Nodes.JsonNode?>!>!
 Snail.Sdk.Mcp.Programs.ToolCommands.Names.get -> System.Collections.Generic.IReadOnlyList<string!>!
 Snail.Sdk.Mcp.Programs.ToolCommands.ToolCommands(ModelContextProtocol.Server.RequestContext<ModelContextProtocol.Protocol.CallToolRequestParams!>! context, string? prefix = null) -> void
 Snail.Sdk.Mcp.Programs.ToolCommands.ToolOf(string! command) -> string!
-static Snail.Sdk.Mcp.Programs.CommandCall.operator !=(Snail.Sdk.Mcp.Programs.CommandCall? left, Snail.Sdk.Mcp.Programs.CommandCall? right) -> bool
-static Snail.Sdk.Mcp.Programs.CommandCall.operator ==(Snail.Sdk.Mcp.Programs.CommandCall? left, Snail.Sdk.Mcp.Programs.CommandCall? right) -> bool
-static Snail.Sdk.Mcp.Programs.ProgramAnswer.Failed(string! error, string? hint = null, string? type = null, System.Text.Json.Nodes.JsonNode? details = null) -> Snail.Sdk.Mcp.Programs.ProgramAnswer!
-static Snail.Sdk.Mcp.Programs.ProgramAnswer.From(ModelContextProtocol.Protocol.CallToolResult! result) -> Snail.Sdk.Mcp.Programs.ProgramAnswer!
-static Snail.Sdk.Mcp.Programs.ProgramAnswer.Ok(System.Text.Json.Nodes.JsonNode? data) -> Snail.Sdk.Mcp.Programs.ProgramAnswer!
-static Snail.Sdk.Mcp.Programs.ProgramAnswer.operator !=(Snail.Sdk.Mcp.Programs.ProgramAnswer? left, Snail.Sdk.Mcp.Programs.ProgramAnswer? right) -> bool
-static Snail.Sdk.Mcp.Programs.ProgramAnswer.operator ==(Snail.Sdk.Mcp.Programs.ProgramAnswer? left, Snail.Sdk.Mcp.Programs.ProgramAnswer? right) -> bool
-static Snail.Sdk.Mcp.Programs.ProgramCall.operator !=(Snail.Sdk.Mcp.Programs.ProgramCall? left, Snail.Sdk.Mcp.Programs.ProgramCall? right) -> bool
-static Snail.Sdk.Mcp.Programs.ProgramCall.operator ==(Snail.Sdk.Mcp.Programs.ProgramCall? left, Snail.Sdk.Mcp.Programs.ProgramCall? right) -> bool
-static Snail.Sdk.Mcp.Programs.ProgramFailure.operator !=(Snail.Sdk.Mcp.Programs.ProgramFailure? left, Snail.Sdk.Mcp.Programs.ProgramFailure? right) -> bool
-static Snail.Sdk.Mcp.Programs.ProgramFailure.operator ==(Snail.Sdk.Mcp.Programs.ProgramFailure? left, Snail.Sdk.Mcp.Programs.ProgramFailure? right) -> bool
-static Snail.Sdk.Mcp.Programs.ProgramRegistration.WithPrograms<TCommands>(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, System.Action<Snail.Sdk.Mcp.Programs.ProgramOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
-static Snail.Sdk.Mcp.Programs.ProgramRun.operator !=(Snail.Sdk.Mcp.Programs.ProgramRun? left, Snail.Sdk.Mcp.Programs.ProgramRun? right) -> bool
-static Snail.Sdk.Mcp.Programs.ProgramRun.operator ==(Snail.Sdk.Mcp.Programs.ProgramRun? left, Snail.Sdk.Mcp.Programs.ProgramRun? right) -> bool

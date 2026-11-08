@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Snail.Sdk.Mcp.Hosting.Answers;
 using Snail.Sdk.Mcp.Programs;
 
 // The program to run is the first argument; the answer is one line of JSON on stdout: result, log, failure.
@@ -27,6 +28,6 @@ internal sealed class Echo : IProgramCommands
 
     public string ToolOf(string command) => command;
 
-    public Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, CancellationToken cancellationToken) =>
-        Task.FromResult(ProgramAnswer.Ok(arguments.DeepClone()));
+    public Task<Answer<JsonNode?>> CallAsync(CommandCall call, CancellationToken cancellationToken) =>
+        Task.FromResult(Answer.Ok<JsonNode?>(call.Arguments.DeepClone()));
 }

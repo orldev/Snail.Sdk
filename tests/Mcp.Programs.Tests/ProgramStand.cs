@@ -125,12 +125,12 @@ internal sealed class NoteCommands(Notes notes) : IProgramCommands
 
     public string ToolOf(string command) => $"notes_{command}";
 
-    public Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, CancellationToken cancellationToken)
+    public Task<Answer<JsonNode?>> CallAsync(CommandCall call, CancellationToken cancellationToken)
     {
-        if (command == "write")
-            notes.Write(arguments["text"]?.GetValue<string>() ?? string.Empty);
+        if (string.Equals(call.Command, "write", StringComparison.Ordinal))
+            notes.Write(call.Arguments["text"]?.GetValue<string>() ?? string.Empty);
 
-        return Task.FromResult(ProgramAnswer.Ok(new JsonObject { ["count"] = notes.Written.Count }));
+        return Task.FromResult(Answer.Ok<JsonNode?>(new JsonObject { ["count"] = notes.Written.Count }));
     }
 }
 
@@ -144,10 +144,7 @@ internal sealed class BridgeCommands : IProgramCommands
 
     public string? ToolOf(string command) => null;
 
-    public Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, CancellationToken cancellationToken) =>
-        Task.FromResult(ProgramAnswer.Failed("called without what it was sent with", "run_program sends every command a CommandCall", "noCall"));
-
-    public Task<ProgramAnswer> CallAsync(CommandCall call, CancellationToken cancellationToken)
+    public Task<Answer<JsonNode?>> CallAsync(CommandCall call, CancellationToken cancellationToken)
     {
         var answer = new JsonObject
         {
@@ -157,7 +154,7 @@ internal sealed class BridgeCommands : IProgramCommands
             ["tool"] = call.Request?.Params?.Name,
         };
 
-        return Task.FromResult(ProgramAnswer.Ok(answer));
+        return Task.FromResult(Answer.Ok<JsonNode?>(answer));
     }
 }
 
@@ -168,11 +165,11 @@ internal sealed class RequestCommands : IProgramCommands
 
     public string ToolOf(string command) => $"notes_{command}";
 
-    public Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, CancellationToken cancellationToken) =>
-        Task.FromResult(ProgramAnswer.Failed("called without the request", "run_program hands every command its request", "noRequest"));
-
-    public Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, RequestContext<CallToolRequestParams> context, CancellationToken cancellationToken)
+    public Task<Answer<JsonNode?>> CallAsync(CommandCall call, CancellationToken cancellationToken)
     {
+        if (call.Request is not { } context)
+            return Task.FromResult<Answer<JsonNode?>>(Answer.Failed("called without the request", "run_program hands every command its request", "noRequest"));
+
         var notes = (context.Services ?? context.Server.Services)!.GetRequiredService<Notes>();
         var answer = new JsonObject
         {
@@ -181,7 +178,7 @@ internal sealed class RequestCommands : IProgramCommands
             ["notes"] = notes.Written.Count,
         };
 
-        return Task.FromResult(ProgramAnswer.Ok(answer));
+        return Task.FromResult(Answer.Ok<JsonNode?>(answer));
     }
 }
 

@@ -10,6 +10,7 @@ using Jint.Runtime;
 using Jint.Runtime.Interop;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using Snail.Sdk.Mcp.Hosting;
 using Snail.Sdk.Mcp.Hosting.Answers;
 using Snail.Sdk.Mcp.Hosting.Sessions;
 
@@ -256,11 +257,6 @@ public sealed class ProgramRunner(ProgramOptions options)
         }
 
         /// <summary>One command the program sent, run to its answer before the program goes on.</summary>
-        /// <remarks>
-        /// The wait is the design, not a shortcut: Jint calls a host function synchronously and expects its value back, and
-        /// the program runs on a pool thread of its own with no synchronisation context to deadlock on.
-        /// </remarks>
-        [SuppressMessage("Usage", "VSTHRD002", Justification = "Jint's host functions are synchronous; the program runs on a pool thread of its own, and only that thread waits.")]
         private JsValue Send(string command, JsValue[] arguments)
         {
             if (_calls.Count >= _options.MaxCalls)
@@ -274,25 +270,46 @@ public sealed class ProgramRunner(ProgramOptions options)
             if (_deadline.IsCancellationRequested)
                 throw new ProgramStopped(OutOfTime());
 
-            var given = Arguments(command, arguments);
-
-            var tool = _commands.ToolOf(command) ?? command;
+            JsonObject given = Arguments(command, arguments);
+            string tool = _commands.ToolOf(command) ?? command;
 
             if (_refusal?.Invoke(tool) is { } refused)
             {
                 _calls.Add(new ProgramCall(command, false, 0));
 
-                throw new JavaScriptException(Failure(ProgramAnswer.Failed(refused, Hint(tool), ProgramFailures.NotGranted)));
+                throw new JavaScriptException(Failure(new AnswerFailure(refused, Hint(tool), ProgramFailures.NotGranted)));
             }
 
-            var started = _running.Elapsed;
-            ProgramAnswer answer;
+            TimeSpan started = _running.Elapsed;
+            Answer<JsonNode?> answer = Answered(command, given, started);
 
+            _calls.Add(new ProgramCall(command, answer.IsSuccess, Milliseconds(started)));
+
+            return answer.TryGet(out JsonNode? data)
+                ? Parsed(data)
+                : throw new JavaScriptException(Failure(new AnswerFailure(answer.Error, answer.Hint, answer.Type) { Details = answer.Details }));
+        }
+
+        /// <summary>The command's answer, a command that threw answered as its failure, and the program stopped when its time ran out.</summary>
+        /// <remarks>
+        /// <para>
+        /// The wait is the design, not a shortcut: Jint calls a host function synchronously and expects its value back, and
+        /// the program runs on a pool thread of its own with no synchronisation context to deadlock on.
+        /// </para>
+        /// <para>
+        /// A command that threw was let through to the engine, which handed it on: the program ended as a failure of
+        /// <c>run_program</c> itself, and the commands it had already sent left the trace. It is a failed command like any
+        /// other now, in the words <c>ExplainFailures</c> gives a tool that threw, which the program may catch.
+        /// </para>
+        /// </remarks>
+        [SuppressMessage("Usage", "VSTHRD002", Justification = "Jint's host functions are synchronous; the program runs on a pool thread of its own, and only that thread waits.")]
+        private Answer<JsonNode?> Answered(string command, JsonObject given, TimeSpan started)
+        {
             try
             {
-                var sent = _commands.CallAsync(new CommandCall(command, given, _context, _ends), _deadline.Token);
+                Task<Answer<JsonNode?>> sent = _commands.CallAsync(new CommandCall(command, given, _context, _ends), _deadline.Token);
 
-                answer = sent.WaitAsync(_deadline.Token).GetAwaiter().GetResult();
+                return sent.WaitAsync(_deadline.Token).GetAwaiter().GetResult();
             }
             catch (OperationCanceledException) when (_deadline.IsCancellationRequested)
             {
@@ -300,10 +317,12 @@ public sealed class ProgramRunner(ProgramOptions options)
 
                 throw new ProgramStopped(OutOfTime());
             }
+            catch (Exception failure)
+            {
+                AnswerFailure told = ToolFailures.FailureOf(command, failure, _context?.Services ?? _context?.Server.Services, ToolFailures.Hint);
 
-            _calls.Add(new ProgramCall(command, answer.IsSuccess, Milliseconds(started)));
-
-            return answer.IsSuccess ? Parsed(answer.Data) : throw new JavaScriptException(Failure(answer));
+                return told.As<JsonNode?>();
+            }
         }
 
         /// <summary>What a command refused for want of a grant tells the program to do next: the server's hint, as its door and forwarders give it.</summary>
@@ -329,7 +348,7 @@ public sealed class ProgramRunner(ProgramOptions options)
         }
 
         /// <summary>A failed command as the exception a program catches: <c>error</c> and <c>message</c>, <c>hint</c>, <c>type</c>, <c>details</c>.</summary>
-        private JsObject Failure(ProgramAnswer answer)
+        private JsObject Failure(AnswerFailure answer)
         {
             var failure = new JsObject(_engine);
 
@@ -377,7 +396,7 @@ public sealed class ProgramRunner(ProgramOptions options)
             return new ProgramFailure(ProgramFailures.Timeout, $"the program ran longer than the {seconds} seconds it was given", $"{SentStand}; give it more time with timeoutSeconds, or split the work");
         }
 
-        private static ProgramFailure TooLarge(string error, string hint) => new(ProgramFailures.ProgramTooLarge, error, hint);
+        private static ProgramFailure TooLarge(string error, string hint) => new(ProgramFailures.TooLarge, error, hint);
 
         private JsValue Write(JsValue[] written)
         {

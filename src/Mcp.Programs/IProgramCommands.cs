@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
-using ModelContextProtocol.Protocol;
-using ModelContextProtocol.Server;
+using Snail.Sdk.Mcp.Hosting.Answers;
 
 namespace Snail.Sdk.Mcp.Programs;
 
@@ -33,47 +32,23 @@ public interface IProgramCommands
     /// </remarks>
     string? ToolOf(string command);
 
-    /// <summary>Runs one command with the arguments the program passed, answering with its data or why it failed.</summary>
-    /// <param name="command">One of <see cref="Names"/>.</param>
-    /// <param name="arguments">The object the program passed, empty when it passed none.</param>
-    /// <param name="cancellationToken">Ends the command when the program runs out of time or its call is cancelled.</param>
-    Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, CancellationToken cancellationToken);
-
-    /// <summary>Runs one command for the request of <c>run_program</c> that sent it, answering with its data or why it failed.</summary>
-    /// <remarks>
-    /// The default calls <see cref="CallAsync(string, JsonObject, CancellationToken)"/>, so a catalog written before it
-    /// compiles and runs unchanged; <see cref="CallAsync(CommandCall, CancellationToken)"/>, which <c>run_program</c> calls,
-    /// calls this one when it has a request.
-    /// </remarks>
-    /// <param name="command">One of <see cref="Names"/>.</param>
-    /// <param name="arguments">The object the program passed, empty when it passed none.</param>
-    /// <param name="context">The request of <c>run_program</c> whose program sent the command.</param>
-    /// <param name="cancellationToken">Ends the command when the program runs out of time or its call is cancelled.</param>
-    Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, RequestContext<CallToolRequestParams> context, CancellationToken cancellationToken) =>
-        CallAsync(command, arguments, cancellationToken);
-
     /// <summary>Runs one command the program sent, with all it was sent with — the request of <c>run_program</c>, the time the program has left — answering with its data or why it failed.</summary>
     /// <remarks>
     /// <para>
-    /// <see cref="ProgramRunner"/> calls this one for every command. A catalog that needs more than the command and its
-    /// arguments overrides it: the session, the services of the request and the grant are on <see cref="CommandCall.Request"/>,
-    /// and a command that waits on something slow — a bridge into another application — takes its own timeout from
-    /// <see cref="CommandCall.Remaining"/> rather than a ceiling of its own. Snail.MCP.AfterEffects waited the longest a
-    /// program may run for every command, since nothing told it the time this program had left.
+    /// A catalog that needs more than the command and its arguments reads it here: the session, the services of the
+    /// request and the grant are on <see cref="CommandCall.Request"/>, and a command that waits on something slow — a
+    /// bridge into another application — takes its own timeout from <see cref="CommandCall.Remaining"/> rather than a
+    /// ceiling of its own. Snail.MCP.AfterEffects waited the longest a program may run for every command, since nothing
+    /// told it the time this program had left.
     /// </para>
     /// <para>
-    /// The default calls the request overload when there is a request and the plain one otherwise, so a catalog written
-    /// before it compiles and runs unchanged. What a command is sent with will grow here, not in another overload.
+    /// A failure reaches the program as an exception it may catch — <c>{ error, message, hint, type, details }</c>, the
+    /// answer's <see cref="Answer{T}.Details"/> as <c>details</c> — so the answer is the fleet's <see cref="Answer{T}"/>
+    /// rather than a type of this package. What a command is sent with grows on <see cref="CommandCall"/>, never as
+    /// another overload every catalog would have to carry.
     /// </para>
     /// </remarks>
     /// <param name="call">The command, its arguments, the request and the program's deadline.</param>
     /// <param name="cancellationToken">Ends the command when the program runs out of time or its call is cancelled.</param>
-    Task<ProgramAnswer> CallAsync(CommandCall call, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(call);
-
-        return call.Request is { } request
-            ? CallAsync(call.Command, call.Arguments, request, cancellationToken)
-            : CallAsync(call.Command, call.Arguments, cancellationToken);
-    }
+    Task<Answer<JsonNode?>> CallAsync(CommandCall call, CancellationToken cancellationToken);
 }

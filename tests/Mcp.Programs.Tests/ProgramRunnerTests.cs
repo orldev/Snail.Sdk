@@ -41,7 +41,7 @@ public sealed class ProgramRunnerTests
     {
         var run = await RunAsync("function down(n) { return down(n + 1); }\nreturn down(0);");
 
-        Assert.Equal(ProgramFailures.ProgramTooLarge, run.Failure!.Type);
+        Assert.Equal(ProgramFailures.TooLarge, run.Failure!.Type);
         Assert.Equal("the program nested its calls deeper than 256 levels", run.Failure.Error);
         Assert.Contains("loop", run.Failure.Hint, StringComparison.Ordinal);
     }
@@ -54,7 +54,7 @@ public sealed class ProgramRunnerTests
 
         var run = await RunAsync("while (true) {}");
 
-        Assert.Equal(ProgramFailures.ProgramTooLarge, run.Failure!.Type);
+        Assert.Equal(ProgramFailures.TooLarge, run.Failure!.Type);
         Assert.Equal("the program ran more than 1000000 statements", run.Failure.Error);
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(20), $"took {watch.Elapsed}");
     }
@@ -64,7 +64,7 @@ public sealed class ProgramRunnerTests
     {
         var run = await RunAsync("const held = []; for (let i = 0; i < 100000; i++) { held.push('x'.repeat(10000) + i); }\nreturn held.length;");
 
-        Assert.Equal(ProgramFailures.ProgramTooLarge, run.Failure!.Type);
+        Assert.Equal(ProgramFailures.TooLarge, run.Failure!.Type);
         Assert.Equal("the program used more than the 32 MB of memory a program may use", run.Failure.Error);
     }
 
@@ -221,6 +221,23 @@ public sealed class ProgramRunnerTests
         Assert.Equal("main", run.Result!.GetValue<string>());
     }
 
+    /// <summary>A command that threw ended its program as a failure of run_program, and the commands sent before it left the trace.</summary>
+    [Fact]
+    public async Task CommandThatThrew_Caught_IsAFailureOfTheTypeInternal()
+    {
+        var run = await RunAsync("try { git.drop(); } catch (e) { return e.type; }", commands: new Throwing());
+
+        Assert.Equal("internal", run.Result!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task CommandThatThrew_Uncaught_KeepsTheCommandsSentBeforeIt()
+    {
+        var run = await RunAsync("git.status(); git.drop();", commands: new Throwing());
+
+        Assert.Equal(["status", "drop"], run.Calls.Select(call => call.Command));
+    }
+
     /// <summary>With log on the commands' object, git.log wrote a line instead of reading the history, silently (Snail.MCP.Git).</summary>
     [Fact]
     public async Task Log_IsTheProgramsOwn_AndACommandNamedLogStillRuns()
@@ -307,6 +324,19 @@ public sealed class ProgramRunnerTests
         return new ProgramRunner(options).RunAsync(commands ?? _catalog, code, input, timeout, refusal, cancellationToken: cancellationToken);
     }
 
+    /// <summary>A catalog whose <c>drop</c> throws, as a bridge that lost its connection does.</summary>
+    private sealed class Throwing : IProgramCommands
+    {
+        public IReadOnlyList<string> Names { get; } = ["drop", "status"];
+
+        public string ToolOf(string command) => $"git_{command}";
+
+        public Task<Answer<JsonNode?>> CallAsync(CommandCall call, CancellationToken cancellationToken) =>
+            string.Equals(call.Command, "drop", StringComparison.Ordinal)
+                ? throw new InvalidOperationException("the bridge dropped the connection")
+                : Task.FromResult(Answer.Ok<JsonNode?>(new JsonObject { ["clean"] = true }));
+    }
+
     /// <summary>Commands that stand for no tool, and keep what each was sent with.</summary>
     private sealed class Named(IReadOnlyList<string> names, List<CommandCall>? sent = null) : IProgramCommands
     {
@@ -314,14 +344,11 @@ public sealed class ProgramRunnerTests
 
         public string? ToolOf(string command) => null;
 
-        public Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, CancellationToken cancellationToken) =>
-            Task.FromResult(ProgramAnswer.Ok(null));
-
-        public Task<ProgramAnswer> CallAsync(CommandCall call, CancellationToken cancellationToken)
+        public Task<Answer<JsonNode?>> CallAsync(CommandCall call, CancellationToken cancellationToken)
         {
             sent?.Add(call);
 
-            return Task.FromResult(ProgramAnswer.Ok(null));
+            return Task.FromResult(Answer.Ok<JsonNode?>(null));
         }
     }
 }

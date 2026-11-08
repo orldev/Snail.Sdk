@@ -13,7 +13,7 @@ public static class ProgramFailures
     public const string Cancelled = "cancelled";
 
     /// <summary>The program nested its calls too deep, ran too many statements or held too much memory.</summary>
-    public const string ProgramTooLarge = "programTooLarge";
+    public const string TooLarge = "programTooLarge";
 
     /// <summary>The program sent more commands than a program may.</summary>
     public const string TooManyCalls = "tooManyCalls";

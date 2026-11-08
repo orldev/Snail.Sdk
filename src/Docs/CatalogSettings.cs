@@ -5,8 +5,13 @@ using System.Text.RegularExpressions;
 
 namespace Snail.Sdk.Docs;
 
-/// <summary>A family as docs/tools.json names it: the class of tools, the page it gets, the title it shows.</summary>
-internal sealed record FamilyName(string Type, string Slug, string Title);
+/// <summary>A family as docs/tools.json names it: the class of tools, or the tools by name, the page it gets, the title it shows.</summary>
+/// <remarks>
+/// <see cref="Tools"/> names tools no class of the server declares — the ones Snail.Sdk registers, such as
+/// <c>find_tool</c>, <c>run_tools</c>, <c>run_program</c> and the skill tools — in the order the page shows them. A family
+/// names a class or tools, never both.
+/// </remarks>
+internal sealed record FamilyName(string? Type, string Slug, string Title, IReadOnlyList<string>? Tools = null);
 
 /// <summary>
 /// What a server says about its own pages, in docs/tools.json: the families in reading order, the words that open the
@@ -17,6 +22,9 @@ internal sealed partial record CatalogSettings
 {
     /// <summary>The slug of the page listing every tool, which no family may take.</summary>
     private const string Index = "index";
+
+    /// <summary>The family of the tools no class declares and no family names: the ones Snail.Sdk registers.</summary>
+    public static readonly FamilyName Registered = new(null, "discovery", "Finding and combining tools");
 
     private static readonly JsonSerializerOptions Options = new()
     {
@@ -96,6 +104,9 @@ internal sealed partial record CatalogSettings
 
         foreach (var type in Repeated(named.Select(family => family.Type)))
             yield return $"the class {type} is named by more than one family";
+
+        foreach (var tool in Repeated(named.SelectMany(family => family.Tools ?? [])))
+            yield return $"the tool {tool} is named by more than one family";
     }
 
     private static IEnumerable<string> FamilyProblems(FamilyName? family, string where)
@@ -106,8 +117,15 @@ internal sealed partial record CatalogSettings
             yield break;
         }
 
-        if (string.IsNullOrWhiteSpace(family.Type))
-            yield return $"{where} names no class (type)";
+        var namesTools = family.Tools is not null;
+
+        if (string.IsNullOrWhiteSpace(family.Type) && !namesTools)
+            yield return $"{where} names no class (type) and no tools";
+        else if (family.Type is not null && namesTools)
+            yield return $"{where} names a class (type) and tools: a family is one or the other";
+
+        if (namesTools && (family.Tools!.Count == 0 || family.Tools.Any(string.IsNullOrWhiteSpace)))
+            yield return $"{where}: tools must be a list of tool names";
 
         if (family.Slug is null || !SlugShape().IsMatch(family.Slug))
             yield return $"{where}: the slug \"{family.Slug}\" is not lower-case letters, digits and hyphens";
@@ -124,15 +142,8 @@ internal sealed partial record CatalogSettings
     /// <summary>Whether the settings name this class of tools.</summary>
     public bool Names(string type) => Families.Any(family => family.Type == type);
 
-    /// <summary>The classes in reading order: as the settings list them, or by name without settings.</summary>
-    public IEnumerable<string> Order(IEnumerable<string> declared)
-    {
-        var present = declared.ToHashSet(StringComparer.Ordinal);
-
-        return Families.Count == 0
-            ? present.Order(StringComparer.Ordinal)
-            : Families.Select(family => family.Type).Where(present.Contains);
-    }
+    /// <summary>The tools the settings name by name, in no family's order.</summary>
+    public IReadOnlySet<string> NamedTools() => Families.SelectMany(family => family.Tools ?? []).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>The family of a class: named by the settings, or after the class.</summary>
     public ToolFamily Family(string type, string? skill, IReadOnlyList<CatalogEntry> tools)

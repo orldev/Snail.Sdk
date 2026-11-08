@@ -187,7 +187,7 @@ The install publishes a server into `~/.s3l-mcp/<SnailMcpName>/<date>-<time>.<co
 
 | Target | Run | Does |
 | --- | --- | --- |
-| `SnailReference` | after the build, with `-p:SnailReference=true` | Writes the tool reference into `SnailReferenceFolder` from the server's own copy of the MCP SDK: the pages are what a client receives in `tools/list`; no tool runs. `docs/tools.json` is validated first (errors S3LD0001–S3LD0003, see [Conformance](conformance.md#the-reference-generator)). |
+| `SnailReference` | after the build, with `-p:SnailReference=true` | Writes the tool reference into `SnailReferenceFolder` from the server's own copy of the MCP SDK: the pages are what a client receives in `tools/list`, the tools Snail.Sdk registers included, read from the host the entry point builds and stops before it starts; no tool runs. `docs/tools.json` is validated first (errors S3LD0001–S3LD0003, see [Conformance](conformance.md#the-reference-generator)). |
 | `SnailMcpNamePublication` | before publish, on an install | Names the publication folder (time and commit, `-dirty` with uncommitted changes) and publishes into it; never over an existing one. |
 | `SnailMcpInstall` | after publish, on an install | Publishes the companions, warms a native program up, points `current` at the publication, removes the old ones beyond `SnailMcpKept`, then writes the launchd job and prints or runs what loads it. |
 | `SnailSite` | `dotnet msbuild <project> -t:SnailSite` | Builds the site. |

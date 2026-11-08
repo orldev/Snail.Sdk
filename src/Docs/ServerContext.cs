@@ -9,8 +9,9 @@ namespace Snail.Sdk.Docs;
 /// <remarks>
 /// The wire copy of a tool is what the server's own copy of the MCP SDK makes of the method, so the server is loaded with
 /// every assembly from its output folder, and with the shared frameworks its runtimeconfig.json names beyond the one this
-/// program runs on (ASP.NET Core, for a server with HTTP): whichever SDK version it uses describes its tools. Nothing the server declares
-/// runs — no host is built, no tool invoked; the SDK only reads the methods. The context lives as long as this short
+/// program runs on (ASP.NET Core, for a server with HTTP): whichever SDK version it uses describes its tools. The classes
+/// are read without running anything: the SDK only reads the methods. The tools Snail.Sdk registers are read from the
+/// server's host, built by its entry point and stopped before it starts (<see cref="HostTools"/>); no tool is invoked. The context lives as long as this short
 /// program: not collectible, since the container the descriptions are made with implements one of its interfaces, which
 /// a generated proxy cannot do for a collectible assembly.
 /// </remarks>

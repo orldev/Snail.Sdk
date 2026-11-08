@@ -8,7 +8,7 @@ namespace Snail.Sdk.Docs;
 /// </summary>
 /// <remarks>
 /// The MCP SDK leaves a parameter out of the schema when the container's <c>IServiceProviderIsService</c> says its type
-/// is a service. The real container is built by the server's host, which the reference never runs, so the answer is
+/// is a service. The real container is built by the server's host, which the classes are read without, so the answer is
 /// read from the type: of .NET and ASP.NET, what a host registers (Microsoft.Extensions.*, Microsoft.AspNetCore.*,
 /// TimeProvider); of the server's own, an interface or abstract class that is not a collection (a port), or a class that
 /// is neither a record nor made by a parameterless constructor (a store, a registry). Values, strings, enumerations,

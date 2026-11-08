@@ -8,6 +8,7 @@ using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using Snail.Sdk.Mcp.Hosting.Sessions;
 using Snail.Sdk.Mcp.Testing;
+using static Snail.Sdk.Mcp.Tests.Refusals;
 
 namespace Snail.Sdk.Mcp.Tests;
 
@@ -142,6 +143,32 @@ public sealed class SessionGrantTests
         Assert.Equal("this session only reads", refused.Error());
     }
 
+    /// <summary>A stateless server has no session: "not granted to this session" told its caller about one it never had.</summary>
+    [Fact]
+    public void Refusal_SpeaksOfTheRequest_WhereTheAddressSpeaksForOne()
+    {
+        var named = new SessionGrant(new StatelessAddress(("tool", "read_note")));
+        var none = new SessionGrant(new StatelessAddress());
+
+        Assert.Equal("'write_note' was not granted to this request, which may use read_note", named.Refusal("write_note"));
+        Assert.Equal("'write_note' was not granted to this request, which was granted no tool: name each tool it may use in the address, ?tool=<name>", none.Refusal("write_note"));
+    }
+
+    /// <summary>The hint reads as the hints beside it do, and names no session a stateless server would not have.</summary>
+    [Fact]
+    public async Task Call_RefusedAtTheDoor_CarriesTheTypeAndTheFleetsHint()
+    {
+        await using var stand = await SessionStand.StartAsync(new FixedAddress(("tool", "read_note")));
+
+        var refused = await stand.Client.CallToolAsync("write_note", new Dictionary<string, object?> { ["text"] = "x" });
+
+        Assert.Equal(GrantOptions.Hint, refused.Hint());
+        Assert.Equal(GrantOptions.NotGranted, TypeOf(refused));
+        Assert.True(char.IsLower(GrantOptions.Hint[0]));
+        Assert.False(GrantOptions.Hint.EndsWith('.'));
+        Assert.DoesNotContain("session", GrantOptions.Hint, StringComparison.Ordinal);
+    }
+
     private sealed class ReadOnlyGate : IToolGate
     {
         public string? Refusal(string tool, IServiceProvider services) =>
@@ -218,6 +245,47 @@ public sealed class ToolForwardingTests
 
         Assert.Equal("'git_push' was not granted to this session, which may use git_status, run_commands", refused.Text());
         Assert.Equal("ran status", allowed.Text());
+    }
+
+    /// <summary>Snail.MCP.Git copied the type and the hint to answer a refused command as the door answers a refused tool.</summary>
+    [Fact]
+    public async Task Refused_OfACommandThatIsNoTool_IsTheDoorsAnswer()
+    {
+        await using var stand = await SessionStand.StartAsync(new FixedAddress(("tool", "git_status"), ("tool", "run_catalog")));
+
+        var refused = await stand.Client.CallToolAsync("run_catalog", new Dictionary<string, object?> { ["command"] = "push" });
+        var allowed = await stand.Client.CallToolAsync("run_catalog", new Dictionary<string, object?> { ["command"] = "status" });
+
+        Assert.True(refused.IsError);
+        Assert.Equal("'git_push' was not granted to this session, which may use git_status, run_catalog", refused.Error());
+        Assert.Equal((GrantOptions.Hint, GrantOptions.NotGranted), (refused.Hint(), TypeOf(refused)));
+        Assert.Equal("ran status", allowed.Text());
+    }
+
+    [Fact]
+    public async Task Refused_OfACommandThatIsNoTool_TakesTheShapeTheServerGaveTheDoor()
+    {
+        await using var stand = await SessionStand.StartAsync(
+            new FixedAddress(("tool", "run_catalog")),
+            options => options.Refusal = (tool, words) => new CallToolResult { IsError = true, Content = [new TextContentBlock { Text = $"{tool}: {words}" }] });
+
+        var refused = await stand.Client.CallToolAsync("run_catalog", new Dictionary<string, object?> { ["command"] = "push" });
+
+        Assert.StartsWith("git_push: 'git_push' was not granted", refused.Text(), StringComparison.Ordinal);
+    }
+
+    /// <summary>A program branching on the type met <c>notGranted</c> from the catalog and <c>refused</c> from its runner: one refusal, one word.</summary>
+    [Fact]
+    public async Task Refused_AsAnAnswer_OfACommandThatIsNoTool_CarriesTheDoorsTypeAndHint()
+    {
+        await using var stand = await SessionStand.StartAsync(new FixedAddress(("tool", "run_answers")));
+
+        var refused = await stand.Client.CallToolAsync("run_answers", new Dictionary<string, object?> { ["command"] = "push" });
+        await using var ungated = await SessionStand.StartAsync(new FixedAddress());
+        var allowed = await ungated.Client.CallToolAsync("run_answers", new Dictionary<string, object?> { ["command"] = "push" });
+
+        Assert.Equal($"'git_push' was not granted to this session, which may use run_answers|{GrantOptions.Hint}|{GrantOptions.NotGranted}", refused.Text());
+        Assert.Equal("ran push", allowed.Text());
     }
 }
 
@@ -313,6 +381,14 @@ internal sealed class NoteTools
     public static string RunCommands(RequestContext<CallToolRequestParams> context, [Description("The command.")] string command) =>
         ToolForwarding.Refusal(context, $"git_{command}") ?? $"ran {command}";
 
+    [McpServerTool(Name = "run_catalog", Destructive = true), Description("Runs a command, answered as the door answers a tool.")]
+    public static CallToolResult RunCatalog(RequestContext<CallToolRequestParams> context, [Description("The command.")] string command) =>
+        ToolForwarding.Refused(context, $"git_{command}") ?? new CallToolResult { Content = [new TextContentBlock { Text = $"ran {command}" }] };
+
+    [McpServerTool(Name = "run_answers", Destructive = true), Description("Runs a command whose answer is an Answer, and says its failure.")]
+    public static string RunAnswers(RequestContext<CallToolRequestParams> context, [Description("The command.")] string command) =>
+        ToolForwarding.Refused<JsonNode>(context, $"git_{command}") is { } refused ? $"{refused.Error}|{refused.Hint}|{refused.Type}" : $"ran {command}";
+
     private static async Task<CallToolResult> Forward(RequestContext<CallToolRequestParams> context, string step, JsonObject? arguments, CancellationToken cancellationToken)
     {
         if (!context.Server.ServerOptions.ToolCollection!.TryGetPrimitive(step, out var tool))
@@ -320,4 +396,21 @@ internal sealed class NoteTools
 
         return await ToolForwarding.CallAsync(context, tool, arguments, cancellationToken);
     }
+}
+
+/// <summary>What the sample tests read of an answer beyond its words.</summary>
+internal static class Refusals
+{
+    /// <summary>The type the envelope of the answer carries.</summary>
+    public static string? TypeOf(CallToolResult answer) => JsonNode.Parse(answer.Text())?["type"]?.GetValue<string>();
+}
+
+/// <summary>An address that speaks for one request, as the address of a stateless transport does.</summary>
+internal sealed class StatelessAddress(params (string Parameter, string Value)[] values) : ISessionAddress
+{
+    private readonly FixedAddress _fixed = new(values);
+
+    public string Subject => "request";
+
+    public IReadOnlyList<string> Values(string parameter) => _fixed.Values(parameter);
 }

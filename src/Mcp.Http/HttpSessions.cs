@@ -23,13 +23,15 @@ public static partial class HttpSessions
         /// sessions, calls this beside <c>WithHttpTransport</c>. Every request of a session is posted to the same URL, so the
         /// query of the current one answers about the session; outside a request — a job that outlived its call — it
         /// answers nothing. Called before or after <c>RefuseWhatWasNotGranted</c> and <c>WithSessionRoots</c> alike: it
-        /// replaces the address they register, and they add theirs only where there is none.
+        /// replaces the address they register, and they add theirs only where there is none. Its
+        /// <see cref="ISessionAddress.Subject"/> is <c>request</c> on a transport that keeps no sessions
+        /// (<c>HttpServerSessionMode.Stateless</c>), so a refusal there speaks of the request rather than of a session.
         /// </remarks>
         public IMcpServerBuilder WithSessionAddress()
         {
             builder.Services.AddHttpContextAccessor();
             builder.Services.RemoveAll<ISessionAddress>();
-            builder.Services.AddSingleton<ISessionAddress>(provider => new HttpSessionAddress(provider.GetRequiredService<IHttpContextAccessor>()));
+            builder.Services.AddSingleton<ISessionAddress>(provider => new HttpSessionAddress(provider.GetRequiredService<IHttpContextAccessor>(), provider));
 
             return builder;
         }
@@ -62,7 +64,7 @@ public static partial class HttpSessions
             var requests = services.GetService<IHttpContextAccessor>()
                 ?? throw new InvalidOperationException("JobOwners.Session reads the request being served, and no IHttpContextAccessor is registered: call WithLocalHttpTransport or WithSessionAddress.");
 
-            if (services.GetService<IOptions<HttpServerTransportOptions>>()?.Value.SessionMode == HttpServerSessionMode.Stateless)
+            if (IsStateless(services))
                 return null;
 
             return requests.HttpContext?.Request.Headers[SessionHeader] is { Count: > 0 } session && !string.IsNullOrWhiteSpace(session) ? session.ToString() : null;
@@ -85,6 +87,11 @@ public static partial class HttpSessions
         /// <para>
         /// A request with an <c>Origin</c> is refused 403 first, as <c>MapLocalMcp</c> refuses it, whichever of the two is
         /// called first: a 400 that named a missing folder would tell a page in a browser which copies the machine has.
+        /// </para>
+        /// <para>
+        /// <see cref="SessionRootsOptions.ReachesEverywhereAsAProgram"/> opens nothing here: it is for a program without an
+        /// address, and a session over HTTP that names no root at a server with no volume is turned away as before — the
+        /// door refuses what <see cref="SessionRoots.Reach"/> would refuse on every call.
         /// </para>
         /// </remarks>
         /// <param name="volumes">The folders the server serves, as given to <c>WithSessionRoots</c>.</param>
@@ -118,7 +125,7 @@ public static partial class HttpSessions
         var options = app.Services.GetService<SessionRootsOptions>();
         var roots = new SessionRoots(new RequestAddress(context.Request), configured, options);
 
-        if (Refusal(roots, configured, path, options) is not { } refusal)
+        if (Refusal(roots, configured, path, options, SubjectOf(context.RequestServices)) is not { } refusal)
         {
             await next(context).ConfigureAwait(false);
             return;
@@ -133,7 +140,7 @@ public static partial class HttpSessions
     }
 
     /// <summary>Why the session may not be opened, in the fleet's words, or null when it may.</summary>
-    internal static string? Refusal(SessionRoots roots, IReadOnlyList<string> volumes, string path, SessionRootsOptions? options = null)
+    internal static string? Refusal(SessionRoots roots, IReadOnlyList<string> volumes, string path, SessionRootsOptions? options = null, string subject = "session")
     {
         IReadOnlyList<string> configured = [.. volumes.Where(volume => !string.IsNullOrWhiteSpace(volume))];
 
@@ -141,16 +148,23 @@ public static partial class HttpSessions
         {
             string orSet = options?.RootsSetting is { Length: > 0 } setting ? $", or set {setting}" : string.Empty;
 
-            return $"this session named no root and this server is configured with none, so it can serve nothing: open the session at {path}?{SessionRoots.Parameter}=/path/to/the/copy{orSet}";
+            return $"this {subject} named no root and this server is configured with none, so it can serve nothing: name the copy in the address, {path}?{SessionRoots.Parameter}=/path/to/the/copy{orSet}";
         }
 
         if (roots.Absent is { Count: > 0 } absent)
-            return $"this machine has no {string.Join(", ", absent)}: the session named a working copy that is not on the host this server runs on";
+            return $"this machine has no {string.Join(", ", absent)}: the {subject} named a working copy that is not on the host this server runs on";
 
         return roots.Outside is { Count: > 0 } outside
             ? $"this server serves the working copies under {string.Join(", ", configured)}, and {string.Join(", ", outside)} is not one of them"
             : null;
     }
+
+    /// <summary>Whether the transport keeps no sessions, so that each request stands alone and no session header is checked.</summary>
+    internal static bool IsStateless(IServiceProvider services) =>
+        services.GetService<IOptions<HttpServerTransportOptions>>()?.Value.SessionMode == HttpServerSessionMode.Stateless;
+
+    /// <summary>What a refusal calls the one it speaks to on this transport.</summary>
+    internal static string SubjectOf(IServiceProvider? services) => services is not null && IsStateless(services) ? "request" : "session";
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "A session was turned away: {Reason}")]
     private static partial void TurnedAway(ILogger logger, string reason);
@@ -158,8 +172,10 @@ public static partial class HttpSessions
 
 /// <summary>The address of the request being served, which every request of a session is posted to.</summary>
 /// <remarks>Always present: a server over HTTP is reached at an address, and a session that names nothing there named nothing.</remarks>
-internal sealed class HttpSessionAddress(IHttpContextAccessor requests) : ISessionAddress
+internal sealed class HttpSessionAddress(IHttpContextAccessor requests, IServiceProvider services) : ISessionAddress
 {
+    public string Subject => HttpSessions.SubjectOf(services);
+
     public IReadOnlyList<string> Values(string parameter) =>
         requests.HttpContext is { } context ? new RequestAddress(context.Request).Values(parameter) : [];
 }
@@ -167,6 +183,8 @@ internal sealed class HttpSessionAddress(IHttpContextAccessor requests) : ISessi
 /// <summary>The address of one request: the values of its query, blanks left out.</summary>
 internal sealed class RequestAddress(HttpRequest request) : ISessionAddress
 {
+    public string Subject => HttpSessions.SubjectOf(request.HttpContext.RequestServices);
+
     public IReadOnlyList<string> Values(string parameter) =>
         [.. request.Query[parameter].Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value!)];
 }

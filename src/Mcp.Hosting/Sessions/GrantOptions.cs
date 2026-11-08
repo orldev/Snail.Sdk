@@ -22,8 +22,21 @@ public sealed class GrantOptions
     /// </remarks>
     public bool RequiresGrant { get; set; }
 
-    /// <summary>The type a refusal carries in the envelope.</summary>
+    /// <summary>The type a refusal carries in the envelope: the one type of a call refused for want of a grant, whichever layer refuses it.</summary>
+    /// <remarks>
+    /// The door, a forwarder (<see cref="ToolForwarding.Refused"/>), a catalog of commands (<see cref="ToolForwarding.Refused{T}"/>)
+    /// and a program's command alike: Snail.MCP.Git's catalog answered <c>notGranted</c> and its programs <c>refused</c>, and
+    /// a program that branches on the type learned two words for one refusal.
+    /// </remarks>
     public const string NotGranted = "notGranted";
+
+    /// <summary>What a refused caller does next: the hint of every refusal of type <see cref="NotGranted"/> the SDK writes.</summary>
+    /// <remarks>
+    /// In the style of the hints beside it — <see cref="SessionRoots"/>, <c>run_tools</c>, <c>run_program</c>: lowercase,
+    /// no closing stop — and without "session", which a stateless server has none of. Public so that a catalog that
+    /// answers in its own shape says the same: Snail.MCP.Git kept a copy of it.
+    /// </remarks>
+    public const string Hint = "use only the tools that were granted; any other comes with a role the platform grants it to";
 
     /// <summary>The answer a refused call gets, from the tool's name and the words of the refusal; the envelope of every answer, of type <see cref="NotGranted"/>, unless set.</summary>
     /// <remarks>
@@ -39,7 +52,5 @@ public sealed class GrantOptions
 
     /// <summary>The words in the envelope, marked an error.</summary>
     internal static CallToolResult Envelope(string words) =>
-        ToolAnswer.Failed(words, GrantHint, NotGranted);
-
-    private const string GrantHint = "Use a tool this session was granted; a tool beyond them comes with a role the platform grants it to.";
+        ToolAnswer.Failed(words, Hint, NotGranted);
 }

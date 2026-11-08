@@ -162,7 +162,9 @@ strictly as code.
   `.WithToolDiscovery()`, `.WithToolSequences()`, `.WithArgumentCheck()` and `.WithSkills()` of `Snail.Sdk.Mcp.Hosting`;
   a server keeps no tool index, vocabulary, step runner or skill catalog of its own, and gives its words to
   `DiscoveryOptions.Meanings`. A server whose steps are commands rather than tools (Snail.MCP.Git) keeps its runner and
-  asks `ToolForwarding.Refusal` for each step.
+  takes each step's refusal from the SDK — `ToolForwarding.Refused(context, tool)` as the door's answer, or
+  `Refused<T>` as an `Answer<T>` — so that a refused command is type `notGranted` with `GrantOptions.Hint`, as a refused
+  tool is; it keeps no copy of the type or the hint.
 - **Settings** come from the server's settings file and then its own prefixed variables, `SNAIL_MCP_<SHORT>_…`, which
   win — `ServerSettings.Read(name)` before a host exists, the same sources in every host `McpHost` and `McpHttpHost`
   build; no server keeps a lookup chain of its own. A secret goes into the file, never into a job or a registration.

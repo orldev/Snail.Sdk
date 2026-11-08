@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Snail.Sdk.Mcp.Hosting.Sessions;
 using Snail.Sdk.Mcp.Testing;
 
@@ -353,6 +354,159 @@ public sealed class SessionRootsTests
 
         Assert.EndsWith("or set SNAIL_MCP_DOCUMENTS_ROOTS", named.Reach("notes.txt").Hint, StringComparison.Ordinal);
         Assert.EndsWith("or configure the server's roots", unnamed.Reach("notes.txt").Hint, StringComparison.Ordinal);
+    }
+
+    /// <summary>A volume of / was the prefix // and held nothing, so Snail.MCP.Roslyn kept a workaround of its own.</summary>
+    [Fact]
+    public void Volume_OfTheWholeDisk_HoldsTheRootsANamedSessionGives_AndThePathsOfOneThatNamesNone()
+    {
+        var copy = RealPath.Of(TestFolder.Create())!;
+        File.WriteAllText(Path.Combine(copy, "a.txt"), "a");
+        var disk = Path.GetPathRoot(copy)!;
+
+        var named = new SessionRoots(new FixedAddress(("root", copy)), [disk]);
+        var program = new SessionRoots(SessionAddress.None, [disk]);
+
+        Assert.False(named.IsOutside);
+        Assert.Equal([copy], named.All);
+        Assert.True(named.Reach("a.txt", PathKind.File).IsAllowed);
+        Assert.Equal(Path.Combine(copy, "a.txt"), program.Reach(Path.Combine(copy, "a.txt"), PathKind.File).Path);
+        Assert.Equal(Path.Combine("a.txt"), named.Relative(Path.Combine(copy, "a.txt")));
+    }
+
+    [Theory]
+    [InlineData("/etc/hosts", "/", true)]
+    [InlineData("/", "/", true)]
+    [InlineData("/workspaces/task-1", "/workspaces/", true)]
+    [InlineData("/workspaces", "/workspaces/", true)]
+    [InlineData("/workspaces-other/task-1", "/workspaces", false)]
+    [InlineData("/workspaces-other", "/workspaces/", false)]
+    public void Under_ARootThatEndsInASeparator_IsWhatLiesBelowIt(string path, string root, bool isUnder) =>
+        Assert.Equal(isUnder, SessionRoots.IsUnder(path, root));
+
+    /// <summary>Snail.MCP.Roslyn installed in a desktop client with no settings opens whatever solution its caller names.</summary>
+    [Fact]
+    public void Program_WithNoVolume_ThatReachesEverywhere_ReachesAnyPath_LinksFollowed_AndKindsHeld()
+    {
+        var elsewhere = TestFolder.Create();
+        File.WriteAllText(Path.Combine(elsewhere, "App.sln"), "s");
+        var roots = new SessionRoots(SessionAddress.None, [], new SessionRootsOptions { ReachesEverywhereAsAProgram = true });
+
+        var file = roots.Reach(Path.Combine(elsewhere, "App.sln"), PathKind.File);
+        var folder = roots.Reach(elsewhere, PathKind.File);
+        var relative = roots.Reach("App.sln");
+
+        Assert.True(roots.ReachesEverywhere);
+        Assert.Empty(roots.All);
+        Assert.Equal(Path.Combine(RealPath.Of(elsewhere)!, "App.sln"), file.Path);
+        Assert.Equal(Reached.NotAFile, folder.Type);
+        Assert.Equal(RealPath.Of(Path.Combine(Environment.CurrentDirectory, "App.sln")), relative.Path);
+    }
+
+    /// <summary>A server over HTTP is reached by whoever reaches its port: the option is for a program alone.</summary>
+    [Fact]
+    public void Session_AtAnAddress_ThatNamesNoRoot_ReachesNothing_EvenWhereAProgramWouldReachEverywhere()
+    {
+        var roots = new SessionRoots(new FixedAddress(), [], new SessionRootsOptions { ReachesEverywhereAsAProgram = true });
+
+        var reached = roots.Reach("/etc/hosts");
+
+        Assert.False(roots.ReachesEverywhere);
+        Assert.Equal(Reached.NoRoot, reached.Type);
+    }
+
+    [Fact]
+    public void Program_ThatReachesEverywhere_WithAVolumeConfigured_IsConfinedToIt()
+    {
+        var volume = TestFolder.Create();
+        var elsewhere = TestFolder.Create();
+        var roots = new SessionRoots(SessionAddress.None, [volume], new SessionRootsOptions { ReachesEverywhereAsAProgram = true });
+
+        var reached = roots.Reach(Path.Combine(elsewhere, "a.txt"));
+
+        Assert.False(roots.ReachesEverywhere);
+        Assert.Equal(Reached.Outside, reached.Type);
+    }
+
+    /// <summary>A program branches on the kind of a refusal, not on its words.</summary>
+    [Fact]
+    public void Refusals_CarryTheirKind()
+    {
+        var root = TestFolder.Create();
+        var elsewhere = TestFolder.Create();
+        File.WriteAllText(Path.Combine(root, "notes.txt"), "n");
+        File.CreateSymbolicLink(Path.Combine(root, "loop"), Path.Combine(root, "loop"));
+        var roots = new SessionRoots(new FixedAddress(("root", root)), []);
+
+        Assert.Equal(Reached.Outside, roots.Reach(Path.Combine(elsewhere, "a.txt")).Type);
+        Assert.Equal(Reached.NoPath, roots.Reach(" ").Type);
+        Assert.Equal(Reached.Unfollowable, roots.Reach("loop/x").Type);
+        Assert.Equal(Reached.Absent, roots.Reach("missing.txt", PathKind.File).Type);
+        Assert.Equal(Reached.Absent, roots.Reach("missing", PathKind.Folder).Type);
+        Assert.Equal(Reached.NotAFolder, roots.Reach("notes.txt", PathKind.Folder).Type);
+        Assert.Equal(Reached.NoRoot, new SessionRoots(SessionAddress.None, []).Reach("a.txt").Type);
+        Assert.Equal(Reached.Outside, new SessionRoots(new FixedAddress(("root", elsewhere)), [root]).Reach("a.txt").Type);
+        Assert.Null(roots.Reach("notes.txt").Type);
+    }
+
+    /// <summary>Snail.MCP.FileSystem wrote <c>Refused(reached)</c> with a <c>??</c> the compiler could not see past; the check now tells it.</summary>
+    [Fact]
+    public void Refusal_IsAFailedAnswer_WithItsWordsHintAndKind_AndTheCheckTellsTheCompilerWhichIsThere()
+    {
+        var root = TestFolder.Create();
+        var roots = new SessionRoots(new FixedAddress(("root", root)), []);
+        var refused = roots.Reach("missing.txt", PathKind.File);
+        var allowed = roots.Reach("new.txt");
+
+        var answer = refused.As<int>();
+        string why = refused.IsAllowed ? string.Empty : refused.Refusal;
+        string path = allowed.IsAllowed ? allowed.Path : string.Empty;
+
+        Assert.Equal(("there is no file 'missing.txt'", "check the name and the folder it is in", Reached.Absent), (answer.Error, answer.Hint, answer.Type));
+        Assert.False(answer.IsSuccess);
+        Assert.Equal(answer.Error, why);
+        Assert.EndsWith("new.txt", path, StringComparison.Ordinal);
+        Assert.Throws<InvalidOperationException>(() => allowed.As<int>());
+    }
+
+    [Fact]
+    public void Refused_WithoutWords_StillSaysWhy()
+    {
+        var reached = new Reached(null, null, null);
+
+        Assert.False(reached.IsAllowed);
+        Assert.Equal("the path may not be used", reached.Refusal);
+    }
+
+    /// <summary>A stateless server has no session to speak of: its address says what a refusal calls the caller.</summary>
+    [Fact]
+    public void Refusal_SpeaksOfWhatTheAddressSpeaksFor()
+    {
+        var root = TestFolder.Create();
+        var elsewhere = TestFolder.Create();
+
+        var outside = new SessionRoots(new StatelessAddress(("root", root)), []).Reach(Path.Combine(elsewhere, "a.txt"));
+        var unrooted = new SessionRoots(new StatelessAddress(), []).Reach("a.txt");
+
+        Assert.StartsWith("'", outside.Refusal, StringComparison.Ordinal);
+        Assert.Contains("is outside this request, which works in", outside.Refusal, StringComparison.Ordinal);
+        Assert.Equal("this request was given no root, so nothing is reachable", unrooted.Refusal);
+    }
+
+    [Fact]
+    public void Roots_RegisteredWithoutAnMcpBuilder_AreTheVolumes_AndRegisteredOnce()
+    {
+        var volume = TestFolder.Create();
+        var services = new ServiceCollection();
+
+        services.AddSessionRoots(_ => [volume], options => options.RootsSetting = "SNAIL_MCP_X_ROOTS");
+        services.AddSessionRoots(_ => ["/elsewhere"]);
+        using var provider = services.BuildServiceProvider();
+
+        Assert.Equal([volume], provider.GetRequiredService<SessionRoots>().All);
+        Assert.Equal("SNAIL_MCP_X_ROOTS", provider.GetRequiredService<SessionRootsOptions>().RootsSetting);
+        Assert.Single(services, service => service.ServiceType == typeof(SessionRoots));
+        Assert.Same(SessionAddress.None, provider.GetRequiredService<ISessionAddress>());
     }
 
     private readonly record struct TaskLabel(string Value);

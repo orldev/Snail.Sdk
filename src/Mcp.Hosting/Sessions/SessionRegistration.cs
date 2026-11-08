@@ -67,19 +67,40 @@ public static class SessionRegistration
         /// <param name="configure">The server's own words — the setting that configures its roots — where the fleet's do not fit.</param>
         public IMcpServerBuilder WithSessionRoots(Func<IServiceProvider, IReadOnlyList<string>> volumes, Action<SessionRootsOptions>? configure = null)
         {
+            builder.Services.AddSessionRoots(volumes, configure);
+
+            return builder;
+        }
+    }
+
+    extension(IServiceCollection services)
+    {
+        /// <summary>
+        /// <see cref="SessionRoots"/> registered as <see cref="WithSessionRoots"/> registers them, where there is no MCP
+        /// builder to call it on: a test fixture, a benchmark, a host that adds its services before its server.
+        /// </summary>
+        /// <remarks>
+        /// The same registration: the volumes read once, when the roots are first asked for, <see cref="SessionAddress.None"/>
+        /// added only where nothing has put an address, and called twice — or beside <see cref="WithSessionRoots"/> — it
+        /// registers once. Snail.MCP.Roslyn's fixture added a whole MCP server to its services only to reach <see cref="WithSessionRoots"/>.
+        /// </remarks>
+        /// <param name="volumes">The folders the server serves, read from its services: its options.</param>
+        /// <param name="configure">The server's own words — the setting that configures its roots — where the fleet's do not fit.</param>
+        public IServiceCollection AddSessionRoots(Func<IServiceProvider, IReadOnlyList<string>> volumes, Action<SessionRootsOptions>? configure = null)
+        {
             ArgumentNullException.ThrowIfNull(volumes);
 
-            if (builder.Services.Any(service => service.ServiceType == typeof(SessionRoots)))
-                return builder;
+            if (services.Any(service => service.ServiceType == typeof(SessionRoots)))
+                return services;
 
             var options = new SessionRootsOptions();
             configure?.Invoke(options);
 
-            builder.Services.AddSingleton(options);
-            builder.Services.TryAddSingleton(SessionAddress.None);
-            builder.Services.AddSingleton(provider => new SessionRoots(provider.GetRequiredService<ISessionAddress>(), volumes(provider), options));
+            services.AddSingleton(options);
+            services.TryAddSingleton(SessionAddress.None);
+            services.AddSingleton(provider => new SessionRoots(provider.GetRequiredService<ISessionAddress>(), volumes(provider), options));
 
-            return builder;
+            return services;
         }
     }
 

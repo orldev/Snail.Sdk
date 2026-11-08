@@ -104,6 +104,40 @@ public sealed class HttpSessionsTests
         Assert.StartsWith("this session named no root and this server is configured with none", said, StringComparison.Ordinal);
     }
 
+    /// <summary>Snail.MCP.Playwright answers each request on its own, and was told about "this session" it never had.</summary>
+    [Fact]
+    public async Task Grant_OnATransportWithoutSessions_RefusesInTheWordsOfTheRequest()
+    {
+        await using var app = await StartAsync(builder => builder.WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless).WithSessionAddress().RefuseWhatWasNotGranted(), null);
+
+        await using var client = await ConnectAsync(app, "?tool=address");
+        var refused = await client.CallToolAsync("read_note");
+
+        Assert.Equal("'read_note' was not granted to this request, which may use address", refused.Error());
+    }
+
+    [Fact]
+    public async Task Door_OnATransportWithoutSessions_TurnsAwayARequestWithNoRoot_InItsWords()
+    {
+        await using var app = await StartAsync(builder => builder.WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless).WithSessionAddress(), _ => []);
+
+        var (status, said) = await PostAsync(app, string.Empty, origin: null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, status);
+        Assert.StartsWith("this request named no root and this server is configured with none", said, StringComparison.Ordinal);
+    }
+
+    /// <summary>Reaching everywhere is for a program without an address: over HTTP the door turns away what every call would be refused.</summary>
+    [Fact]
+    public async Task Door_TurnsAwayASessionWithNoRoot_EvenWhereAProgramWouldReachEverywhere()
+    {
+        await using var app = await StartAsync(builder => builder.WithLocalHttpTransport().WithSessionRoots(_ => [], options => options.ReachesEverywhereAsAProgram = true), _ => []);
+
+        var (status, _) = await PostAsync(app, string.Empty, origin: null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, status);
+    }
+
     /// <summary>Called before MapLocalMcp, the door still answers a browser as MapLocalMcp would: a 400 naming a missing folder tells a page which copies the machine has.</summary>
     [Fact]
     public async Task Door_AnswersABrowser403_BeforeItSaysAnythingAboutTheRoot()

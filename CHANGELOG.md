@@ -214,6 +214,20 @@ A change that a repository must act on says what to do.
   It stays an `InvalidOperationException`, so a `catch` of that keeps catching it; a test that asserted the type
   exactly, `Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(…))`, asserts `StartRefusedException`
   (Snail.MCP.E2E, Figma, Connector, Sandbox, Memory).
+- Options that fail their validation at the start are a `StartRefusedException` in one line, out of every host
+  Snail.Sdk builds — `McpHost.CreateBuilder`, `McpHttpHost.CreateBuilder`, `CreateContainerBuilder`,
+  `CreateStdioBuilder`, and a server's own web builder after `UseMcpEndpoint` — through `AddStartRefusal()` of
+  `Snail.Sdk.Mcp.Hosting`, which those builders call: `ValidateOnStart()` (Snail.MCP.BuildBridge), an
+  `IValidateOptions<T>` of a token (Blender, AfterEffects) and options a hosted service reads as it starts threw an
+  `OptionsValidationException` out of `StartAsync`, a crash with a trace and exit code 134. The refusal's message is
+  the failures joined by `; `, its cause the validation's exception, so a program that catches `StartRefusedException`
+  says it in one line and exits with 1; the generic host's error line of such a start, with the trace, is no longer
+  written to stderr. Any other failure of the start is thrown as it was. Nothing to change in a server whose program
+  catches `StartRefusedException`; a validation message names the variable. `ServerSettings.NameOfSetting(name, key)`
+  is the phrase `McpEndpoint` names a setting by, `SNAIL_MCP_GIT_TIMEOUT_SECONDS (or TimeoutSeconds in the settings
+  file)`, for a server's own refusal: Snail.MCP.CleanUp, Git and FileSystem throw `invalid configuration: …` from
+  `ServerConfigExtensions.Validate` as a bare `InvalidOperationException` — a crash — and throw
+  `new StartRefusedException(…)` instead, each fault naming its setting.
 - `McpHttpHost.MapHealth(path = "/healthz", check = null)`: 200 with no body, for a container's healthcheck, which
   the servers in images mapped by hand; with `check` — asked with the request's services and its cancellation — the
   `HealthAnswer(isHealthy, body)` it gives: 200 or 503, and its `JsonNode` body as `application/json`; 503 with no body

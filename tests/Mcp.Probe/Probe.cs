@@ -27,3 +27,10 @@ internal sealed class ProbeTools(IHttpContextAccessor requests)
     [McpServerTool(Name = "query", ReadOnly = true), Description("The query of the request the session was opened with.")]
     public string Query() => requests.HttpContext?.Request.QueryString.Value ?? string.Empty;
 }
+
+/// <summary>What the probe asks for when it is told to ask for a token: options validated at the start.</summary>
+internal sealed class ProbeOptions
+{
+    /// <summary>The token, from SNAIL_MCP_PROBE_TOKEN.</summary>
+    public string? Token { get; set; }
+}

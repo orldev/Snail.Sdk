@@ -183,7 +183,7 @@ public static class McpHttpHost
         return builder;
     }
 
-    /// <summary>Kestrel listening as <paramref name="listen"/> says and nowhere else, log lines on stderr at the levels the configuration names, the heap trimmed when idle; with no listener, where the server tells Kestrel itself.</summary>
+    /// <summary>Kestrel listening as <paramref name="listen"/> says and nowhere else, log lines on stderr at the levels the configuration names, the heap trimmed when idle, options that fail at the start a refusal in one line; with no listener, where the server tells Kestrel itself.</summary>
     /// <remarks>
     /// The web host's own addresses — <c>urls</c>, <c>http_ports</c>, <c>https_ports</c> — are emptied by a source added
     /// last, so the endpoint is the only address: the aspnet image sets <c>ASPNETCORE_HTTP_PORTS=8080</c>, and Kestrel
@@ -202,6 +202,7 @@ public static class McpHttpHost
         }
 
         builder.Services.AddIdleTrim();
+        builder.Services.AddStartRefusal();
     }
 
     /// <summary>Where Kestrel listens for the endpoint: every interface at its port, or its address.</summary>

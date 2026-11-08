@@ -375,6 +375,6 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
             place is IConfigurationSection section ? $"{section.Path}:{key}" : key;
 
         private string NameOf(string path) =>
-            server is null ? path : $"{VariableOf(server, path)} (or {path} in the settings file)";
+            server is null ? path : ServerSettings.NameOfSetting(server, path);
     }
 }

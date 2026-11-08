@@ -173,7 +173,11 @@ strictly as code.
   win — `ServerSettings.Read(name)` before a host exists, the same sources in every host `McpHost` and `McpHttpHost`
   build; no server keeps a lookup chain of its own. A secret goes into the file, never into a job or a registration.
   Its folders come from `ServerFolders`. A setting refused at the start is a `StartRefusedException`, which
-  `Program.cs` writes to stderr as one line and exits with 1, never a crash with a trace.
+  `Program.cs` writes to stderr as one line and exits with 1, never a crash with a trace. A server's own validation of
+  its settings throws one too, naming the variable — `ServerSettings.NameOfSetting("git", "TimeoutSeconds")` is
+  `SNAIL_MCP_GIT_TIMEOUT_SECONDS (or TimeoutSeconds in the settings file)` — never a bare `InvalidOperationException`;
+  options validated at the start (`ValidateOnStart()`, `IValidateOptions<T>`) need nothing more, since the SDK's hosts
+  turn their failures into the refusal (`AddStartRefusal()`), and their messages name the variable as well.
 
 ### Guard tests
 

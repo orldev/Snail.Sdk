@@ -315,6 +315,11 @@ And for the server project (no kind):
   letting the host read the same files and variables again — and with them whatever the server added (Snail.MCP.Playwright's
   browser defaults). The builders without settings find the server by the entry assembly, so a host built in a test's
   own process, under the test runner, reads none: such a test passes the settings the same way.
+- A start refused for the settings in one line: a value the server's own validation refuses is a
+  `StartRefusedException` naming the variable (`ServerSettings.NameOfSetting(name, key)`, the phrase `McpEndpoint`
+  refuses by), and options that fail their validation at the start — `ValidateOnStart()`, an `IValidateOptions<T>`,
+  a hosted service reading them as it starts — are made one by every host the SDK builds (`AddStartRefusal()`), the
+  host's own error line with the trace left out; `Program.cs` writes it to stderr and exits with 1.
 - Threads ready for a server that does much blocking work at once: `AddReadyThreads(workers)` raises the thread pool's
   minimum as the host starts — Snail.MCP.CleanUp's census held every worker, and a call that came in meanwhile waited
   7 to 8 seconds for a thread, until the minimum was 64.

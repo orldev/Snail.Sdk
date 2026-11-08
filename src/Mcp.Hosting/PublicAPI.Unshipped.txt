@@ -451,3 +451,6 @@ override Snail.Sdk.Mcp.Hosting.Jobs.JobAnswerOptions.GetHashCode() -> int
 override Snail.Sdk.Mcp.Hosting.Jobs.JobAnswerOptions.ToString() -> string!
 static Snail.Sdk.Mcp.Hosting.Jobs.JobAnswerOptions.operator !=(Snail.Sdk.Mcp.Hosting.Jobs.JobAnswerOptions? left, Snail.Sdk.Mcp.Hosting.Jobs.JobAnswerOptions? right) -> bool
 static Snail.Sdk.Mcp.Hosting.Jobs.JobAnswerOptions.operator ==(Snail.Sdk.Mcp.Hosting.Jobs.JobAnswerOptions? left, Snail.Sdk.Mcp.Hosting.Jobs.JobAnswerOptions? right) -> bool
+Snail.Sdk.Mcp.Hosting.McpHost.extension(Microsoft.Extensions.DependencyInjection.IServiceCollection!).AddStartRefusal() -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Snail.Sdk.Mcp.Hosting.McpHost.AddStartRefusal(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Snail.Sdk.Mcp.Hosting.ServerSettings.NameOfSetting(string! name, string! key) -> string!

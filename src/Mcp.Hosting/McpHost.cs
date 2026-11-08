@@ -79,6 +79,7 @@ public static class McpHost
     {
         builder.Logging.UseStderr().UseLevelsFrom(builder.Configuration);
         builder.Services.AddIdleTrim();
+        builder.Services.AddStartRefusal();
 
         return builder;
     }
@@ -153,6 +154,45 @@ public static class McpHost
                 () => GC.GetTotalAllocatedBytes(),
                 IdleTrim.Compact,
                 provider.GetRequiredService<ILogger<IdleTrim>>()));
+
+            return services;
+        }
+
+        /// <summary>Makes the host's start say options that failed their validation as a <see cref="StartRefusedException"/> in one line; both hosts call it already.</summary>
+        /// <remarks>
+        /// <para>
+        /// A server that validates its options at the start — <c>ValidateOnStart()</c> (Snail.MCP.BuildBridge), a token
+        /// checked by an <c>IValidateOptions&lt;T&gt;</c> (Blender, AfterEffects), or a hosted service that reads
+        /// <c>IOptions&lt;T&gt;.Value</c> as it starts — stopped with an <c>OptionsValidationException</c> out of
+        /// <see cref="IHost.StartAsync"/>, unhandled: a crash with a trace and exit code 134, where a person had only set a
+        /// wrong value. Here the start throws a <see cref="StartRefusedException"/> instead, its message the failures in one
+        /// line, the validation's exception as its cause, so a program that catches the refusal — the program of
+        /// <c>dotnet new s3l-mcp</c> — says it in one line and exits with 1. Several failing at once are said one after
+        /// another; any other failure of the start is thrown as it was.
+        /// </para>
+        /// <para>
+        /// The generic host logs a failed start as an error, with the trace, before it throws; the stderr logger of these
+        /// hosts leaves that line out for a refusal, so the one line the program writes is all a person reads. A failure
+        /// message names what to set: a server's own validation names the variable,
+        /// <c>Validate(o =&gt; o.Token is { Length: 32 }, $"{ServerSettings.NameOfSetting("blender", "Token")} is not 32 characters")</c>.
+        /// </para>
+        /// <para>
+        /// The host the builder registered is wrapped, so it holds for every builder over these services, a server's own
+        /// <c>WebApplication.CreateBuilder</c> after <c>UseMcpEndpoint</c> among them. Called twice, it wraps once.
+        /// </para>
+        /// </remarks>
+        public IServiceCollection AddStartRefusal()
+        {
+            if (services.Any(service => service.ServiceType == typeof(StartRefusalRegistered)))
+                return services;
+
+            var built = services.LastOrDefault(service => service.ServiceType == typeof(IHost) && service.ImplementationFactory is not null);
+
+            if (built?.ImplementationFactory is not { } factory)
+                return services;
+
+            services.AddSingleton(new StartRefusalRegistered());
+            services.Replace(ServiceDescriptor.Singleton<IHost>(provider => new RefusingHost((IHost)factory(provider))));
 
             return services;
         }
@@ -287,6 +327,9 @@ public static class McpHost
 
     /// <summary>Marks the idle trim registered, so a second call adds nothing.</summary>
     private sealed class IdleTrimRegistered;
+
+    /// <summary>Marks the host wrapped for start refusals, so a second call wraps nothing more.</summary>
+    private sealed class StartRefusalRegistered;
 
     /// <summary>The period and the veto of the idle shutdown, as the last call set them.</summary>
     private sealed record IdleShutdownPlan(TimeSpan After, Func<IServiceProvider, bool>? IsBusy);

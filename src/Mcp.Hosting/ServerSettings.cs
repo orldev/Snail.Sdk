@@ -34,6 +34,32 @@ public static class ServerSettings
         return $"SNAIL_MCP_{name.ToUpperInvariant()}_";
     }
 
+    /// <summary>A setting as a refusal names it: its variable, and its key in the settings file beside it — <c>SNAIL_MCP_DEMO_TIMEOUT_SECONDS (or TimeoutSeconds in the settings file)</c>.</summary>
+    /// <param name="name">The server's short name, such as git.</param>
+    /// <param name="key">The setting's key as the settings file spells it, sections joined by colons: <c>TimeoutSeconds</c>, <c>Http:Url</c>.</param>
+    /// <remarks>
+    /// <para>
+    /// A server refuses a value of its own settings at the start with a <see cref="StartRefusedException"/> that names
+    /// what the operator set, as <see cref="McpEndpoint"/> names its keys:
+    /// <c>throw new StartRefusedException($"{ServerSettings.NameOfSetting("git", "TimeoutSeconds")} is '{config.TimeoutSeconds}'; it is a number of seconds above zero.")</c>.
+    /// Snail.MCP.CleanUp, Git and FileSystem threw <c>invalid configuration: TimeoutSeconds must be positive</c> as an
+    /// <see cref="InvalidOperationException"/>, a crash with a trace that named the key of the file and no variable.
+    /// </para>
+    /// <para>
+    /// The variable is the one <see cref="AddServerSettings(IConfigurationBuilder, string)"/> reads the key from: a word
+    /// of the key is a word of the variable, a section is two underscores — <c>SNAIL_MCP_DEMO_HTTP__URL</c> for
+    /// <c>Http:Url</c>.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentException">The name or the key is empty or blank.</exception>
+    public static string NameOfSetting(string name, string key)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+
+        return $"{McpEndpoint.VariableOf(name, key)} (or {key} in the settings file)";
+    }
+
     /// <summary>The variable that names the settings file outright: <c>SNAIL_MCP_&lt;NAME&gt;_CONFIG</c>.</summary>
     public static string FileVariableOf(string name) => $"{PrefixOf(name)}CONFIG";
 

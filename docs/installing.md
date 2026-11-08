@@ -236,9 +236,14 @@ refusal names the key where it was found, `SNAIL_MCP_<SHORT>_SNAIL__PORT (or Sna
 in its README that it does.
 
 A server whose process may run while it cannot serve answers its health check by what it serves through:
-`MapHealth(path, isHealthy)` answers 503 while the check says no, or throws — Snail.MCP.Playwright's `/healthz` while its
+`MapHealth(path, check)` answers 503 while the check says no, or throws — Snail.MCP.Playwright's `/healthz` while its
 browser does not answer — so an orchestrator restarts it and `HttpServerProgram` waits for it; `MapHealth()` alone
-answers 200 for a process that answers HTTP.
+answers 200 for a process that answers HTTP. A check may answer with a body, as JSON: Snail.MCP.Blender's `/healthz`
+says `{"status":"ok","blender":"up"}` — or `down`, or `stalled` — with 200, since the server itself still serves.
+
+A request that carries an `Origin` — a page in a browser always sends one, an agent's client never does — is refused
+with 403 at the MCP endpoint, `/mcp` and the paths under it. The other endpoints of a server answer browsers as the
+server decides: Snail.MCP.Figma's plugin bridge, Snail.MCP.AfterEffects' and Blender's pages behind their sign-in.
 
 ## Checking an installed server
 

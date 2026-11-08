@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,6 +9,8 @@ namespace Snail.Sdk.Mcp.Tests;
 
 public sealed class HttpGuardsTests
 {
+    private const string Key = "studio-token";
+
     [Fact]
     public async Task Problems_OfTheHostOfSnailSdkMcpHttp_AreNone()
     {
@@ -38,6 +41,64 @@ public sealed class HttpGuardsTests
         var problem = Assert.Single(await HttpGuards.ProblemsAsync(host.Endpoint));
 
         Assert.Contains("without Origin was answered 403", problem, StringComparison.Ordinal);
+    }
+
+    /// <summary>Snail.MCP.Blender and AfterEffects keep their endpoint behind a token: a browser holds none, so it is answered 401.</summary>
+    [Fact]
+    public async Task AuthorizedProblems_OfAnEndpointBehindAKey_AreNone()
+    {
+        await using var host = await HostAsync(app =>
+        {
+            app.Use(RequireTheKey);
+            app.MapMcp(McpHttpHost.DefaultPath);
+        });
+
+        Assert.Empty(await HttpGuards.AuthorizedProblemsAsync(host.Endpoint, new AuthenticationHeaderValue("Bearer", Key)));
+    }
+
+    /// <summary>The Origin refusal joined before the key holds too: a browser is answered 403 rather than 401.</summary>
+    [Fact]
+    public async Task AuthorizedProblems_OfAnEndpointBehindTheRefusalAndAKey_AreNone()
+    {
+        await using var host = await HostAsync(app =>
+        {
+            app.UseBrowserRefusal();
+            app.Use(RequireTheKey);
+            app.MapMcp(McpHttpHost.DefaultPath);
+        });
+
+        Assert.Empty(await HttpGuards.AuthorizedProblemsAsync(host.Endpoint, new AuthenticationHeaderValue("Bearer", Key)));
+    }
+
+    [Fact]
+    public async Task AuthorizedProblems_OfAnEndpointWithoutAKey_NameEveryoneLetIn()
+    {
+        await using var host = await HostAsync(app => app.MapMcp(McpHttpHost.DefaultPath));
+
+        var problems = await HttpGuards.AuthorizedProblemsAsync(host.Endpoint, new AuthenticationHeaderValue("Bearer", Key));
+
+        Assert.Equal(3, problems.Count);
+        Assert.Contains(problems, problem => problem.Contains("without a key was answered", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AuthorizedProblems_OfAnEndpointThatRefusesTheKey_NameTheClientRefused()
+    {
+        await using var host = await HostAsync(app => app.Use(RefuseEveryone));
+
+        var problem = Assert.Single(await HttpGuards.AuthorizedProblemsAsync(host.Endpoint, new AuthenticationHeaderValue("Bearer", Key)));
+
+        Assert.Contains("with the key was answered 403", problem, StringComparison.Ordinal);
+    }
+
+    private static Task RequireTheKey(HttpContext context, RequestDelegate next)
+    {
+        if (context.Request.Headers.Authorization == $"Bearer {Key}")
+            return next(context);
+
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+
+        return Task.CompletedTask;
     }
 
     private static Task RefuseEveryone(HttpContext context, RequestDelegate next)

@@ -1,8 +1,6 @@
 #nullable enable
 const Snail.Sdk.Mcp.Http.McpHttpHost.DefaultHealthPath = "/healthz" -> string!
-Snail.Sdk.Mcp.Http.McpHttpHost.extension(Microsoft.AspNetCore.Builder.WebApplication!).MapHealth(string! path = "/healthz", System.Func<System.IServiceProvider!, System.Threading.CancellationToken, System.Threading.Tasks.Task<bool>!>? isHealthy = null) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
 static Snail.Sdk.Mcp.Http.McpHttpHost.CreateBuilder(string![]! args, Snail.Sdk.Mcp.Hosting.McpEndpoint! endpoint) -> Microsoft.AspNetCore.Builder.WebApplicationBuilder!
-static Snail.Sdk.Mcp.Http.McpHttpHost.MapHealth(this Microsoft.AspNetCore.Builder.WebApplication! app, string! path = "/healthz", System.Func<System.IServiceProvider!, System.Threading.CancellationToken, System.Threading.Tasks.Task<bool>!>? isHealthy = null) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
 Snail.Sdk.Mcp.Http.HttpSessions
 Snail.Sdk.Mcp.Http.HttpSessions.extension(Microsoft.AspNetCore.Builder.WebApplication!)
 Snail.Sdk.Mcp.Http.HttpSessions.extension(Microsoft.AspNetCore.Builder.WebApplication!).RefuseSessionsItCannotServe(System.Func<System.IServiceProvider!, System.Collections.Generic.IReadOnlyList<string!>!>! volumes, string! path = "/mcp") -> Microsoft.AspNetCore.Builder.WebApplication!
@@ -15,3 +13,25 @@ static Snail.Sdk.Mcp.Http.HttpSessions.extension(Snail.Sdk.Mcp.Hosting.Sessions.
 static Snail.Sdk.Mcp.Http.HttpSessions.Session(System.IServiceProvider! services) -> string?
 const Snail.Sdk.Mcp.Http.HttpSessions.SessionHeader = "Mcp-Session-Id" -> string!
 static Snail.Sdk.Mcp.Http.McpHttpHost.CreateBuilder(string![]! args, Snail.Sdk.Mcp.Hosting.McpEndpoint! endpoint, Microsoft.Extensions.Configuration.IConfiguration! settings) -> Microsoft.AspNetCore.Builder.WebApplicationBuilder!
+Snail.Sdk.Mcp.Http.HealthAnswer
+Snail.Sdk.Mcp.Http.HealthAnswer.<Clone>$() -> Snail.Sdk.Mcp.Http.HealthAnswer!
+Snail.Sdk.Mcp.Http.HealthAnswer.Body.get -> System.Text.Json.Nodes.JsonNode?
+Snail.Sdk.Mcp.Http.HealthAnswer.Body.init -> void
+Snail.Sdk.Mcp.Http.HealthAnswer.Deconstruct(out bool IsHealthy, out System.Text.Json.Nodes.JsonNode? Body) -> void
+Snail.Sdk.Mcp.Http.HealthAnswer.Equals(Snail.Sdk.Mcp.Http.HealthAnswer? other) -> bool
+Snail.Sdk.Mcp.Http.HealthAnswer.HealthAnswer(bool IsHealthy, System.Text.Json.Nodes.JsonNode? Body = null) -> void
+Snail.Sdk.Mcp.Http.HealthAnswer.IsHealthy.get -> bool
+Snail.Sdk.Mcp.Http.HealthAnswer.IsHealthy.init -> void
+Snail.Sdk.Mcp.Http.McpHttpHost.extension(Microsoft.AspNetCore.Builder.WebApplication!).UseBrowserRefusal(string! path = "/mcp", int? port = null) -> Microsoft.AspNetCore.Builder.WebApplication!
+Snail.Sdk.Mcp.Http.McpHttpHost.extension(Microsoft.AspNetCore.Builder.WebApplicationBuilder!)
+Snail.Sdk.Mcp.Http.McpHttpHost.extension(Microsoft.AspNetCore.Builder.WebApplicationBuilder!).UseMcpEndpoint(Snail.Sdk.Mcp.Hosting.McpEndpoint! endpoint) -> Microsoft.AspNetCore.Builder.WebApplicationBuilder!
+override Snail.Sdk.Mcp.Http.HealthAnswer.Equals(object? obj) -> bool
+override Snail.Sdk.Mcp.Http.HealthAnswer.GetHashCode() -> int
+override Snail.Sdk.Mcp.Http.HealthAnswer.ToString() -> string!
+static Snail.Sdk.Mcp.Http.HealthAnswer.operator !=(Snail.Sdk.Mcp.Http.HealthAnswer? left, Snail.Sdk.Mcp.Http.HealthAnswer? right) -> bool
+static Snail.Sdk.Mcp.Http.HealthAnswer.operator ==(Snail.Sdk.Mcp.Http.HealthAnswer? left, Snail.Sdk.Mcp.Http.HealthAnswer? right) -> bool
+static Snail.Sdk.Mcp.Http.McpHttpHost.CreateStdioBuilder(string![]! args, Microsoft.Extensions.Configuration.IConfiguration! settings) -> Microsoft.AspNetCore.Builder.WebApplicationBuilder!
+static Snail.Sdk.Mcp.Http.McpHttpHost.UseBrowserRefusal(this Microsoft.AspNetCore.Builder.WebApplication! app, string! path = "/mcp", int? port = null) -> Microsoft.AspNetCore.Builder.WebApplication!
+static Snail.Sdk.Mcp.Http.McpHttpHost.UseMcpEndpoint(this Microsoft.AspNetCore.Builder.WebApplicationBuilder! builder, Snail.Sdk.Mcp.Hosting.McpEndpoint! endpoint) -> Microsoft.AspNetCore.Builder.WebApplicationBuilder!
+Snail.Sdk.Mcp.Http.McpHttpHost.extension(Microsoft.AspNetCore.Builder.WebApplication!).MapHealth(string! path = "/healthz", System.Func<System.IServiceProvider!, System.Threading.CancellationToken, System.Threading.Tasks.Task<Snail.Sdk.Mcp.Http.HealthAnswer!>!>? check = null) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
+static Snail.Sdk.Mcp.Http.McpHttpHost.MapHealth(this Microsoft.AspNetCore.Builder.WebApplication! app, string! path = "/healthz", System.Func<System.IServiceProvider!, System.Threading.CancellationToken, System.Threading.Tasks.Task<Snail.Sdk.Mcp.Http.HealthAnswer!>!>? check = null) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!

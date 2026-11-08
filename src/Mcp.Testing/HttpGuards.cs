@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Text;
 
 namespace Snail.Sdk.Mcp.Testing;
@@ -10,7 +11,8 @@ namespace Snail.Sdk.Mcp.Testing;
 /// refusal without a test failing (Snail.MCP.Documents, 2026-10-16: a request with <c>Origin</c> was answered 200), so
 /// every server with HTTP asks it of the process. The refusal is proven only beside an answer: an endpoint that refuses
 /// every request refuses a browser's too. A test asserts the answer is empty:
-/// <c>Assert.Empty(await HttpGuards.ProblemsAsync(server.Endpoint))</c>.
+/// <c>Assert.Empty(await HttpGuards.ProblemsAsync(server.Endpoint))</c>. An endpoint behind a key of its own is asked
+/// <see cref="AuthorizedProblemsAsync"/> instead.
 /// </remarks>
 public static class HttpGuards
 {
@@ -26,9 +28,9 @@ public static class HttpGuards
         ArgumentNullException.ThrowIfNull(endpoint);
 
         using var http = new HttpClient();
-        var fromPage = await StatusAsync(http, endpoint, Page, cancellationToken).ConfigureAwait(false);
-        var fromSandbox = await StatusAsync(http, endpoint, Sandboxed, cancellationToken).ConfigureAwait(false);
-        var fromClient = await StatusAsync(http, endpoint, null, cancellationToken).ConfigureAwait(false);
+        var fromPage = await StatusAsync(http, endpoint, Page, null, cancellationToken).ConfigureAwait(false);
+        var fromSandbox = await StatusAsync(http, endpoint, Sandboxed, null, cancellationToken).ConfigureAwait(false);
+        var fromClient = await StatusAsync(http, endpoint, null, null, cancellationToken).ConfigureAwait(false);
         var problems = new List<string>();
 
         if (fromPage is not HttpStatusCode.Forbidden)
@@ -43,7 +45,53 @@ public static class HttpGuards
         return problems;
     }
 
-    private static async Task<HttpStatusCode> StatusAsync(HttpClient http, Uri endpoint, string? origin, CancellationToken cancellationToken)
+    /// <summary>Every rule an endpoint behind a key breaks, one line each; empty when all hold.</summary>
+    /// <param name="endpoint">The MCP endpoint.</param>
+    /// <param name="authorization">What an agent's client sends to be let in: <c>new AuthenticationHeaderValue("Bearer", token)</c>.</param>
+    /// <param name="cancellationToken">Gives up on the requests.</param>
+    /// <remarks>
+    /// <para>
+    /// For a server that guards its endpoint with a key of its own and may listen beyond loopback — Snail.MCP.Blender and
+    /// AfterEffects behind their tokens, with pages and sign-in beside the endpoint. A page in a browser holds no key, so
+    /// its request is answered 401 or 403, whichever the server answers first, never 200; an agent's client without the
+    /// key is refused too, and one with it is let in, which proves the refusals are the key's and not of everyone.
+    /// </para>
+    /// <para>
+    /// A browser cannot send an <c>Authorization</c> header to another origin without the server's leave, so the key keeps
+    /// pages out where an endpoint without one needs the <c>Origin</c> refusal. A server that keeps both — the refusal
+    /// joined before its authentication (<c>app.UseBrowserRefusal()</c>) — passes as well.
+    /// </para>
+    /// </remarks>
+    public static async Task<IReadOnlyList<string>> AuthorizedProblemsAsync(Uri endpoint, AuthenticationHeaderValue authorization, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(endpoint);
+        ArgumentNullException.ThrowIfNull(authorization);
+
+        using var http = new HttpClient();
+        var fromPage = await StatusAsync(http, endpoint, Page, null, cancellationToken).ConfigureAwait(false);
+        var fromSandbox = await StatusAsync(http, endpoint, Sandboxed, null, cancellationToken).ConfigureAwait(false);
+        var fromStranger = await StatusAsync(http, endpoint, null, null, cancellationToken).ConfigureAwait(false);
+        var fromClient = await StatusAsync(http, endpoint, null, authorization, cancellationToken).ConfigureAwait(false);
+        var problems = new List<string>();
+
+        if (!IsRefusal(fromPage))
+            problems.Add($"POST {endpoint} with Origin: {Page} and no key was answered {(int)fromPage}, not 401 or 403: a page in a browser reaches the server");
+
+        if (!IsRefusal(fromSandbox))
+            problems.Add($"POST {endpoint} with Origin: {Sandboxed} and no key was answered {(int)fromSandbox}, not 401 or 403: a sandboxed frame or a local page reaches the server");
+
+        if (!IsRefusal(fromStranger))
+            problems.Add($"POST {endpoint} without a key was answered {(int)fromStranger}, not 401 or 403: anyone who reaches the server is let in");
+
+        if (IsRefusal(fromClient))
+            problems.Add($"POST {endpoint} with the key was answered {(int)fromClient}: an agent's client is refused too, so the refusals prove nothing");
+
+        return problems;
+    }
+
+    private static bool IsRefusal(HttpStatusCode status) => status is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
+
+    private static async Task<HttpStatusCode> StatusAsync(HttpClient http, Uri endpoint, string? origin, AuthenticationHeaderValue? authorization, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = new StringContent(Ping, Encoding.UTF8, "application/json") };
 
@@ -51,6 +99,8 @@ public static class HttpGuards
 
         if (origin is not null)
             request.Headers.Add("Origin", origin);
+
+        request.Headers.Authorization = authorization;
 
         using var answer = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
 

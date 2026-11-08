@@ -307,8 +307,8 @@ And for the server project (no kind):
   looks in a section for a key the root does not hold, for a server whose other settings sit there;
   `McpHttpHost.CreateBuilder(args, endpoint)` builds the host it names
   ([installing](installing.md#where-a-server-answers)). `MapHealth()` maps `/healthz`, 200 with no body, for a
-  container's healthcheck; `MapHealth(path, isHealthy)` answers 503 while the server cannot serve (a browser behind it
-  gone).
+  container's healthcheck; `MapHealth(path, check)` answers 503 while the server cannot serve (a browser behind it
+  gone), with the JSON body the check gives (Snail.MCP.Blender's `{"status":"ok","blender":"down"}`).
 - The settings read once: a program that read its settings to choose its endpoint builds its host over them,
   `McpHost.CreateBuilder(args, settings)` and `McpHttpHost.CreateBuilder(args, endpoint, settings)`, rather than
   letting the host read the same files and variables again — and with them whatever the server added (Snail.MCP.Playwright's

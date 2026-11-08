@@ -29,6 +29,10 @@ public sealed class SkillOptions
     /// Null from it falls back to the MCP session, so a server keys the clients it can tell apart and leaves the rest as
     /// they were. The server is the request's, null only where a skill is reached outside one.
     /// </para>
+    /// <para>
+    /// A name is never taken for a session's id: the two are kept apart inside, so the name needs no prefix of its own —
+    /// Snail.MCP.Blender wrote <c>client:</c> before each, since a key named like a session's id shared its skills.
+    /// </para>
     /// </remarks>
     public Func<IServiceProvider, McpServer?, string?>? SessionOf { get; set; }
 

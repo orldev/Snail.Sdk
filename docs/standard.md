@@ -413,7 +413,7 @@ And for the server project (no kind):
   `[Skill(name, description)]` keeps a group of tools out of a session's list until it loads the skill
   (`<short>_skills`, `_enable_skill`, `_disable_skill`), tells the client of the change — a client of the 2026-07-28
   revision on its `subscriptions/listen` stream — and unloads a skill left idle and not busy; `SkillOptions.SessionOf`
-  tells apart the clients that have no MCP session. All read the registered tools, so none needs reflection at run time.
+  tells apart the clients that have no MCP session, its names never taken for a session's id. All read the registered tools, so none needs reflection at run time.
 - `-p:SnailReference=true` writes the tool reference ([Documentation and the site](#documentation-and-the-site)).
 - `dotnet publish -c Release -r <rid> -p:SnailMcpInstall=true` installs the server into
   `~/.s3l-mcp/<name>/<date>-<time>.<commit>/` and points `current` at it ([installing](installing.md)).

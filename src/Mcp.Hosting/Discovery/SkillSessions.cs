@@ -120,10 +120,15 @@ internal sealed class LoadedSkills
 /// (<c>McpServerTool.Create</c> with <c>ActivatorUtilities</c> over <c>Assembly.GetTypes</c>) and swapped in through the
 /// HTTP transport's session hook — neither of which a native build or a stdio server has.
 /// </para>
+/// <para>
+/// The names <see cref="SkillOptions.SessionOf"/> gives and the MCP session ids are two spaces of keys: a client whose
+/// key is named like a session's id does not share that session's set. Snail.MCP.Blender wrote <c>client:</c> before
+/// every name to keep them apart, and Snail.MCP.AfterEffects kept them apart by luck.
+/// </para>
 /// </remarks>
 internal sealed class SkillSessions(string prefix, TimeProvider time, Func<IServiceProvider, McpServer?, string?>? sessionOf = null)
 {
-    private readonly ConcurrentDictionary<string, LoadedSkills> _sessions = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<(bool IsNamed, string Key), LoadedSkills> _sessions = new();
 
     /// <summary>The prefix of the skill tools' names, without its underscore.</summary>
     public string Prefix { get; } = prefix;
@@ -134,7 +139,15 @@ internal sealed class SkillSessions(string prefix, TimeProvider time, Func<IServ
     public LoadedSkills Of(McpServer server, IServiceProvider? services)
     {
         var named = services is not null && sessionOf is not null ? sessionOf(services, server) : null;
-        var loaded = _sessions.GetOrAdd(named ?? server.SessionId ?? string.Empty, _ => new LoadedSkills());
+
+        return Keyed(named, server.SessionId);
+    }
+
+    /// <summary>The skills of the set <paramref name="named"/> names, else of the MCP <paramref name="session"/>, else the one set of the clients that have neither.</summary>
+    internal LoadedSkills Keyed(string? named, string? session)
+    {
+        var key = named is not null ? (true, named) : (false, session ?? string.Empty);
+        var loaded = _sessions.GetOrAdd(key, _ => new LoadedSkills());
 
         loaded.Seen(Time.GetUtcNow());
 

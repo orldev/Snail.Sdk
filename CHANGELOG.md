@@ -472,6 +472,11 @@ A change that a repository must act on says what to do.
     client's `subscriptions/listen` stream from it. `IdleTimeout` unloads a skill unused that long, unless
     `IsBusy(skill, services)` says it is at work — a farm render with no call of its tools for an hour — and then it
     stays a whole timeout after. Nothing is built by reflection: the skills are read from `McpServerTool.Metadata`.
+  - The names `SkillOptions.SessionOf` gives and the MCP session ids are kept apart inside: a client whose key is named
+    like a session's id — or named empty, like the one set of the clients with neither — no longer shares its skills.
+    They shared one dictionary, so Snail.MCP.Blender wrote `client:` before every name, and Snail.MCP.AfterEffects,
+    which wrote nothing, was kept apart by luck. Blender may drop the prefix from its `SkillsOf`
+    (`$"client:{name}"` → `name`); nothing else changes.
 
   To adopt, a server deletes its `DiscoveryTools`, `ToolIndex`, `Vocabulary`, `ToolEntry`/`ToolArgument` and their
   guard test of tool classes (Git, FileSystem, Sandbox, CleanUp, Roslyn; Blender's and AfterEffects' `Discovery/ToolIndex`

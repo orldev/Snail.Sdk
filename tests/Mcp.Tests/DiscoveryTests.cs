@@ -890,6 +890,35 @@ public sealed class SkillsTests
         Assert.DoesNotContain(unkeyed, tool => tool.Name == "render_image");
     }
 
+    /// <summary>#145: a name SessionOf gave and an MCP session's id shared one dictionary, so Snail.MCP.Blender prefixed its names with "client:".</summary>
+    [Fact]
+    public async Task SessionOf_AName_NeverSharesTheSetOfASessionKeyedAlike()
+    {
+        string? key = null;
+        await using var stand = await DiscoveryStand.StartAsync(skilled: options => options.SessionOf = (_, _) => Volatile.Read(ref key));
+
+        Volatile.Write(ref key, string.Empty);
+        await stand.Client.CallToolAsync("sample_enable_skill", new Dictionary<string, object?> { ["name"] = "render" });
+        var named = await stand.Client.ListToolsAsync();
+        Volatile.Write(ref key, null);
+        var sessionless = await stand.Client.ListToolsAsync();
+
+        Assert.Contains(named, tool => tool.Name == "render_image");
+        Assert.DoesNotContain(sessionless, tool => tool.Name == "render_image");
+    }
+
+    [Fact]
+    public void Sets_OfANameAndOfASessionWithTheSameKey_AreTwo()
+    {
+        var sessions = new SkillSessions("sample", new ManualClock());
+
+        sessions.Keyed("abc", null).TryLoad("render", DateTimeOffset.UnixEpoch);
+
+        Assert.True(sessions.Keyed("abc", "other").IsLoaded("render"));
+        Assert.False(sessions.Keyed(null, "abc").IsLoaded("render"));
+        Assert.False(sessions.Keyed(null, null).IsLoaded("render"));
+    }
+
     [Fact]
     public async Task Prefix_NamesTheSkillTools_WithOrWithoutItsUnderscore()
     {

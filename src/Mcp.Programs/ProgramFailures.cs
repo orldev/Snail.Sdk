@@ -1,3 +1,5 @@
+using Snail.Sdk.Mcp.Hosting.Sessions;
+
 namespace Snail.Sdk.Mcp.Programs;
 
 /// <summary>The kinds of stop a program reports as its <c>type</c>, words a client can branch on.</summary>
@@ -27,7 +29,7 @@ public static class ProgramFailures
 
     /// <summary>The session may not call the tool the command stands for: the fleet's one type of a refusal by the grant.</summary>
     /// <remarks>The same word as the gate's own refusal of a tool, so a client branches on one type whether a tool or a program's command was refused.</remarks>
-    public const string NotGranted = "notGranted";
+    public const string NotGranted = GrantOptions.NotGranted;
 
     /// <summary>The call was malformed: no code, a timeout out of range, a command given something other than one object.</summary>
     public const string Invalid = "invalid";

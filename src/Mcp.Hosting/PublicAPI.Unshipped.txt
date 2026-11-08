@@ -478,3 +478,4 @@ Snail.Sdk.Mcp.Hosting.McpHost.extension(Microsoft.Extensions.DependencyInjection
 static Snail.Sdk.Mcp.Hosting.McpHost.AddStartRefusal(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Snail.Sdk.Mcp.Hosting.ServerSettings.NameOfSetting(string! name, string! key) -> string!
 static Snail.Sdk.Mcp.Hosting.ServerSettings.Bind(string! name, Microsoft.Extensions.Configuration.IConfiguration! settings, System.Action<Microsoft.Extensions.Configuration.IConfiguration!>! bind) -> void
+static Snail.Sdk.Mcp.Hosting.Jobs.JobAnswer.Pending(Snail.Sdk.Mcp.Hosting.Jobs.JobReport! report, System.Text.Json.Nodes.JsonObject? beside = null, string? hint = null, Snail.Sdk.Mcp.Hosting.Jobs.JobAnswerOptions? options = null) -> ModelContextProtocol.Protocol.CallToolResult!

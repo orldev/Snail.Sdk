@@ -354,7 +354,8 @@ And for the server project (no kind):
   that returns an `Answer<T>` (`Jobs.Start(kind, owner, work, typeInfo)`) ends a failure as a failed job — the error its
   `Message`, the hint and type `JobReport.Hint` and `JobReport.Type` — and a tool whose answer is the work's result
   answers `JobAnswer.Result(report, running)`: the result as the data once succeeded, the failure flagged once failed,
-  the report with `running` beside it while it runs.
+  the report with `running` beside it while it runs — the answer `JobAnswer.Pending(report, beside, hint)` writes for a
+  job in flight, which a tool that answers its result in a way of its own takes rather than build it by hand.
 - One answer envelope (`Snail.Sdk.Mcp.Hosting.Answers`): a tool's text is one block of compact JSON with nothing escaped
   that JSON allows, `{"ok":true,"data":…}` or `{"ok":false,"error":"…","hint":"…","type":"…","data":…}` with a field
   that has no value left out, written by `ToolAnswer.Ok(data, shape)`, `ToolAnswer.Failed(error, hint, type, data)` or

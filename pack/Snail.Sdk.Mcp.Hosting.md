@@ -30,7 +30,8 @@ What every Snail MCP server starts from:
   was learned before it. `.ExplainFailures()`, in `Snail.Sdk.Mcp.Hosting` itself, answers a tool that threw with it, a
   call whose arguments did not bind with `type` `arguments`, and a `ToolRefusalException` in its own words.
 - `Jobs.Start` and `JobAnswer`: a long operation as a job; work that returns an `Answer<T>` ends a failure as a failed
-  job with its hint and type, and `JobAnswer.Envelope` or `JobAnswer.Result` answers the tool.
+  job with its hint and type, and `JobAnswer.Envelope` or `JobAnswer.Result` answers the tool — `JobAnswer.Pending` a
+  job still running.
 - `Snail.Sdk.Mcp.Hosting.Sessions`: what a session's address (`?tool=`, `?root=`) grants it.
   `.RefuseWhatWasNotGranted()` refuses and hides a tool the session was not granted (`SessionGrant`, or a gate of the
   server's own, `IToolGate`); `ToolForwarding.CallAsync` is how a `[Forwards]` tool such as `run_tools` calls a step,

@@ -450,6 +450,7 @@ A job as the answer of a tool that speaks in words of its own: its text, with th
 | --- | --- |
 | `CallToolResult Envelope(JobReport report, JsonObject? beside = null, string? hint = null, JobAnswerOptions? options = null)` | The job as the envelope every answer is: the report as the data of the text, and as the structured content. |
 | `CallToolResult Of(JobReport report, Func<JobReport, CallToolResult> said)` | The tool result `said` makes of the report, with the report itself as its structured content. |
+| `CallToolResult Pending(JobReport report, JsonObject? beside = null, string? hint = null, JobAnswerOptions? options = null)` | The job still running, as the envelope: a success whose data is the report — its URI, its state, how far it has come — with the fields of `beside`, and the report as the structured content. |
 | `CallToolResult Result(JobReport report, JsonObject? running = null, string? hint = null, JobAnswerOptions? options = null)` | The job as the answer its tool gives when the tool's answer is the work's result: once it succeeded, the result itself as the data; once it failed, the failure its work answered; while it runs, the report with `running` beside it. The report is the structured content throughout. |
 
 ### class JobAnswerOptions

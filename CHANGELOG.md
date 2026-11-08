@@ -151,6 +151,13 @@ A change that a repository must act on says what to do.
   cancellation, read the log after a failure — and the error of a cancelled job, which was the SDK's alone; the report's
   own hint still wins, then `hint`. A server that worked its hint out before every call
   (`JobAnswer.Result(report, running, HintOf(report))`) keeps one `JobAnswerOptions` and passes it instead.
+  `JobAnswer.Pending(report, beside, hint, options)` is the answer of a job still running alone — a success whose data
+  is the report with the fields of `beside`, `hint` as the success's hint (where to read it, when to look again), the
+  report the structured content — the very answer `Envelope` and `Result` give a running job, which they now write
+  through it, to the byte. A tool that answers its result in a way of its own and a job in flight in the envelope takes
+  it rather than build the report, the fields beside it and the structured content by hand (#22). A report that has
+  ended already is answered as `Envelope` answers it, `hint` and `options` with it, a failure flagged as one. Nothing to
+  change: BuildBridge, AfterEffects and Blender (`Envelope`), E2E and Sandbox (`Result`) build no pending answer by hand.
 - Work that ends in an `Answer<T>` ends its job as the answer says: `Jobs.Start(kind, [owner,] work, typeInfo)` with
   work returning `Task<Answer<T>>` succeeds with the value as the result, and fails with the answer's error as the
   `Message` and its hint and type as `JobReport.Hint` and `JobReport.Type` — new `init` properties the JSON leaves out

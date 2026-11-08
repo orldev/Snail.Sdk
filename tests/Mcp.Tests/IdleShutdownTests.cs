@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Snail.Sdk.Mcp.Http;
 
@@ -147,9 +148,55 @@ public sealed class IdleShutdownTests
         Assert.True(shutdown.IsBusy);
     }
 
+    /// <summary>A server passes its setting straight through, and a negative one means never rather than a failed start.</summary>
     [Fact]
-    public void AddIdleShutdown_ANegativePeriod_IsRefused() =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => McpHost.CreateBuilder([]).Services.AddIdleShutdown(TimeSpan.FromSeconds(-1)));
+    public async Task AddIdleShutdown_ANegativePeriod_TurnsTheShutdownOff()
+    {
+        var builder = McpHost.CreateBuilder([]);
+        builder.Services.AddMcpServer().WithStreamServerTransport(new Pipe().Reader.AsStream(), new Pipe().Writer.AsStream());
+
+        builder.Services.AddIdleShutdown(TimeSpan.FromSeconds(-1));
+
+        using var host = builder.Build();
+        var shutdown = Assert.Single(host.Services.GetServices<IHostedService>().OfType<IdleShutdown>());
+        await shutdown.StartAsync(CancellationToken.None);
+        await shutdown.ExecuteTask!.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.False(host.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping.IsCancellationRequested);
+    }
+
+    /// <summary>A clock the services hold measures the quiet, so a test moves the period without waiting for it (Snail.MCP.Memory).</summary>
+    [Fact]
+    public void AddIdleShutdown_AClockInTheServices_MeasuresTheQuiet()
+    {
+        var builder = McpHost.CreateBuilder([]);
+        builder.Services.AddMcpServer().WithStreamServerTransport(new Pipe().Reader.AsStream(), new Pipe().Writer.AsStream());
+        builder.Services.AddSingleton<TimeProvider>(_clock);
+
+        builder.Services.AddIdleShutdown(Quiet);
+
+        using var host = builder.Build();
+        var shutdown = Assert.Single(host.Services.GetServices<IHostedService>().OfType<IdleShutdown>());
+
+        Assert.False(shutdown.TryStop());
+
+        _clock.Advance(Quiet);
+
+        Assert.True(shutdown.TryStop());
+    }
+
+    /// <summary>The process ends with no client asking it to, which the fleet's watchers wrote at warning.</summary>
+    [Fact]
+    public void TryStop_TheStop_IsLoggedAtWarning()
+    {
+        var logger = new Recording();
+        var shutdown = new IdleShutdown(new McpActivity(_clock), Quiet, () => false, isSingleSession: true, _clock, _lifetime, logger);
+
+        _clock.Advance(Quiet);
+        shutdown.TryStop();
+
+        Assert.Equal(LogLevel.Warning, Assert.Single(logger.Levels));
+    }
 
     /// <summary>The trim and the shutdown hear the same messages through one filter.</summary>
     [Fact]
@@ -171,6 +218,18 @@ public sealed class IdleShutdownTests
         listener.Start();
 
         return ((IPEndPoint)listener.LocalEndpoint).Port;
+    }
+
+    private sealed class Recording : ILogger<IdleShutdown>
+    {
+        public List<LogLevel> Levels { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Levels.Add(logLevel);
     }
 
     private sealed class Plugin

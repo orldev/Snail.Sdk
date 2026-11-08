@@ -179,8 +179,8 @@ when the server would wait for a message that never comes. A server built with `
 heard no MCP message for a period of its own choosing, unless it says it is busy: Snail.MCP.Figma stays while its
 plugin is connected. Any MCP message counts — a call, a listing, a ping — and a server shared over HTTP is never
 stopped, whatever the period. The period is the server's setting, named in its README: Snail.MCP.Figma and Snail.MCP.Memory
-stop after 60 minutes, Snail.MCP.Blender and Snail.MCP.AfterEffects only when theirs is set, and `0` turns it off. The
-stop is one line on stderr, at information.
+stop after 60 minutes, Snail.MCP.Blender and Snail.MCP.AfterEffects only when theirs is set, and `0` — or any period
+below it — turns it off. The stop is one line on stderr, at warning.
 
 ## Where a server answers
 

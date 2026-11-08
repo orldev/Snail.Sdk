@@ -122,8 +122,12 @@ A change that a repository must act on says what to do.
   without closing its stdin, which waited for ever. Any MCP message counts, over the filter the idle trim counts with —
   the watchers Snail.MCP.Blender, AfterEffects, Figma and Memory kept of their own counted `tools/call` alone, so a
   client that only pings now keeps the server up. A server served over HTTP is never stopped, so a program of both
-  transports registers it alike. `TimeSpan.Zero` turns it off; the period and its default stay the server's setting.
-  A server drops its `IdleShutdownWatcher`, `IActivityTracker` and their registration for one call.
+  transports registers it alike. A period of zero or less turns it off — a server passes its setting straight through,
+  and a negative one no longer stops it at its start with an exception that named no setting (Snail.MCP.Figma); the
+  period and its default stay the server's setting. The quiet is measured by the `TimeProvider` the services hold
+  (`TimeProvider.System` when none), so a test that registers a clock moves the period with it (Snail.MCP.Memory), and
+  the stop is logged at warning, as the fleet's watchers wrote it. A server drops its `IdleShutdownWatcher`,
+  `IActivityTracker` and their registration for one call.
 - `McpEndpoint.Read(settings, defaultUrl)` and `McpTransport`: where a server of both transports answers, from either of
   the two ways the fleet says it — `Transport` with `Url` (or `Http:Url`), or a `Port` alone — on every interface inside
   a container (`DOTNET_RUNNING_IN_CONTAINER=true`), with `ListensOnEveryInterface`, or at `0.0.0.0`, on loopback

@@ -149,7 +149,7 @@ public static class McpHost
             services.AddHostedService(provider => new IdleTrim(
                 provider.GetRequiredService<McpActivity>(),
                 IdleTrim.PeriodOf(Environment.GetEnvironmentVariable(IdleTrim.Variable)),
-                TimeProvider.System,
+                TimeOf(provider),
                 () => GC.GetTotalAllocatedBytes(),
                 IdleTrim.Compact,
                 provider.GetRequiredService<ILogger<IdleTrim>>()));
@@ -193,7 +193,7 @@ public static class McpHost
         }
 
         /// <summary>Stops a stdio server that has heard no MCP message for <paramref name="after"/>, unless <paramref name="isBusy"/> says it is busy.</summary>
-        /// <param name="after">The quiet period; <see cref="TimeSpan.Zero"/> turns the shutdown off.</param>
+        /// <param name="after">The quiet period; <see cref="TimeSpan.Zero"/> or less turns the shutdown off.</param>
         /// <param name="isBusy">Whether the server is at work no MCP message shows — a plugin's bridge connected, a render running; while it says yes, the server counts as heard.</param>
         /// <remarks>
         /// <para>
@@ -210,15 +210,19 @@ public static class McpHost
         /// transports registers this alike in either.
         /// </para>
         /// <para>
-        /// The period is the server's to choose, and its setting's: the host reads no variable for it. Called again, the
-        /// later period and veto replace the earlier ones.
+        /// The period is the server's to choose, and its setting's: the host reads no variable for it. A period of zero or
+        /// less turns the shutdown off rather than failing the start: the servers pass their setting straight through, and a
+        /// negative one stopped the server at its start with an exception that named no setting (Snail.MCP.Figma, 0.5.0).
+        /// Called again, the later period and veto replace the earlier ones.
+        /// </para>
+        /// <para>
+        /// The quiet is measured by the <see cref="TimeProvider"/> the services hold, <see cref="TimeProvider.System"/> when
+        /// they hold none, so a test that registers a clock of its own moves the period with it. The stop is logged at
+        /// warning: the process ends without a client asking it to, and the watchers of the fleet wrote it at warning.
         /// </para>
         /// </remarks>
-        /// <exception cref="ArgumentOutOfRangeException">The period is negative.</exception>
         public IServiceCollection AddIdleShutdown(TimeSpan after, Func<IServiceProvider, bool>? isBusy = null)
         {
-            ArgumentOutOfRangeException.ThrowIfLessThan(after, TimeSpan.Zero);
-
             var isRegistered = services.Any(service => service.ServiceType == typeof(IdleShutdownPlan));
 
             AddActivity(services);
@@ -237,7 +241,7 @@ public static class McpHost
                     plan.After,
                     plan.IsBusy is { } veto ? () => veto(provider) : static () => false,
                     isSingleSession,
-                    TimeProvider.System,
+                    TimeOf(provider),
                     provider.GetRequiredService<IHostApplicationLifetime>(),
                     provider.GetRequiredService<ILogger<IdleShutdown>>());
             });
@@ -273,10 +277,13 @@ public static class McpHost
         if (services.Any(service => service.ServiceType == typeof(McpActivity)))
             return;
 
-        services.AddSingleton(new McpActivity(TimeProvider.System));
+        services.AddSingleton(provider => new McpActivity(TimeOf(provider)));
         services.AddOptions<McpServerOptions>()
             .PostConfigure<McpActivity>((options, activity) => options.Filters.Message.IncomingFilters.Add(activity.Hearing));
     }
+
+    /// <summary>The clock the services hold, or the system's when they hold none.</summary>
+    private static TimeProvider TimeOf(IServiceProvider provider) => provider.GetService<TimeProvider>() ?? TimeProvider.System;
 
     /// <summary>Marks the idle trim registered, so a second call adds nothing.</summary>
     private sealed class IdleTrimRegistered;

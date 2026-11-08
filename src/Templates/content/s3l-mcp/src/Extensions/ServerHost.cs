@@ -19,7 +19,7 @@ public static class ServerHost
 
 #endif
 #if (UsesStdio)
-        var builder = McpHost.CreateBuilder(args);
+        var builder = McpHost.CreateBuilder(args, ServerSettings.Values);
 
         builder.Services.AddMcpServer(ServerRegistration.Describe).ExplainFailures().WithStdioServerTransport().WithServerTools();
 

@@ -22,11 +22,46 @@ public static class McpHost
 {
     /// <summary>An empty host builder that logs to stderr at the levels its settings name and trims the heap when the server is idle.</summary>
     /// <remarks>
+    /// <para>
     /// For a program built on Snail.Sdk.Mcp, which names its server in its assembly, the server's settings are read — and,
     /// first, its folders moved from the snail names (<see cref="ServerFolders.MoveFromSnailNames(string)"/>), so a
     /// settings file kept under the old name is found under the new one by this very start.
+    /// </para>
+    /// <para>
+    /// The server is found by the entry assembly, the program the process started. A host built in a test's own process
+    /// has the test runner (testhost) for its entry assembly, which names no server, so it reads no settings at all; such
+    /// a test, and a program that has read its settings already, passes them to <see cref="CreateBuilder(string[], IConfiguration)"/>.
+    /// </para>
     /// </remarks>
     public static HostApplicationBuilder CreateBuilder(string[] args) => CreateBuilder(args, Assembly.GetEntryAssembly());
+
+    /// <summary>An empty host builder over the settings the program has read already, logging to stderr at the levels they name and trimming the heap when the server is idle.</summary>
+    /// <param name="args">The program's arguments.</param>
+    /// <param name="settings">The server's settings as the program holds them — <see cref="ServerSettings.Read(string)"/>, with whatever the server adds to them — which become the host's configuration.</param>
+    /// <remarks>
+    /// <para>
+    /// The same host as <see cref="CreateBuilder(string[])"/>, but the settings are not read a second time: a program reads
+    /// them before any host exists, to choose its transport (<see cref="McpEndpoint.Read(IConfiguration, Uri)"/>), and
+    /// a server whose settings carry more than <see cref="ServerSettings"/> reads — the browser defaults of
+    /// Snail.MCP.Playwright — added its own configuration again on top of the one the host had just read. Here the
+    /// host's configuration is <paramref name="settings"/>, read once, and nothing is looked for by the entry assembly,
+    /// so a host built in a test's process has the settings the test gives it.
+    /// </para>
+    /// <para>
+    /// The folders are not moved from the snail names here: reading the settings moved them
+    /// (<see cref="ServerSettings.Read(string)"/>, <c>AddServerSettings(name)</c>).
+    /// </para>
+    /// </remarks>
+    public static HostApplicationBuilder CreateBuilder(string[] args, IConfiguration settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings { Args = args });
+
+        builder.Configuration.AddConfiguration(settings);
+
+        return Finished(builder);
+    }
 
     /// <summary>The host builder of the server built into <paramref name="server"/>.</summary>
     internal static HostApplicationBuilder CreateBuilder(string[] args, Assembly? server)
@@ -36,6 +71,12 @@ public static class McpHost
         if (ServerSettings.NameOf(server) is { } name)
             builder.Configuration.AddServerSettings(name);
 
+        return Finished(builder);
+    }
+
+    /// <summary>The builder logging to stderr at the levels its configuration names, the heap trimmed when idle.</summary>
+    private static HostApplicationBuilder Finished(HostApplicationBuilder builder)
+    {
         builder.Logging.UseStderr().UseLevelsFrom(builder.Configuration);
         builder.Services.AddIdleTrim();
 
@@ -112,6 +153,41 @@ public static class McpHost
                 () => GC.GetTotalAllocatedBytes(),
                 IdleTrim.Compact,
                 provider.GetRequiredService<ILogger<IdleTrim>>()));
+
+            return services;
+        }
+
+        /// <summary>Lets the thread pool grow at once to <paramref name="workers"/> worker threads when the host starts, rather than one or two a second.</summary>
+        /// <param name="workers">The worker threads the pool makes without waiting once there is work for them.</param>
+        /// <remarks>
+        /// <para>
+        /// The pool starts with as many workers as the machine has cores and adds the rest slowly, about one or two a
+        /// second. A server that does much blocking work at once — Snail.MCP.CleanUp's census runs 27 kinds and trails side
+        /// by side, many of them walking the disk without awaiting anything — holds every worker, and a tool call that came
+        /// in meanwhile waited for a thread to answer on: 7 to 8 seconds, measured on 2026-11-01, until the server raised
+        /// the minimum to 64, twice what a census runs at once. A minimum is not a reservation: a thread is made only when
+        /// there is work for it, and an idle server keeps none.
+        /// </para>
+        /// <para>
+        /// The minimum is raised as the host starts, before any hosted service starts its work, and never lowered: a pool
+        /// that already allows more keeps its number, and so does the completion-port minimum. Called again, the largest
+        /// number asked for holds. It works the same in either host.
+        /// </para>
+        /// </remarks>
+        /// <exception cref="ArgumentOutOfRangeException">The number is zero or negative.</exception>
+        public IServiceCollection AddReadyThreads(int workers)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(workers);
+
+            var asked = services.FirstOrDefault(service => service.ServiceType == typeof(ReadyThreads))?.ImplementationInstance as ReadyThreads;
+
+            if (asked is not null && asked.Workers >= workers)
+                return services;
+
+            services.Replace(ServiceDescriptor.Singleton(new ReadyThreads(workers)));
+
+            if (asked is null)
+                services.AddHostedService(provider => provider.GetRequiredService<ReadyThreads>());
 
             return services;
         }

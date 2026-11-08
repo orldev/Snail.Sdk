@@ -204,6 +204,19 @@ for no key. A server that listens on every interface by default names `0.0.0.0` 
 its start with a line that names the variable and the key of the settings file:
 `SNAIL_MCP_<SHORT>_PORT (or Port in the settings file) is 'eighty'; …`.
 
+A server that keeps its other settings in a section of its settings file — Snail.MCP.Playwright, FileSystem, Documents
+and Git keep theirs under `Snail` — reads these keys there too: `{"Snail": {"Port": 8820}}` in the file, or
+`SNAIL_MCP_<SHORT>_SNAIL__PORT`, is the same as `Port` at the root. Each key is looked for at the root first and in the
+section only when the root does not hold it, so a `Port` at the root and a `Url` in the section are both read; a
+refusal names the key where it was found, `SNAIL_MCP_<SHORT>_SNAIL__PORT (or Snail:Port in the settings file) is
+'eighty'`. A server reads the section with `McpEndpoint.Read(settings, defaultUrl, "Snail")` (or `ReadHttp`), and says
+in its README that it does.
+
+A server whose process may run while it cannot serve answers its health check by what it serves through:
+`MapHealth(path, isHealthy)` answers 503 while the check says no, or throws — Snail.MCP.Playwright's `/healthz` while its
+browser does not answer — so an orchestrator restarts it and `HttpServerProgram` waits for it; `MapHealth()` alone
+answers 200 for a process that answers HTTP.
+
 ## Checking an installed server
 
 The contract tests start the server through `Snail.Sdk.Mcp.Testing`: the dll beside the tests by default, or the program

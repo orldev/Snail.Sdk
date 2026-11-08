@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.AspNetCore;
 using Snail.Sdk.Mcp.Hosting;
@@ -28,6 +29,11 @@ namespace Snail.Sdk.Mcp.Http;
 /// <c>urls</c> from the <c>IConfiguration</c> the services hold, so a server that registered a configuration of its own
 /// got Kestrel's default, localhost:5000, without a word (Snail.MCP.Documents, 2026-11-07).
 /// </para>
+/// <para>
+/// The server's settings are found by the entry assembly, as <c>McpHost.CreateBuilder</c> finds them: a host built in a
+/// test's own process has the test runner for its entry assembly and reads none. Such a test — and a program that read
+/// its settings already, to choose its endpoint — passes them to <see cref="CreateBuilder(string[], McpEndpoint, IConfiguration)"/>.
+/// </para>
 /// </remarks>
 public static class McpHttpHost
 {
@@ -46,13 +52,18 @@ public static class McpHttpHost
     {
         ArgumentNullException.ThrowIfNull(url);
 
-        if (!url.IsLoopback)
-            throw new ArgumentException($"'{url}' is not a loopback address: the server would answer anyone who reaches it.", nameof(url));
-
-        if (url.Scheme != Uri.UriSchemeHttp)
-            throw new ArgumentException($"'{url}' is not an http address: the host serves plain HTTP on loopback.", nameof(url));
+        CheckLoopback(url, nameof(url));
 
         return Builder(args, kestrel => ListenOn(kestrel, url));
+    }
+
+    private static void CheckLoopback(Uri url, string parameter)
+    {
+        if (!url.IsLoopback)
+            throw new ArgumentException($"'{url}' is not a loopback address: the server would answer anyone who reaches it.", parameter);
+
+        if (url.Scheme != Uri.UriSchemeHttp)
+            throw new ArgumentException($"'{url}' is not an http address: the host serves plain HTTP on loopback.", parameter);
     }
 
     /// <summary>
@@ -76,7 +87,7 @@ public static class McpHttpHost
 
     /// <summary>The host of the endpoint a server's settings ask for: on loopback at its URL, or on every interface at its port.</summary>
     /// <remarks>
-    /// The one call for a server that reads where it answers with <see cref="McpEndpoint.Read(Microsoft.Extensions.Configuration.IConfiguration, Uri)"/> or <see cref="McpEndpoint.ReadHttp(Microsoft.Extensions.Configuration.IConfiguration, Uri)"/>: inside a container, or
+    /// The one call for a server that reads where it answers with <see cref="McpEndpoint.Read(IConfiguration, Uri)"/> or <see cref="McpEndpoint.ReadHttp(IConfiguration, Uri)"/>: inside a container, or
     /// told to listen on every interface, it is <see cref="CreateContainerBuilder"/> on the URL's port; anywhere else
     /// <see cref="CreateBuilder(string[], Uri)"/> on the URL itself, which refuses an address beyond loopback.
     /// </remarks>
@@ -93,11 +104,47 @@ public static class McpHttpHost
             : CreateBuilder(args, endpoint.Url);
     }
 
-    private static WebApplicationBuilder Builder(string[] args, Action<KestrelServerOptions> listen)
+    /// <summary>The host of the endpoint a server's settings ask for, over those settings as the program read them rather than read again.</summary>
+    /// <param name="args">The program's arguments.</param>
+    /// <param name="endpoint">Where the server answers, as <see cref="McpEndpoint.Read(IConfiguration, Uri)"/> read it from <paramref name="settings"/>.</param>
+    /// <param name="settings">The server's settings as the program holds them, with whatever the server adds to them, which become the host's configuration.</param>
+    /// <remarks>
+    /// <para>
+    /// <see cref="CreateBuilder(string[], McpEndpoint)"/>, but the host's configuration is <paramref name="settings"/>: the
+    /// program read them to choose its endpoint, and the host read the same files and variables a second time. A server
+    /// whose configuration holds more than <see cref="ServerSettings"/> reads — the browser defaults of
+    /// Snail.MCP.Playwright — then added its own on top. Nothing is looked for by the entry assembly, so a test that
+    /// builds the host in its own process, under the test runner, gives it the settings the server would have read.
+    /// </para>
+    /// <para>
+    /// The folders are not moved from the snail names here: reading the settings moved them
+    /// (<see cref="ServerSettings.Read(string)"/>, <c>AddServerSettings(name)</c>).
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentException">The endpoint is a stdio one, or a loopback one whose address is not loopback or not plain http.</exception>
+    public static WebApplicationBuilder CreateBuilder(string[] args, McpEndpoint endpoint, IConfiguration settings)
+    {
+        ArgumentNullException.ThrowIfNull(endpoint);
+        ArgumentNullException.ThrowIfNull(settings);
+
+        if (endpoint.Transport is not McpTransport.Http)
+            throw new ArgumentException("The endpoint is a stdio one: it is served by McpHost, not by a web host.", nameof(endpoint));
+
+        if (endpoint.ListensOnEveryInterface)
+            return Builder(args, kestrel => kestrel.ListenAnyIP(endpoint.Url.Port), settings);
+
+        CheckLoopback(endpoint.Url, nameof(endpoint));
+
+        return Builder(args, kestrel => ListenOn(kestrel, endpoint.Url), settings);
+    }
+
+    private static WebApplicationBuilder Builder(string[] args, Action<KestrelServerOptions> listen, IConfiguration? settings = null)
     {
         var builder = WebApplication.CreateEmptyBuilder(new WebApplicationOptions { Args = args });
 
-        if (ServerSettings.NameOf(Assembly.GetEntryAssembly()) is { } name)
+        if (settings is not null)
+            builder.Configuration.AddConfiguration(settings);
+        else if (ServerSettings.NameOf(Assembly.GetEntryAssembly()) is { } name)
             builder.Configuration.AddServerSettings(name);
 
         builder.Logging.UseStderr().UseLevelsFrom(builder.Configuration);
@@ -146,14 +193,52 @@ public static class McpHttpHost
             return app.MapMcp(path);
         }
 
-        /// <summary>Maps a health check that answers 200 with no body, for a container's healthcheck and an orchestrator.</summary>
+        /// <summary>Maps a health check for a container's healthcheck and an orchestrator: 200 with no body, or 503 while <paramref name="isHealthy"/> says the server cannot serve.</summary>
+        /// <param name="path">Where the check answers.</param>
+        /// <param name="isHealthy">Whether the server can serve now, asked with the request's services and the token cancelled when the caller hangs up; without it the check says only that the process answers HTTP.</param>
         /// <remarks>
-        /// It says the process answers HTTP, nothing more: no state of the server, so it costs nothing and tells a caller
-        /// nothing it could use. A request that carries an <c>Origin</c> is refused here too when the endpoint is mapped
-        /// with <c>MapLocalMcp</c>, whose refusal is the whole host's; a healthcheck — <c>curl</c>, <c>wget</c>, Docker's —
-        /// sends none.
+        /// <para>
+        /// Without <paramref name="isHealthy"/> it says the process answers HTTP, nothing more: no state of the server, so it
+        /// costs nothing and tells a caller nothing it could use. A server whose process may answer HTTP while what it serves
+        /// through cannot gives the check that asks it: Snail.MCP.Playwright answers nothing useful while its browser does
+        /// not, so an orchestrator should restart it, and it kept a <c>/healthz</c> of its own for that. The check is asked
+        /// at every request, so it should be cheap, or remember its last answer. A check that throws answers 503, as one that
+        /// says no, rather than 500: to a healthcheck both mean the server is not ready; a request its caller abandoned stays
+        /// abandoned.
+        /// </para>
+        /// <para>
+        /// A request that carries an <c>Origin</c> is refused here too when the endpoint is mapped with <c>MapLocalMcp</c>,
+        /// whose refusal is the whole host's; a healthcheck — <c>curl</c>, <c>wget</c>, Docker's — sends none.
+        /// </para>
         /// </remarks>
-        public IEndpointConventionBuilder MapHealth(string path = DefaultHealthPath) => app.MapGet(path, Healthy);
+        /// <exception cref="ArgumentException">The path is empty or blank.</exception>
+        public IEndpointConventionBuilder MapHealth(string path = DefaultHealthPath, Func<IServiceProvider, CancellationToken, Task<bool>>? isHealthy = null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+            return isHealthy is null
+                ? app.MapGet(path, Healthy)
+                : app.MapGet(path, context => AnswerHealthAsync(context, isHealthy));
+        }
+    }
+
+    private static async Task AnswerHealthAsync(HttpContext context, Func<IServiceProvider, CancellationToken, Task<bool>> isHealthy)
+    {
+        var isReady = await IsReadyAsync(context, isHealthy);
+
+        context.Response.StatusCode = isReady ? StatusCodes.Status200OK : StatusCodes.Status503ServiceUnavailable;
+    }
+
+    private static async Task<bool> IsReadyAsync(HttpContext context, Func<IServiceProvider, CancellationToken, Task<bool>> isHealthy)
+    {
+        try
+        {
+            return await isHealthy(context.RequestServices, context.RequestAborted);
+        }
+        catch (Exception failure) when (failure is not OperationCanceledException || !context.RequestAborted.IsCancellationRequested)
+        {
+            return false;
+        }
     }
 
     internal static Task RefuseBrowsers(HttpContext context, RequestDelegate next)

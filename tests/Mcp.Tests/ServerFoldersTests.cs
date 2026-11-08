@@ -190,6 +190,32 @@ public sealed class ServerFoldersTests : IDisposable
     public void ExpandHome_ATildePath_IsUnderTheRealHome() =>
         Assert.Equal(Path.Combine(ServerFolders.Home, "notes"), ServerFolders.ExpandHome("~/notes"));
 
+    /// <summary>Snail.MCP.CodeContext, FileSystem and Git wrote <c>Path.GetFullPath(ExpandHome(path))</c> themselves; dots fold away too.</summary>
+    [Fact]
+    public void FullPath_ATildePathWithDots_IsAbsoluteUnderTheHome() =>
+        Assert.Equal(Path.Combine(ServerFolders.Home, "work"), ServerFolders.FullPath(" ~/notes/../work "));
+
+    [Fact]
+    public void FullPath_ARelativePath_IsUnderTheWorkingDirectory() =>
+        Assert.Equal(Path.Combine(Directory.GetCurrentDirectory(), "data", "plans"), ServerFolders.FullPath("data/./plans"));
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("  ")]
+    public void FullPath_NoPath_IsTheFallbackMadeAbsolute(string? path) =>
+        Assert.Equal(Path.Combine(Directory.GetCurrentDirectory(), "fallback"), ServerFolders.FullPath(path, fallback: "fallback"));
+
+    [Fact]
+    public void FullPath_APathBesideAFallback_IsThePath() =>
+        Assert.Equal(Path.Combine(ServerFolders.Home, "notes"), ServerFolders.FullPath("~/notes", fallback: "/fallback"));
+
+    [Fact]
+    public void FullPath_NoPathAndNoFallback_IsRefused()
+    {
+        Assert.Throws<ArgumentException>(() => ServerFolders.FullPath(" "));
+        Assert.Throws<ArgumentException>(() => ServerFolders.FullPath(null, fallback: " "));
+    }
+
     /// <summary>The move every settings read makes first is made for an installed program only, and moves the folders of the server it names.</summary>
     [Fact]
     public void MoveFromSnailNames_ForAnInstalledProgram_MovesTheFolders()

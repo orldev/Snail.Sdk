@@ -303,9 +303,20 @@ And for the server project (no kind):
   servers say it — `Transport` with `Url`, or a `Port` alone — and opens the port on every interface inside a container
   (`DOTNET_RUNNING_IN_CONTAINER`), at `0.0.0.0` or when told to, loopback anywhere else; `McpEndpoint.ReadHttp` is the
   same for a server of HTTP alone, refusing a transport that means stdio at the start; a refusal names the variable the
-  operator set; `McpHttpHost.CreateBuilder(args, endpoint)` builds the host it names
+  operator set, a key of a section by the section's variable; `McpEndpoint.Read(settings, defaultUrl, "Snail")` also
+  looks in a section for a key the root does not hold, for a server whose other settings sit there;
+  `McpHttpHost.CreateBuilder(args, endpoint)` builds the host it names
   ([installing](installing.md#where-a-server-answers)). `MapHealth()` maps `/healthz`, 200 with no body, for a
-  container's healthcheck.
+  container's healthcheck; `MapHealth(path, isHealthy)` answers 503 while the server cannot serve (a browser behind it
+  gone).
+- The settings read once: a program that read its settings to choose its endpoint builds its host over them,
+  `McpHost.CreateBuilder(args, settings)` and `McpHttpHost.CreateBuilder(args, endpoint, settings)`, rather than
+  letting the host read the same files and variables again — and with them whatever the server added (Snail.MCP.Playwright's
+  browser defaults). The builders without settings find the server by the entry assembly, so a host built in a test's
+  own process, under the test runner, reads none: such a test passes the settings the same way.
+- Threads ready for a server that does much blocking work at once: `AddReadyThreads(workers)` raises the thread pool's
+  minimum as the host starts — Snail.MCP.CleanUp's census held every worker, and a call that came in meanwhile waited
+  7 to 8 seconds for a thread, until the minimum was 64.
 - A secret of the server's own — a signing key, a token its plugin presents — through `ServerSecret.ReadOrCreate(file)`
   (`ReadOrCreateHex` for one read as text): made once, readable by its owner alone from its first byte, appearing only
   whole, the same for every process that starts at once, and never replaced — a file of another length is refused, not
@@ -314,7 +325,7 @@ And for the server project (no kind):
 - The folders moved from the snail names by reading the settings: `AddServerSettings(name)`, and with it
   `ServerSettings.Read`, `McpHost.CreateBuilder` and the HTTP builders, calls `ServerFolders.MoveFromSnailNames` first,
   so a server no longer calls it in its `Program.cs`. A path in a setting goes through `ServerFolders.ExpandHome`,
-  which makes a leading `~` the user's home.
+  which makes a leading `~` the user's home, or `ServerFolders.FullPath`, which makes it absolute as well.
 - A publication carries the program, not its debug symbols or XML docs.
 - `Snail.Sdk.Mcp.Hosting` implicitly, `Snail.Sdk.Mcp.Http` with HTTP; a test project on `Snail.Sdk.Mcp` gets
   `Snail.Sdk.Mcp.Testing` and `Snail.Sdk.Mcp.JobClient` instead.

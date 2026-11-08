@@ -45,7 +45,7 @@ Why a program stopped, in words the model can act on.
 | Member | Summary |
 | --- | --- |
 | `JsonNode? Details { get; init; }` | What the failed command reported beside its error. |
-| `ProgramFailure(string Type, string Error, string? Hint = null, JsonNode? Details = null)` | Why a program stopped, in words the model can act on. |
+| `ProgramFailure(string Error)` | Why a program stopped, in words the model can act on. |
 | `string Error { get; init; }` | What happened. |
 | `string Type { get; init; }` | The kind of stop, one of `ProgramFailures` or the type of the command that failed uncaught. |
 | `string? Hint { get; init; }` | What to do about it. |

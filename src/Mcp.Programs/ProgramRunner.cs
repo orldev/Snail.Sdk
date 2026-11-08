@@ -211,7 +211,7 @@ public sealed class ProgramRunner(ProgramOptions options)
             var nearest = NearestNames.Of(name, _commands.Names, NearestCount);
             var error = nearest.Count == 0 ? $"no command '{name}'" : $"no command '{name}'; the nearest: {string.Join(", ", nearest)}";
 
-            return Host(name, _ => throw new ProgramStopped(new ProgramFailure(ProgramFailures.NoSuchCommand, error, Listed())));
+            return Host(name, _ => throw new ProgramStopped(new ProgramFailure(error) { Type = ProgramFailures.NoSuchCommand, Hint = Listed() }));
         }
 
         /// <summary>A function of the host a program calls, handed its arguments in an array of its own.</summary>
@@ -261,10 +261,11 @@ public sealed class ProgramRunner(ProgramOptions options)
         {
             if (_calls.Count >= _options.MaxCalls)
             {
-                throw new ProgramStopped(new ProgramFailure(
-                    ProgramFailures.TooManyCalls,
-                    $"a program sends at most {_options.MaxCalls} commands; this one asked for more",
-                    $"split the work into several programs; {SentStand}"));
+                throw new ProgramStopped(new ProgramFailure($"a program sends at most {_options.MaxCalls} commands; this one asked for more")
+                {
+                    Type = ProgramFailures.TooManyCalls,
+                    Hint = $"split the work into several programs; {SentStand}",
+                });
             }
 
             if (_deadline.IsCancellationRequested)
@@ -341,10 +342,11 @@ public sealed class ProgramRunner(ProgramOptions options)
             if (arguments[0].IsObject() && !arguments[0].IsArray() && Serialized(arguments[0]) is JsonObject given)
                 return given;
 
-            throw new ProgramStopped(new ProgramFailure(
-                ProgramFailures.Invalid,
-                $"{_options.Global}.{command} takes one object of arguments, and was given {arguments[0].Type.ToString().ToLowerInvariant()}",
-                $"call it as {_options.Global}.{command}({{ name: value }})"));
+            throw new ProgramStopped(new ProgramFailure($"{_options.Global}.{command} takes one object of arguments, and was given {arguments[0].Type.ToString().ToLowerInvariant()}")
+            {
+                Type = ProgramFailures.Invalid,
+                Hint = $"call it as {_options.Global}.{command}({{ name: value }})",
+            });
         }
 
         /// <summary>A failed command as the exception a program catches: <c>error</c> and <c>message</c>, <c>hint</c>, <c>type</c>, <c>details</c>.</summary>
@@ -371,17 +373,22 @@ public sealed class ProgramRunner(ProgramOptions options)
             {
                 var thrown = failure.Error.AsObject();
 
-                return new ProgramFailure(Text(thrown.Get("type")) ?? ProgramFailures.Runtime, $"the program stopped at line {line}: {error}", Text(thrown.Get("hint")), Node(thrown.Get("details")));
+                return new ProgramFailure($"the program stopped at line {line}: {error}")
+                {
+                    Type = Text(thrown.Get("type")) ?? ProgramFailures.Runtime,
+                    Hint = Text(thrown.Get("hint")),
+                    Details = Node(thrown.Get("details")),
+                };
             }
 
             if (failure.Error.IsObject() && string.Equals(Text(failure.Error.AsObject().Get("name")), "SyntaxError", StringComparison.Ordinal))
                 return NotJavaScript(failure.Location.Start.Line, failure.Message);
 
-            return new ProgramFailure(ProgramFailures.Runtime, $"the program stopped at line {line}: {failure.Message}", $"fix the program and run it again; {SentStand}");
+            return new ProgramFailure($"the program stopped at line {line}: {failure.Message}") { Type = ProgramFailures.Runtime, Hint = $"fix the program and run it again; {SentStand}" };
         }
 
         private static ProgramFailure NotJavaScript(int engineLine, string message) =>
-            new(ProgramFailures.Syntax, $"the program is not valid JavaScript at line {Line(engineLine)}: {message}", "fix that line and run the program again");
+            new($"the program is not valid JavaScript at line {Line(engineLine)}: {message}") { Type = ProgramFailures.Syntax, Hint = "fix that line and run the program again" };
 
         /// <summary>The line of the program a line of the engine is: the program runs inside a function that opens a line above it.</summary>
         private static int Line(int engineLine) => Math.Max(1, engineLine - 1);
@@ -389,14 +396,14 @@ public sealed class ProgramRunner(ProgramOptions options)
         private ProgramFailure OutOfTime()
         {
             if (_caller.IsCancellationRequested)
-                return new ProgramFailure(ProgramFailures.Cancelled, "the call that ran the program was cancelled", SentStand);
+                return new ProgramFailure("the call that ran the program was cancelled") { Type = ProgramFailures.Cancelled, Hint = SentStand };
 
             var seconds = string.Create(CultureInfo.InvariantCulture, $"{_timeout.TotalSeconds:0.###}");
 
-            return new ProgramFailure(ProgramFailures.Timeout, $"the program ran longer than the {seconds} seconds it was given", $"{SentStand}; give it more time with timeoutSeconds, or split the work");
+            return new ProgramFailure($"the program ran longer than the {seconds} seconds it was given") { Type = ProgramFailures.Timeout, Hint = $"{SentStand}; give it more time with timeoutSeconds, or split the work" };
         }
 
-        private static ProgramFailure TooLarge(string error, string hint) => new(ProgramFailures.TooLarge, error, hint);
+        private static ProgramFailure TooLarge(string error, string hint) => new(error) { Type = ProgramFailures.TooLarge, Hint = hint };
 
         private JsValue Write(JsValue[] written)
         {

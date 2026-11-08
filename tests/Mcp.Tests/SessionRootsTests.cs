@@ -580,7 +580,7 @@ public sealed class SessionRootsTests
     [Fact]
     public void Refused_WithoutWords_StillSaysWhy()
     {
-        var reached = new Reached(null, null, null);
+        Reached reached = new(null, null);
 
         Assert.False(reached.IsAllowed);
         Assert.Equal("the path may not be used", reached.Refusal);

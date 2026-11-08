@@ -366,7 +366,7 @@ Snail.Sdk.Mcp.Hosting.Sessions.Reached
 Snail.Sdk.Mcp.Hosting.Sessions.Reached.<Clone>$() -> Snail.Sdk.Mcp.Hosting.Sessions.Reached!
 const Snail.Sdk.Mcp.Hosting.Sessions.Reached.Absent = "absent" -> string!
 Snail.Sdk.Mcp.Hosting.Sessions.Reached.As<T>() -> Snail.Sdk.Mcp.Hosting.Answers.Answer<T>!
-Snail.Sdk.Mcp.Hosting.Sessions.Reached.Deconstruct(out string? Path, out string? Refusal, out string? Hint, out string? Type) -> void
+Snail.Sdk.Mcp.Hosting.Sessions.Reached.Deconstruct(out string? Path, out string? Refusal) -> void
 Snail.Sdk.Mcp.Hosting.Sessions.Reached.Equals(Snail.Sdk.Mcp.Hosting.Sessions.Reached? other) -> bool
 override Snail.Sdk.Mcp.Hosting.Sessions.Reached.Equals(object? obj) -> bool
 override Snail.Sdk.Mcp.Hosting.Sessions.Reached.GetHashCode() -> int
@@ -381,7 +381,7 @@ const Snail.Sdk.Mcp.Hosting.Sessions.Reached.NotAFolder = "notAFolder" -> string
 const Snail.Sdk.Mcp.Hosting.Sessions.Reached.Outside = "outside" -> string!
 Snail.Sdk.Mcp.Hosting.Sessions.Reached.Path.get -> string?
 Snail.Sdk.Mcp.Hosting.Sessions.Reached.Path.init -> void
-Snail.Sdk.Mcp.Hosting.Sessions.Reached.Reached(string? Path, string? Refusal, string? Hint, string? Type = null) -> void
+Snail.Sdk.Mcp.Hosting.Sessions.Reached.Reached(string? Path, string? Refusal) -> void
 Snail.Sdk.Mcp.Hosting.Sessions.Reached.Refusal.get -> string?
 Snail.Sdk.Mcp.Hosting.Sessions.Reached.Refusal.init -> void
 override Snail.Sdk.Mcp.Hosting.Sessions.Reached.ToString() -> string!

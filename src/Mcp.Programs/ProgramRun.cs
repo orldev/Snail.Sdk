@@ -20,8 +20,19 @@ public sealed record ProgramRun(JsonNode? Result, IReadOnlyList<string> Log, IRe
 public sealed record ProgramCall(string Command, bool IsOk, int Milliseconds);
 
 /// <summary>Why a program stopped, in words the model can act on.</summary>
-/// <param name="Type">The kind of stop, one of <see cref="ProgramFailures"/> or the type of the command that failed uncaught.</param>
 /// <param name="Error">What happened.</param>
-/// <param name="Hint">What to do about it.</param>
-/// <param name="Details">What the failed command reported beside its error.</param>
-public sealed record ProgramFailure(string Type, string Error, string? Hint = null, JsonNode? Details = null);
+public sealed record ProgramFailure(string Error)
+{
+    /// <summary>The kind of stop, one of <see cref="ProgramFailures"/> or the type of the command that failed uncaught.</summary>
+    /// <remarks>
+    /// Not a positional parameter, as for <c>AnswerFailure</c>: three strings in a row were three a caller could misorder,
+    /// and here the type came first where every other failure puts the error.
+    /// </remarks>
+    public required string Type { get; init; }
+
+    /// <summary>What to do about it.</summary>
+    public string? Hint { get; init; }
+
+    /// <summary>What the failed command reported beside its error.</summary>
+    public JsonNode? Details { get; init; }
+}

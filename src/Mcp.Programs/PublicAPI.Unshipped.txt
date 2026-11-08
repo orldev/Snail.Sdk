@@ -40,7 +40,7 @@ static Snail.Sdk.Mcp.Programs.ProgramCall.operator !=(Snail.Sdk.Mcp.Programs.Pro
 static Snail.Sdk.Mcp.Programs.ProgramCall.operator ==(Snail.Sdk.Mcp.Programs.ProgramCall? left, Snail.Sdk.Mcp.Programs.ProgramCall? right) -> bool
 Snail.Sdk.Mcp.Programs.ProgramFailure
 Snail.Sdk.Mcp.Programs.ProgramFailure.<Clone>$() -> Snail.Sdk.Mcp.Programs.ProgramFailure!
-Snail.Sdk.Mcp.Programs.ProgramFailure.Deconstruct(out string! Type, out string! Error, out string? Hint, out System.Text.Json.Nodes.JsonNode? Details) -> void
+Snail.Sdk.Mcp.Programs.ProgramFailure.Deconstruct(out string! Error) -> void
 Snail.Sdk.Mcp.Programs.ProgramFailure.Details.get -> System.Text.Json.Nodes.JsonNode?
 Snail.Sdk.Mcp.Programs.ProgramFailure.Details.init -> void
 Snail.Sdk.Mcp.Programs.ProgramFailure.Equals(Snail.Sdk.Mcp.Programs.ProgramFailure? other) -> bool
@@ -50,7 +50,7 @@ Snail.Sdk.Mcp.Programs.ProgramFailure.Error.init -> void
 override Snail.Sdk.Mcp.Programs.ProgramFailure.GetHashCode() -> int
 Snail.Sdk.Mcp.Programs.ProgramFailure.Hint.get -> string?
 Snail.Sdk.Mcp.Programs.ProgramFailure.Hint.init -> void
-Snail.Sdk.Mcp.Programs.ProgramFailure.ProgramFailure(string! Type, string! Error, string? Hint = null, System.Text.Json.Nodes.JsonNode? Details = null) -> void
+Snail.Sdk.Mcp.Programs.ProgramFailure.ProgramFailure(string! Error) -> void
 override Snail.Sdk.Mcp.Programs.ProgramFailure.ToString() -> string!
 Snail.Sdk.Mcp.Programs.ProgramFailure.Type.get -> string!
 Snail.Sdk.Mcp.Programs.ProgramFailure.Type.init -> void

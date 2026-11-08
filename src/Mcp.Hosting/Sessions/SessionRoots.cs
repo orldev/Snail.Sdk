@@ -11,10 +11,15 @@ namespace Snail.Sdk.Mcp.Hosting.Sessions;
 /// </remarks>
 /// <param name="Path">The path with every link on it followed, when the session may use it.</param>
 /// <param name="Refusal">Why it may not, in words the caller can act on.</param>
-/// <param name="Hint">What to do instead, when there is something.</param>
-/// <param name="Type">The kind of refusal, a word a program can branch on — <see cref="Outside"/>, <see cref="Absent"/> and the rest; null when the path is allowed.</param>
-public sealed record Reached(string? Path, string? Refusal, string? Hint, string? Type = null)
+public sealed record Reached(string? Path, string? Refusal)
 {
+    /// <summary>What to do instead, when there is something.</summary>
+    /// <remarks>Not a positional parameter, as for <c>AnswerFailure</c>: three strings in a row were three a caller could misorder.</remarks>
+    public string? Hint { get; init; }
+
+    /// <summary>The kind of refusal, a word a program can branch on — <see cref="Outside"/>, <see cref="Absent"/> and the rest; null when the path is allowed.</summary>
+    public string? Type { get; init; }
+
     /// <summary>The kind of a path outside every root of the session.</summary>
     public const string Outside = "outside";
 
@@ -63,10 +68,10 @@ public sealed record Reached(string? Path, string? Refusal, string? Hint, string
     }
 
     /// <summary>The path, allowed.</summary>
-    public static Reached Yes(string path) => new(path, null, null);
+    public static Reached Yes(string path) => new(path, null);
 
     /// <summary>A refusal, with what the caller can do about it and its kind.</summary>
-    public static Reached No(string refusal, string? hint = null, string? type = null) => new(null, refusal, hint, type);
+    public static Reached No(string refusal, string? hint = null, string? type = null) => new(null, refusal) { Hint = hint, Type = type };
 
     /// <summary>The refusal as the failed answer of a tool, its words, hint and kind kept: <c>if (!reached.IsAllowed) return reached.As&lt;JsonObject&gt;();</c>.</summary>
     /// <exception cref="InvalidOperationException">The path is allowed, which has a path to use rather than a failure to hand on.</exception>

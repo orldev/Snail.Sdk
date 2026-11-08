@@ -628,7 +628,7 @@ A path as a session may use it, or why it may not.
 | `Answer<T> As<T>()` | The refusal as the failed answer of a tool, its words, hint and kind kept: `if (!reached.IsAllowed) return reached.As<JsonObject>();`. |
 | `Reached No(string refusal, string? hint = null, string? type = null)` | A refusal, with what the caller can do about it and its kind. |
 | `Reached Yes(string path)` | The path, allowed. |
-| `Reached(string? Path, string? Refusal, string? Hint, string? Type = null)` | A path as a session may use it, or why it may not. |
+| `Reached(string? Path, string? Refusal)` | A path as a session may use it, or why it may not. |
 | `bool IsAllowed { get; }` | Whether the session may use the path; `Path` is then the one to use, and `Refusal` says why not otherwise. |
 | `const string Absent` | The kind of a file or a folder that is not there where one must be. |
 | `const string NoPath` | The kind of a call that named no path. |

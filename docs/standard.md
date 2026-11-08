@@ -309,7 +309,8 @@ And for the server project (no kind):
 - A secret of the server's own — a signing key, a token its plugin presents — through `ServerSecret.ReadOrCreate(file)`
   (`ReadOrCreateHex` for one read as text): made once, readable by its owner alone from its first byte, appearing only
   whole, the same for every process that starts at once, and never replaced — a file of another length is refused, not
-  written over. `ServerSecret.Matches` compares in constant time.
+  written over, with a `ServerSecretRefusedException` that names the file, what it holds and what was asked for.
+  `ServerSecret.Matches` compares in constant time.
 - The folders moved from the snail names by reading the settings: `AddServerSettings(name)`, and with it
   `ServerSettings.Read`, `McpHost.CreateBuilder` and the HTTP builders, calls `ServerFolders.MoveFromSnailNames` first,
   so a server no longer calls it in its `Program.cs`. A path in a setting goes through `ServerFolders.ExpandHome`,

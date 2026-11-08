@@ -81,7 +81,9 @@ A change that a repository must act on says what to do.
 - `ServerSecret` of `Snail.Sdk.Mcp.Hosting`: `ReadOrCreate(file, length)` keeps a secret in the server's data folder —
   readable by its owner alone from its first byte, written to a draft and moved into place whole, made by one process
   at a time under a lock beside it so every server starting at once agrees on one, and never replaced: a file of
-  another length is refused with its name. `ReadOrCreateHex` keeps it as hex text, for a token another program reads
+  another length is refused with its name, as a `ServerSecretRefusedException` (an `InvalidOperationException`) that
+  carries `File`, `Found` and `Expected`, so a server adds its own consequence without reading the message.
+  `ReadOrCreateHex` keeps it as hex text, for a token another program reads
   (Snail.MCP.Figma's `bridge.token`, Snail.MCP.AfterEffects' bridge). `Matches` compares in constant time. A move
   "without overwrite" alone does not guard the race on Unix, where .NET looks for the target and then renames over it.
 - `ServerFolders.Home`, now public, and `ServerFolders.ExpandHome(path)` / `ExpandHome(path, fallback)`: a leading `~`

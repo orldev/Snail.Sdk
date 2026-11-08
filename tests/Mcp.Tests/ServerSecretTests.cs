@@ -53,10 +53,10 @@ public sealed class ServerSecretTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(SecretFile)!);
         File.WriteAllBytes(SecretFile, [1, 2, 3]);
 
-        var refusal = Assert.Throws<InvalidOperationException>(() => ServerSecret.ReadOrCreate(SecretFile));
+        var refusal = Assert.Throws<ServerSecretRefusedException>(() => ServerSecret.ReadOrCreate(SecretFile));
 
         Assert.Contains(SecretFile, refusal.Message, StringComparison.Ordinal);
-        Assert.Contains("3 bytes instead of 32", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("3 bytes instead of 32 bytes", refusal.Message, StringComparison.Ordinal);
         Assert.Equal([1, 2, 3], File.ReadAllBytes(SecretFile));
     }
 
@@ -94,8 +94,23 @@ public sealed class ServerSecretTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(SecretFile)!);
         File.WriteAllText(SecretFile, text);
 
-        Assert.Throws<InvalidOperationException>(() => ServerSecret.ReadOrCreateHex(SecretFile));
+        Assert.Throws<ServerSecretRefusedException>(() => ServerSecret.ReadOrCreateHex(SecretFile));
         Assert.Equal(text, File.ReadAllText(SecretFile));
+    }
+
+    /// <summary>A server adds its own consequence to the refusal from what it says, never from its message.</summary>
+    [Fact]
+    public void ReadOrCreateHex_ARefusal_SaysTheFileWhatItHoldsAndWhatWasAsked()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(SecretFile)!);
+        File.WriteAllText(SecretFile, "abc");
+
+        var refusal = Assert.Throws<ServerSecretRefusedException>(() => ServerSecret.ReadOrCreateHex(SecretFile));
+
+        Assert.Equal(SecretFile, refusal.File);
+        Assert.Equal("3 bytes", refusal.Found);
+        Assert.Equal("64 hex digits", refusal.Expected);
+        Assert.IsAssignableFrom<InvalidOperationException>(refusal);
     }
 
     [Fact]

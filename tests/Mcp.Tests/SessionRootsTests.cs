@@ -33,6 +33,19 @@ public sealed class SessionRootsTests
         Assert.Equal(Reached.Outside, reached.Type);
     }
 
+    /// <summary>The call said "which this server does not serve" with no hint, where the door named the setting that gives the server a root.</summary>
+    [Fact]
+    public void Reach_UnderARootNamedWhereNoVolumeIsConfigured_SaysWhatTheDoorSays()
+    {
+        var copy = TestFolder.Create();
+        SessionRootsOptions options = new() { RootsSetting = "SNAIL_MCP_TMPLSHORT_ROOTS__0" };
+
+        var reached = new SessionRoots(new FixedAddress(("root", copy)), [], options).Reach("a.txt");
+
+        Assert.Equal($"this server is configured with no root, so it serves none a session names, {copy} among them", reached.Refusal);
+        Assert.Equal("set SNAIL_MCP_TMPLSHORT_ROOTS__0", reached.Hint);
+    }
+
     [Fact]
     public void Reach_UnderARootNamedWhereNoVolumeIsConfigured_IsAllowedAtAServerThatReachesAnyNamedRoot()
     {

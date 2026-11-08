@@ -178,7 +178,10 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
     public const string Parameter = "root";
 
     /// <summary>The roots this session works in: the ones it named inside the volumes, or the volumes when it named none.</summary>
-    /// <remarks>Empty when every root it named is outside the volumes: such a session reaches nothing, and is refused at the door.</remarks>
+    /// <remarks>
+    /// Empty when every root it named is outside the volumes — with no volume, every root it named, unless
+    /// <see cref="SessionRootsOptions.ReachesAnyNamedRoot"/> is set: such a session reaches nothing, and is refused at the door.
+    /// </remarks>
     public IReadOnlyList<string> All
     {
         get
@@ -367,6 +370,9 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
     private Reached Unrooted()
     {
         var named = Named;
+
+        if (named.Count > 0 && Paths(volumes).Count == 0)
+            return Reached.No($"this server is configured with no root, so it serves none a {Subject} names, {string.Join(", ", named)} among them", Configure(options), Reached.Outside);
 
         if (named.Count > 0)
             return Reached.No($"this {Subject} named {string.Join(", ", named)}, which this server does not serve, so nothing is reachable", type: Reached.Outside);

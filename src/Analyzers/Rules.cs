@@ -97,6 +97,13 @@ public static class Rules
         "Use '{0}' rather than '{1}'",
         "IDE0049, which the build does not run: int, string, bool and the other keywords rather than their framework names.");
 
+    /// <summary>S3L0011: a tool answers in the one envelope ToolAnswer and JobAnswer write.</summary>
+    public static readonly DiagnosticDescriptor AnswerInTheEnvelope = Rule(
+        "S3L0011",
+        "Answer in the envelope",
+        "Tool '{0}' answers {1}, not the envelope: return what ToolAnswer or JobAnswer builds",
+        "A tool returns a CallToolResult built by ToolAnswer or JobAnswer, or the string of ToolAnswer.OkText, FailedText or Text; a model reads the shape it was given last, and plain text, a record or a result built by hand is a shape of its own.");
+
     private static DiagnosticDescriptor Rule(string id, string title, string message, string description) =>
         new(id, title, message, Category, DiagnosticSeverity.Warning, isEnabledByDefault: true, description, $"{HelpPages}{id}/");
 }

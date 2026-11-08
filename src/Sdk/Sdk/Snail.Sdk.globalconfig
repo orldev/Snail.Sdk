@@ -198,6 +198,7 @@ dotnet_diagnostic.S3L0007.severity = warning
 dotnet_diagnostic.S3L0008.severity = warning
 dotnet_diagnostic.S3L0009.severity = warning
 dotnet_diagnostic.S3L0010.severity = warning
+dotnet_diagnostic.S3L0011.severity = warning
 
 # Rules that argue with the guidelines or measure nothing here.
 dotnet_diagnostic.CA2007.severity = none

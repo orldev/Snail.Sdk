@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Http;
 using ModelContextProtocol.Server;
 
@@ -25,6 +26,7 @@ internal sealed class ProbeTools(IHttpContextAccessor requests)
 {
     /// <summary>The query of the request the session was opened with.</summary>
     [McpServerTool(Name = "query", ReadOnly = true), Description("The query of the request the session was opened with.")]
+    [SuppressMessage("Snail", "S3L0011:Answer in the envelope", Justification = "A double of the tests of HttpServerProgram, which read its text as it is.")]
     public string Query() => requests.HttpContext?.Request.QueryString.Value ?? string.Empty;
 }
 

@@ -375,7 +375,8 @@ And for the server project (no kind):
   its error, hint and type each from the exception, and `options.Refuse<TException>(type, hint)` makes a server's own
   exception for a caller's mistake a refusal, the default hint — "try once more" — left to `internal` failures alone. A job
   answered in the envelope is `JobAnswer.Envelope(report, beside, hint)`.
-  Every server of the fleet answers in the envelope. A server outside the fleet whose answers are text — words a
+  Every server of the fleet answers in the envelope, and [S3L0011](rules/S3L0011.md) holds a tool to it at build time:
+  plain text, a record, nothing or a `CallToolResult` built by hand is reported. A server outside the fleet whose answers are text — words a
   command, a hook or a person reads as they are — may keep text, its successes and its failures alike:
   `.ExplainFailures(options => options.AnswersText = true)` answers what was thrown, arguments that did not bind and a
   `ToolRefusalException` as plain text, `error — hint`, flagged `isError`, never JSON among the words. It states no
@@ -479,7 +480,7 @@ off.
 | strings | CA1307, CA1309, CA1310: every comparison states its `StringComparison` | culture-dependent comparison is a bug that shows only on another machine |
 | performance | CA1869 (cached `JsonSerializerOptions`), CA1870 (`SearchValues`), CA1851 (one enumeration), CA1848 (`LoggerMessage`), CA1852 (sealed internal types), SYSLIB1045 (`GeneratedRegex`) | each has a measured gain; `LogDebug` with plain arguments pays for them with Debug off |
 | reliability | CA2213 (owned fields disposed), VSTHRD002, VSTHRD100, VSTHRD101, VSTHRD103, VSTHRD110 (no `.Result`, no `async void`, results observed) | |
-| Snail.Sdk.Analyzers | S3L0001–S3L0010 | below |
+| Snail.Sdk.Analyzers | S3L0001–S3L0011 | below |
 
 Some rules are off on purpose — CA2007, CA1062, CA1822 and others that argue with the guidelines or measure nothing
 here — and IDE0003 and IDE0049, which a command-line build does not run even when named, are carried by S3L0009 and
@@ -502,6 +503,7 @@ rule is off is not run — VSTHRD010 alone took 0.33–0.47 s per project, 15–
 | [Booleans ask](rules/S3L0008.md) | S3L0008 | a boolean property or method that does not read as a question | |
 | [No this qualifier](rules/S3L0009.md) | S3L0009 | `this.` where nothing is shadowed | removes it |
 | [Keyword types](rules/S3L0010.md) | S3L0010 | `Int32`, `String` and the like where a keyword exists | writes the keyword |
+| [Answer in the envelope](rules/S3L0011.md) | S3L0011 | a tool that answers plain text, a record, nothing, or a `CallToolResult` built by hand rather than through `ToolAnswer` or `JobAnswer` | |
 
 The thresholds sit where the code of the Snail repositories is, as `tools/Metrics` measures it, so a rule flags the
 outliers and not the habit. Two suppressors keep a release's promises: [S3LS0001](rules/S3LS0001.md) spares a shipped name

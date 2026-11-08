@@ -22,6 +22,7 @@ public sealed class McpSdkTests(SdkFeed sdk)
     private const string Tools = """
         using System.ComponentModel;
         using ModelContextProtocol.Server;
+        using Snail.Sdk.Mcp.Hosting.Answers;
 
         namespace Server;
 
@@ -39,7 +40,7 @@ public sealed class McpSdkTests(SdkFeed sdk)
 
             /// <summary>Answers with the text and the moment, the clock coming from the container.</summary>
             [McpServerTool(Name = "stamp", ReadOnly = true), Description("Answer with the text and the moment it was asked.")]
-            public static string Stamp(TimeProvider clock, Echoes echoes, [Description("What to stamp.")] string text) => $"{clock.GetUtcNow():O} {echoes.Of(text)}";
+            public static string Stamp(TimeProvider clock, Echoes echoes, [Description("What to stamp.")] string text) => ToolAnswer.OkText($"{clock.GetUtcNow():O} {echoes.Of(text)}");
         }
 
         /// <summary>A service of the server's own, filled by its container.</summary>

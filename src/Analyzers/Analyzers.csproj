@@ -11,7 +11,7 @@
     <Description>
       The owner's code rules as Roslyn analyzers: unpack long LINQ chains, create before returning, a blank line before the
       answer, no comments inside members, English only, no pattern names, no types in names, booleans that ask, no `this.`,
-      keyword types. Referenced by Snail.Sdk.
+      keyword types, a tool that answers in the envelope. Referenced by Snail.Sdk.
     </Description>
     <PackageTags>roslyn;analyzers;code-style</PackageTags>
     <IsAotCompatible>false</IsAotCompatible>

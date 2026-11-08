@@ -10,3 +10,6 @@ dotnet_diagnostic.CA1707.severity = none
 
 # xUnit disposes fixtures through IAsyncLifetime, not IDisposable; BenchmarkDotNet through [GlobalCleanup].
 dotnet_diagnostic.CA1001.severity = none
+
+# A test's tools are doubles that answer what the test reads, not the envelope a model reads (S3L0011).
+dotnet_diagnostic.S3L0011.severity = none

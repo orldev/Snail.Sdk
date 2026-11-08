@@ -15,7 +15,7 @@ instead of a copy. Documentation: <https://orldev.github.io/Snail.Sdk/>.
 | `Snail.Sdk.Mcp.Testing` | The server under test started the way a client starts it, with a home folder of its own, against the build or a published native program; `ToolGuards`. |
 | `Snail.Sdk.Mcp.Programs` | `run_program` for a server that opts in: a JavaScript program on Jint calling the server's commands with loops and the results in hand, bounded in time, memory, depth, statements and commands, held to the session's grant before every command. |
 | `Snail.Sdk.Mcp.JobClient` | A job of a server — a long operation a tool starts and a resource shows — awaited by being told: subscribed over `resources/subscribe` or `subscriptions/listen` as the protocol revision allows, read again on a fallback, never polled by the model. |
-| `Snail.Sdk.Analyzers` | The rules no .NET analyzer has, S3L0001–S3L0010, with code fixes where the fix is mechanical. |
+| `Snail.Sdk.Analyzers` | The rules no .NET analyzer has, S3L0001–S3L0011, with code fixes where the fix is mechanical. |
 | `Snail.Sdk.Templates` | `dotnet new s3l-lib`, `dotnet new s3l-mcp` and `dotnet new s3l-web`: a repository that builds, tests and conforms before a line is changed. |
 
 A project names its level in its `Sdk` attribute and the version once, in `global.json`:

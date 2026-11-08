@@ -23,6 +23,7 @@ analysed. The thresholds sit where the code of the fleet is, so a rule flags the
 | [S3L0008](S3L0008.md) | Booleans ask | a boolean property or method that does not read as a question | — |
 | [S3L0009](S3L0009.md) | No this qualifier | `this.` where nothing is shadowed (IDE0003) | removes it |
 | [S3L0010](S3L0010.md) | Keyword types | `Int32`, `String` where the keyword exists (IDE0049) | writes the keyword |
+| [S3L0011](S3L0011.md) | Answer in the envelope | a tool of an MCP server that answers plain text, a record, nothing, or a `CallToolResult` built by hand, rather than what `ToolAnswer` or `JobAnswer` builds | — |
 
 ## Suppressors
 

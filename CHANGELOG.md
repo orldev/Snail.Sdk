@@ -494,6 +494,16 @@ A change that a repository must act on says what to do.
   such a test asserts `var refused = await Assert.ThrowsAsync<ServerExitedException>(…)`, then
   `Assert.Equal(1, refused.ExitCode)` and the variable in `refused.Stderr`, as `dotnet new s3l-mcp`'s
   `HttpContractTests` does.
+- S3L0011 "Answer in the envelope" of `Snail.Sdk.Analyzers`, a warning (an error under `TreatWarningsAsErrors`): a
+  method marked `[McpServerTool]` that answers what is certain not to be the envelope — nothing (`void`, `Task`), a
+  record, a `JsonNode`, a number or content blocks, a `CallToolResult` built in its `return` with `new`, or a string
+  written in place (a literal, an interpolation, a concatenation, `string.Empty`, `string.Format`/`Concat`/`Join`, a
+  `ToString()`, `JsonSerializer.Serialize`, `JsonNode.ToJsonString`, also through `?:`, `??`, a switch expression and
+  `Task.FromResult`). Nothing checked the guideline (finding #52). What it cannot see it leaves alone — an answer
+  handed over by a call or a local variable, `object`, a type parameter, `Envelope<T>` — and a test's tools are spared
+  by `Snail.Sdk.Tests.globalconfig`. Run over the fleet on 0.5.0-local.5 it reports one tool: Snail.MCP.Figma's
+  `csharp_diagnose` returns `report.ToJsonString(SerializerOptions)`, JSON that is not the envelope, and returns
+  `ToolAnswer.OkText(report)` instead. A server outside the fleet whose answers are text suppresses it with its reason.
 
 ### Changed
 

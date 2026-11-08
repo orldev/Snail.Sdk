@@ -11,18 +11,22 @@ namespace Snail.Sdk.Analyzers.Tests;
 /// <remarks>The latest language version, so collection expressions and primary constructors parse as they do in the fleet.</remarks>
 public static class Verify<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer, new()
 {
-    /// <summary>The analyzer reports exactly the diagnostics marked in the source, with a PublicAPI.Shipped.txt when one is given.</summary>
-    public static Task AnalyzerAsync(string source, string? projectKind = null, string? shippedApi = null)
+    /// <summary>The analyzer reports exactly the diagnostics marked in the source, and the ones expected, with a PublicAPI.Shipped.txt when one is given.</summary>
+    public static Task AnalyzerAsync(string source, string? projectKind = null, string? shippedApi = null, DiagnosticResult[]? expected = null)
     {
         var test = new CSharpAnalyzerTest<TAnalyzer, DefaultVerifier> { TestCode = source, ReferenceAssemblies = ReferenceAssemblies.Net.Net80 };
 
         Configure(test.SolutionTransforms, test.TestState, projectKind);
+        test.ExpectedDiagnostics.AddRange(expected ?? []);
 
         if (shippedApi is not null)
             test.TestState.AdditionalFiles.Add(("/PublicAPI.Shipped.txt", shippedApi));
 
         return test.RunAsync();
     }
+
+    /// <summary>A diagnostic of the analyzer, to be given its location and its message's arguments.</summary>
+    public static DiagnosticResult Diagnostic(string id) => CSharpAnalyzerVerifier<TAnalyzer, DefaultVerifier>.Diagnostic(id);
 
     /// <summary>The fix turns the marked source into the expected one.</summary>
     public static Task FixAsync<TFix>(string source, string expected) where TFix : CodeFixProvider, new()

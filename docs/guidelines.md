@@ -143,7 +143,8 @@ strictly as code.
   `ToolAnswer.From` or `ToolAnswer.Failed(answer)`, never field by field — and `.ExplainFailures()` answers what nobody
   foresaw. The one exception is a caller's mistake found where no answer can carry it, thrown as
   `ToolRefusalException(error, hint, type)` and answered in its words. A picture is `result.WithImage(bytes, mime)`. No server writes the envelope itself, nor keeps a `JsonSerializerContext` only for a
-  `JsonObject` (`ToolAnswer.ObjectInfo`). Every server of the fleet answers in the envelope; a server outside it whose
+  `JsonObject` (`ToolAnswer.ObjectInfo`). Every server of the fleet answers in the envelope
+  ([S3L0011](rules/S3L0011.md)); a server outside it whose
   answers are text a command or a hook reads as it is may keep text, its failures too —
   `.ExplainFailures(options => options.AnswersText = true)`, `error — hint` flagged `isError`.
 - **The fields of `data` are mapped in `AnswerFields`.** A server's mappers from its domain records to the JSON of an

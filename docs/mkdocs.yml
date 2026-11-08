@@ -64,6 +64,7 @@ nav:
       - S3L0008: rules/S3L0008.md
       - S3L0009: rules/S3L0009.md
       - S3L0010: rules/S3L0010.md
+      - S3L0011: rules/S3L0011.md
       - S3LS0001: rules/S3LS0001.md
       - S3LS0002: rules/S3LS0002.md
   - Contributing: contributing.md

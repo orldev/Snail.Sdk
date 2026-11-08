@@ -125,8 +125,11 @@ A change that a repository must act on says what to do.
   granted `run_tools` reach every tool they had, because their copies held at the door and nowhere else. A server that
   keeps one of those deletes it and its `ISessionAddress`, `HttpAddress` and `StdioAddress`, and takes these instead:
   - `.RefuseWhatWasNotGranted()` beside `AddMcpServer`: a call to a tool the address (`?tool=`) did not name is refused
-    in the fleet's words — in the answer envelope, type `notGranted` (`GrantOptions.NotGranted`) — and the tool is left
-    out of the list (`GrantOptions.HidesWithheldTools`, true). A server whose answers have another shape sets
+    in the fleet's words — in the answer envelope, type `notGranted` (`GrantOptions.NotGranted`) with the hint
+    `GrantOptions.Hint`, lowercase and without a closing stop as the hints beside it are — and the tool is left
+    out of the list (`GrantOptions.HidesWithheldTools`, true). The words speak of "this request" instead of "this
+    session" on a transport that keeps no sessions (`ISessionAddress.Subject`, which the address of
+    `Snail.Sdk.Mcp.Http` reads from `HttpServerSessionMode.Stateless`; Snail.MCP.Playwright needs no setting). A server whose answers have another shape sets
     `GrantOptions.Refusal`; one that must never serve a session
     without a grant sets `GrantOptions.RequiresGrant` (HTTP only: a program over stdio names no tool). A server with
     scopes of its own — Snail.MCP.AfterEffects, Blender — registers an `IToolGate`, which the door asks instead. It is
@@ -135,7 +138,11 @@ A change that a repository must act on says what to do.
   - A forwarder — `run_tools`, `run_program` — carries `[Forwards]` and calls each step through
     `ToolForwarding.CallAsync(context, tool, arguments, cancellationToken)`: the step is held to the same gate and run as
     the protocol would, and a forwarder is never a step of another. A forwarder whose steps are commands rather than tools
-    (Snail.MCP.Git) asks `ToolForwarding.Refusal(context, "git_status")` for each. Its own `Refusal` and `Invoke` go.
+    (Snail.MCP.Git) asks `ToolForwarding.Refusal(context, "git_status")` for each, or takes the refusal whole:
+    `ToolForwarding.Refused(context, tool)` is the door's answer in the server's shape, and `Refused<T>(context, tool)`
+    the same as an `Answer<T>` — type `notGranted`, hint `GrantOptions.Hint` — so Snail.MCP.Git drops its copy of the
+    hint, and a program's refused command (`Snail.Sdk.Mcp.Programs`) is `notGranted` too: one refusal, one type, at
+    every layer. Its own `Refusal` and `Invoke` go.
   - `.WithSessionRoots(services => volumes, options => …)` registers `SessionRoots`: the roots the address names
     (`?root=`) inside the configured volumes, or the volumes when it names none, and `Reach(path, mustBe)`, which
     answers the path with every link on it followed, or why it may not be used. `mustBe` — `PathKind.File`, `Folder`, or `Any`,
@@ -143,7 +150,17 @@ A change that a repository must act on says what to do.
     'x'" (hint "check the name and the folder it is in"), "'x' is not a file" (hint "that is a folder: name a file
     inside it"), and their twins for a folder. `SessionRootsOptions.RootsSetting` names the server's setting —
     `SNAIL_MCP_DOCUMENTS_ROOTS` — in the hint to a session with no root ("or set …", instead of "or configure the
-    server's roots"), there and at `RefuseSessionsItCannotServe`'s door. `RealPath.Of(path)` is the walk alone, and
+    server's roots"), there and at `RefuseSessionsItCannotServe`'s door. Every refusal carries its kind in
+    `Reached.Type` — `outside`, `noRoot`, `noPath`, `unfollowable`, `absent`, `notAFile`, `notAFolder` (constants on
+    `Reached`) — and `reached.As<T>()` hands it on as a tool's failure with its words, hint and kind;
+    `Reached.IsAllowed` tells the compiler that `Path` is set when it holds and `Refusal` when it does not, so
+    Snail.MCP.FileSystem drops its `DiskRefusals.Refused`. A volume of `/` (or `C:\`) holds everything under it — its
+    prefix was `//`, and it held nothing (Snail.MCP.Roslyn). `SessionRootsOptions.ReachesEverywhereAsAProgram` lets a
+    server started as a program with no volume — no address, no settings, as a desktop client installs it — reach every
+    path its process can, links still followed and `mustBe` still held; over HTTP it opens nothing, and the door turns
+    such a session away as before. Snail.MCP.Roslyn drops its `SessionReach`. `services.AddSessionRoots(volumes, …)`
+    is the same registration without an MCP builder, for a test fixture or a host that adds services first.
+    `RealPath.Of(path)` is the walk alone, and
     follows a link whose target does not exist yet, which every fleet copy took for the end of the path — a write
     through such a link landed outside the root. `SessionAddress.None` is the address of a program, for a benchmark or a
     test that builds `SessionRoots` by hand: Snail.MCP.Documents drops its benchmark's `NoAddress`.

@@ -328,6 +328,12 @@ A change that a repository must act on says what to do.
     follows a link whose target does not exist yet, which every fleet copy took for the end of the path — a write
     through such a link landed outside the root. `SessionAddress.None` is the address of a program, for a benchmark or a
     test that builds `SessionRoots` by hand: Snail.MCP.Documents drops its benchmark's `NoAddress`.
+  - A path outside the roots is refused in words that follow where the roots came from. A session is told, as before,
+    "'x' is outside this session, which works in /copy"; a request on a transport that keeps no sessions, which works
+    in nothing, "'x' is outside this request's root /copy, which its address names" for the roots its `?root=` named,
+    and "'x' is outside this server's root /volume" for the volumes it falls back to. Snail.MCP.Roslyn's stateless
+    endpoint said "outside this request, which works in /copy", and its test was loosened to "is outside this"; it may
+    assert the whole sentence again.
   - `WorkspaceCopy.Of(root, workspaces, isTaskId)` is the common core of the three `SessionCopy`: the copy a root names
     under the workspaces folder and its task, or why it names none — `CopyRefusal.NoRoot` (blank or absent), `Outside`,
     `Malformed` (a `.` or `..` among its names) or `NotATask` — so a server maps the reason to its own words instead of

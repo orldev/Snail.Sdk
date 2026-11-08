@@ -388,7 +388,8 @@ And for the server project (no kind):
   (`SessionAddress.None`): every tool is granted, and the volumes are the roots — or, for a program a desktop client
   installs with no settings, everywhere (`SessionRootsOptions.ReachesEverywhereAsAProgram`). A refused call is type
   `notGranted` whichever layer refuses it — the door, a forwarder, a catalog (`ToolForwarding.Refused`), a program —
-  and a refusal speaks of "this request" where the transport keeps no sessions. Both registrations go before or after
+  and a refusal speaks of "this request" where the transport keeps no sessions — a path outside the roots as outside
+  the roots its address named, or the server's, since a request works in nothing. Both registrations go before or after
   the HTTP transport alike; `services.AddSessionRoots(volumes)` registers the roots where there is no MCP builder. The task of a step is the first folder of its copy under the workspaces
   (`WorkspaceCopy.Of`, which says why a root is no copy, and `copy.ToAnswer(…)` hands the copy on as an
   `Answer<WorkspacePlace<TTask>>` in the server's words), and a server many tasks share owns its jobs by it

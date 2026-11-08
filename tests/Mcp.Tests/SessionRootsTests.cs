@@ -550,8 +550,26 @@ public sealed class SessionRootsTests
         var unrooted = new SessionRoots(new StatelessAddress(), []).Reach("a.txt");
 
         Assert.StartsWith("'", outside.Refusal, StringComparison.Ordinal);
-        Assert.Contains("is outside this request, which works in", outside.Refusal, StringComparison.Ordinal);
+        Assert.EndsWith($"is outside this request's root {root}, which its address names", outside.Refusal, StringComparison.Ordinal);
         Assert.Equal("this request was given no root, so nothing is reachable", unrooted.Refusal);
+    }
+
+    /// <summary>#139: a request on a stateless transport works in nothing; the roots it is held to are what its address named, or the server's.</summary>
+    [Fact]
+    public void Refusal_OnAStatelessTransport_SaysWhereTheRootsCameFrom()
+    {
+        var first = TestFolder.Create();
+        var second = TestFolder.Create();
+        var elsewhere = Path.Combine(TestFolder.Create(), "a.txt");
+
+        var named = new SessionRoots(new StatelessAddress(("root", first), ("root", second)), []).Reach(elsewhere);
+        var served = new SessionRoots(new StatelessAddress(), [first]).Reach(elsewhere);
+        var session = new SessionRoots(new FixedAddress(("root", first)), []).Reach(elsewhere);
+
+        Assert.Equal($"'{elsewhere}' is outside this request's roots {first}, {second}, which its address names", named.Refusal);
+        Assert.Equal($"'{elsewhere}' is outside this server's root {first}", served.Refusal);
+        Assert.Equal($"'{elsewhere}' is outside this session, which works in {first}", session.Refusal);
+        Assert.Equal(Reached.Outside, named.Type);
     }
 
     [Fact]

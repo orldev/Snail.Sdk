@@ -200,9 +200,17 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
         || (RealPath.Of(root) is { } real && configured.Any(volume => RealPath.Of(volume) is { } inside && IsUnder(real, inside)));
 
     /// <summary>Whether the path is the root or lies inside it; a sibling whose name only begins like the root's is not.</summary>
-    private static bool IsUnder(string path, string root) =>
-        string.Equals(path, root, StringComparison.Ordinal)
-        || path.StartsWith($"{Path.TrimEndingDirectorySeparator(root)}{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
+    /// <remarks>
+    /// A root that ends in a separator already — <c>/</c>, <c>C:\</c>, which no trimming takes off — is the prefix as it is:
+    /// with one more separator, a volume of <c>/</c> was <c>//</c> and held nothing (Snail.MCP.Roslyn).
+    /// </remarks>
+    internal static bool IsUnder(string path, string root)
+    {
+        var whole = Path.TrimEndingDirectorySeparator(root);
+        var prefix = Path.EndsInDirectorySeparator(whole) ? whole : $"{whole}{Path.DirectorySeparatorChar}";
+
+        return string.Equals(path, whole, StringComparison.Ordinal) || path.StartsWith(prefix, StringComparison.Ordinal);
+    }
 
     /// <summary>The roots as full paths, each once; a blank one, or one no path can be — a NUL in it — left out.</summary>
     private static IReadOnlyList<string> Paths(IEnumerable<string> roots) =>

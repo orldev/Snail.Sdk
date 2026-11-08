@@ -355,6 +355,34 @@ public sealed class SessionRootsTests
         Assert.EndsWith("or configure the server's roots", unnamed.Reach("notes.txt").Hint, StringComparison.Ordinal);
     }
 
+    /// <summary>A volume of / was the prefix // and held nothing, so Snail.MCP.Roslyn kept a workaround of its own.</summary>
+    [Fact]
+    public void Volume_OfTheWholeDisk_HoldsTheRootsANamedSessionGives_AndThePathsOfOneThatNamesNone()
+    {
+        var copy = RealPath.Of(TestFolder.Create())!;
+        File.WriteAllText(Path.Combine(copy, "a.txt"), "a");
+        var disk = Path.GetPathRoot(copy)!;
+
+        var named = new SessionRoots(new FixedAddress(("root", copy)), [disk]);
+        var program = new SessionRoots(SessionAddress.None, [disk]);
+
+        Assert.False(named.IsOutside);
+        Assert.Equal([copy], named.All);
+        Assert.True(named.Reach("a.txt", PathKind.File).IsAllowed);
+        Assert.Equal(Path.Combine(copy, "a.txt"), program.Reach(Path.Combine(copy, "a.txt"), PathKind.File).Path);
+        Assert.Equal(Path.Combine("a.txt"), named.Relative(Path.Combine(copy, "a.txt")));
+    }
+
+    [Theory]
+    [InlineData("/etc/hosts", "/", true)]
+    [InlineData("/", "/", true)]
+    [InlineData("/workspaces/task-1", "/workspaces/", true)]
+    [InlineData("/workspaces", "/workspaces/", true)]
+    [InlineData("/workspaces-other/task-1", "/workspaces", false)]
+    [InlineData("/workspaces-other", "/workspaces/", false)]
+    public void Under_ARootThatEndsInASeparator_IsWhatLiesBelowIt(string path, string root, bool isUnder) =>
+        Assert.Equal(isUnder, SessionRoots.IsUnder(path, root));
+
     private readonly record struct TaskLabel(string Value);
 
     private static bool IsTask(string name) =>

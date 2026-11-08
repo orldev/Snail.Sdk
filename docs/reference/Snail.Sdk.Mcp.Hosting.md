@@ -571,6 +571,17 @@ How `RefuseWhatWasNotGranted` holds a session to its grant.
 | `const string Hint` | What a refused caller does next, unless `HintOf` says otherwise: the hint of every refusal of type `NotGranted` the SDK writes. |
 | `const string NotGranted` | The type a refusal carries in the envelope: the one type of a call refused for want of a grant, whichever layer refuses it. |
 
+### interface IRootsDisk
+
+The disk `SessionRoots` reaches a path on: what is at a path, and where a link leads.
+
+| Member | Summary |
+| --- | --- |
+| `IRootsDisk Machine { get; }` | The disk of the machine the server runs on, every question answered by the system: what `Disk` is unless a server sets another. |
+| `bool IsFile(string path)` | Whether a file is at the path; false when nothing is. |
+| `bool IsFolder(string path)` | Whether a folder is at the path; false when nothing is. |
+| `string? LinkTarget(string path)` | Where the link at the path leads, as it is written — relative to the link's folder or absolute; null when the path is no link, or nothing is there. |
+
 ### interface ISessionAddress
 
 What the address the session was opened at says: `…/mcp?root=/workspaces/task&tool=read_file`.
@@ -626,7 +637,8 @@ A path as a session may use it, or why it may not.
 | `const string NotAFile` | The kind of a folder where a file must be. |
 | `const string NotAFolder` | The kind of a file where a folder must be. |
 | `const string Outside` | The kind of a path outside every root of the session. |
-| `const string Unfollowable` | The kind of a path whose links cannot be followed: a loop of them, or one that may not be read. |
+| `const string Unfollowable` | The kind of a path whose links cannot be followed: a loop of them, more than `MostLinks`. |
+| `const string Unreadable` | The kind of a path the disk failed on while it was reached: a folder this server may not read, a share that did not answer. |
 | `string? Hint { get; init; }` | What to do instead, when there is something. |
 | `string? Path { get; init; }` | The path with every link on it followed, when the session may use it. |
 | `string? Refusal { get; init; }` | Why it may not, in words the caller can act on; never null when `Path` is. |
@@ -639,7 +651,7 @@ Where a path really leads, every link on the way followed.
 | Member | Summary |
 | --- | --- |
 | `const int MostLinks` | How many links a walk follows before it gives up: Linux's own limit, `MAXSYMLINKS`. |
-| `string? Of(string path, int maxLinks = 40)` | The path with every link on it followed, or null when it cannot be: more than `maxLinks` links, or one that may not be read. |
+| `string? Of(string path, int maxLinks = 40, IRootsDisk? disk = null)` | The path with every link on it followed, or null when it cannot be: more than `maxLinks` links, or one that may not be read. |
 
 ### static class SessionAddress
 
@@ -695,6 +707,7 @@ The words `SessionRoots` refuses in where they are the server's own, and what a 
 
 | Member | Summary |
 | --- | --- |
+| `IRootsDisk Disk { get; set; }` | The disk a path is reached on — what is at it, where its links lead — the machine's (`Machine`) unless set. |
 | `SessionRootsOptions()` |  |
 | `bool ReachesEverywhereAsAProgram { get; set; }` | Whether a server started as a program, with no volume configured, reaches every path its process can; false unless set. |
 | `string? RootsSetting { get; set; }` | The setting that configures the server's roots — `SNAIL_MCP_DOCUMENTS_ROOTS__0` — named in the hint to a session that has none: "set …". |

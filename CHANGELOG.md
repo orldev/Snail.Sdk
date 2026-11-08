@@ -363,7 +363,7 @@ A change that a repository must act on says what to do.
     `SNAIL_MCP_DOCUMENTS_ROOTS__0`, the first entry of the list, since the bare `SNAIL_MCP_DOCUMENTS_ROOTS` binds
     nothing to a list and an operator who set it still had a server serving nothing — in the hint to a session with no
     root ("or set …", instead of "or configure the server's roots"), there and at `RefuseSessionsItCannotServe`'s door. Every refusal carries its kind in
-    `Reached.Type` — `outside`, `noRoot`, `noPath`, `unfollowable`, `absent`, `notAFile`, `notAFolder` (constants on
+    `Reached.Type` — `outside`, `noRoot`, `noPath`, `unfollowable`, `unreadable`, `absent`, `notAFile`, `notAFolder` (constants on
     `Reached`) — and `reached.As<T>()` hands it on as a tool's failure with its words, hint and kind;
     `Reached.IsAllowed` tells the compiler that `Path` is set when it holds and `Refusal` when it does not, so
     Snail.MCP.FileSystem drops its `DiskRefusals.Refused`. A volume of `/` (or `C:\`) holds everything under it — its
@@ -376,6 +376,21 @@ A change that a repository must act on says what to do.
     follows a link whose target does not exist yet, which every fleet copy took for the end of the path — a write
     through such a link landed outside the root. `SessionAddress.None` is the address of a program, for a benchmark or a
     test that builds `SessionRoots` by hand: Snail.MCP.Documents drops its benchmark's `NoAddress`.
+  - `SessionRootsOptions.Disk`, an `IRootsDisk` — `IsFile(path)`, `IsFolder(path)`, `LinkTarget(path)`, what
+    `SessionRoots` and `RealPath` ask of a disk and nothing more — is the disk a path is reached on: the machine's
+    (`IRootsDisk.Machine`) unless a server sets its own. Snail.MCP.FileSystem put every disk access behind its
+    `IWorkingCopy` so its chaos tests could hand it a disk that fails, but `roots.Reach` ran on the real disk, so no
+    fault could be injected where `CopyReader`, `CopyWriter` and `CopyWalker` reach a path (#57). What the disk throws
+    while a path is reached — an `IOException`, an `UnauthorizedAccessException` — is a refusal of its own kind,
+    `Reached.Unreadable` (`unreadable`), in the disk's words with a hint, never an exception out of `Reach` that
+    `ExplainFailures` would answer as `internal`, "try once more"; a root the disk cannot answer for is among
+    `Absent`, and a folder gone between the door and the call is `absent`. `unfollowable` is a loop of links alone now.
+    `RealPath.Of(path, maxLinks, disk)` follows links on the disk given. On the machine's disk nothing changes: it
+    answers as before (`File.Exists`, `Directory.Exists`, `FileInfo.LinkTarget`). Snail.MCP.FileSystem plugs its
+    own disk in with `.WithSessionRoots(volumes, options => options.Disk = …)`: its `LocalDisk` already has `IsFile`
+    and `IsFolder` of the same meaning, so it implements `IRootsDisk` beside `IWorkingCopy` with `LinkTarget(path) =>
+    new FileInfo(path).LinkTarget`, or an adapter over its `IWorkingCopy` does, and `FailingDisk` fails `Reach` too
+    once it is that disk; the test's `SessionRoots` takes the same options. No other server has to change.
   - A path outside the roots is refused in words that follow where the roots came from. A session is told, as before,
     "'x' is outside this session, which works in /copy"; a request on a transport that keeps no sessions, which works
     in nothing, "'x' is outside this request's root /copy, which its address names" for the roots its `?root=` named,

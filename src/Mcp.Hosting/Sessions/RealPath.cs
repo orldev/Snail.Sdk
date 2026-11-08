@@ -24,11 +24,28 @@ public static class RealPath
     /// <summary>The path with every link on it followed, or null when it cannot be: more than <paramref name="maxLinks"/> links, or one that may not be read.</summary>
     /// <param name="path">The path, absolute or relative to the working folder.</param>
     /// <param name="maxLinks">How many links to follow at most; a loop of links runs into it.</param>
-    public static string? Of(string path, int maxLinks = MostLinks)
+    /// <param name="disk">The disk the links are read on: the server's own, the one its <see cref="SessionRootsOptions.Disk"/> names; the machine's when null.</param>
+    public static string? Of(string path, int maxLinks = MostLinks, IRootsDisk? disk = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentOutOfRangeException.ThrowIfNegative(maxLinks);
 
+        try
+        {
+            return Walk(path, maxLinks, disk ?? IRootsDisk.Machine);
+        }
+        catch (Exception unreadable) when (unreadable is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The path with every link on it followed, or null when more than <paramref name="maxLinks"/> links lead on from it or no path can be written so.</summary>
+    /// <remarks>What the disk throws goes on to the caller: <see cref="SessionRoots.Reach"/> tells a disk that failed from a loop of links.</remarks>
+    /// <exception cref="IOException">The disk failed while a link was read.</exception>
+    /// <exception cref="UnauthorizedAccessException">A link on the path may not be read.</exception>
+    internal static string? Walk(string path, int maxLinks, IRootsDisk disk)
+    {
         var full = Path.IsPathRooted(path) ? path : Path.Join(Environment.CurrentDirectory, path);
         var real = Path.GetPathRoot(full)!;
         var ahead = new Stack<string>();
@@ -51,7 +68,7 @@ public static class RealPath
 
                 var next = Path.Join(real, name);
 
-                if (LinkAt(next) is not { } target)
+                if (LinkAt(disk, next) is not { } target)
                 {
                     real = next;
                     continue;
@@ -66,7 +83,7 @@ public static class RealPath
                 Push(ahead, Path.IsPathRooted(target) ? target[real.Length..] : target);
             }
         }
-        catch (Exception unreadable) when (unreadable is IOException or UnauthorizedAccessException or ArgumentException)
+        catch (ArgumentException)
         {
             return null;
         }
@@ -84,11 +101,11 @@ public static class RealPath
     }
 
     /// <summary>Where the link at the path leads, as it is written; null when the path is no link or is not there.</summary>
-    private static string? LinkAt(string path)
+    private static string? LinkAt(IRootsDisk disk, string path)
     {
         try
         {
-            return new FileInfo(path).LinkTarget;
+            return disk.LinkTarget(path);
         }
         catch (Exception missing) when (missing is FileNotFoundException or DirectoryNotFoundException)
         {

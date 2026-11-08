@@ -395,7 +395,9 @@ And for the server project (no kind):
   no forwarder widens a grant and none runs another. `.WithSessionRoots(volumes)` confines paths to the named roots
   inside the configured volumes, every link followed (`SessionRoots.Reach`, `RealPath`), a file or a folder where the
   tool needs one (`mustBe`), each refusal with its kind (`Reached.Type`) and handed on as a tool's failure by
-  `reached.As<T>()`, and over HTTP `app.RefuseSessionsItCannotServe(volumes)` turns away at the door a session
+  `reached.As<T>()` — a disk that fails while a path is reached among them, `unreadable`, never the server's failure; a
+  server whose disk is behind a port of its own reaches paths on it (`SessionRootsOptions.Disk`, an `IRootsDisk`), so a
+  test can hand it a disk that fails — and over HTTP `app.RefuseSessionsItCannotServe(volumes)` turns away at the door a session
   whose root the machine does not have or the volumes do not hold. Over stdio there is no address
   (`SessionAddress.None`): every tool is granted, and the volumes are the roots — or, for a program a desktop client
   installs with no settings, everywhere (`SessionRootsOptions.ReachesEverywhereAsAProgram`). A refused call is type

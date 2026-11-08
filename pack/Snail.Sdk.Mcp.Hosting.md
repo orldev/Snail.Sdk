@@ -38,7 +38,7 @@ What every Snail MCP server starts from:
   held to the same grant, and `ToolForwarding.Refused` gives a catalog of commands the door's refusal, type
   `notGranted`; `SessionRoots` and `RealPath` say whether a path lies in the session's roots with every link
   followed, and whether it is the file or folder a tool needs — a refusal with its kind, `reached.As<T>()` as a tool's
-  failure; `WorkspaceCopy.Of` names the task a working copy belongs
+  failure — on the machine's disk or the server's own (`IRootsDisk`); `WorkspaceCopy.Of` names the task a working copy belongs
   to, or why a root is none; `JobOwners.TaskOfCopy` owns a server's jobs by that task; `SessionAddress.None` is the
   address of a program.
 - `Snail.Sdk.Mcp.Hosting.Discovery`: the ways in every server spells alike. `.WithToolDiscovery()` adds `find_tool`,

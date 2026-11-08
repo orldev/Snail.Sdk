@@ -17,6 +17,13 @@ public static class ServerSettings
     /// <summary>Where the HTTP endpoint listens unless Url (SNAIL_MCP_TMPLSHORT_URL) or Port says otherwise.</summary>
     private static readonly Uri DefaultUrl = new("http://127.0.0.1:9300/");
 
+    /// <summary>
+    /// The endpoint asks for no key, so it stays on loopback on this machine, and opens every interface only inside the
+    /// image, whose published port is the boundary; a setting that would open it beyond stops the server at its start,
+    /// naming the variable. A server that puts a key in front of its endpoint reads it with McpReach.Unrestricted.
+    /// </summary>
+    private static readonly McpEndpointOptions EndpointOptions = new() { Reach = McpReach.LoopbackOrContainer };
+
     /// <summary>The settings as the server read them at its start: the configuration of either host.</summary>
     public static IConfigurationRoot Values { get; } = Hosting.ServerSettings.Read(Name);
 
@@ -25,12 +32,12 @@ public static class ServerSettings
     /// Where clients reach the server: stdio, or HTTP when Transport (SNAIL_MCP_TMPLSHORT_TRANSPORT) says Http or a
     /// Port is set — on loopback, or on every interface inside a container (McpEndpoint.Read).
     /// </summary>
-    public static McpEndpoint Endpoint => McpEndpoint.Read(Values, DefaultUrl);
+    public static McpEndpoint Endpoint => McpEndpoint.Read(Values, DefaultUrl, EndpointOptions);
 #else
     /// <summary>
     /// Where clients reach the server, which is always HTTP: Url (SNAIL_MCP_TMPLSHORT_URL) or a Port, on loopback, or on
     /// every interface inside a container (McpEndpoint.ReadHttp, which refuses a Transport of Stdio at the start).
     /// </summary>
-    public static McpEndpoint Endpoint => McpEndpoint.ReadHttp(Values, DefaultUrl);
+    public static McpEndpoint Endpoint => McpEndpoint.ReadHttp(Values, DefaultUrl, EndpointOptions);
 #endif
 }

@@ -166,7 +166,7 @@ public sealed class McpEndpointTests
     {
         var endpoint = Read(new() { ["Transport"] = "Http", ["Snail:Http:Url"] = "http://127.0.0.1:9400/" }, "Snail");
 
-        Assert.Equal(new McpEndpoint(McpTransport.Http, new Uri("http://127.0.0.1:9400/"), ListensOnEveryInterface: false), endpoint);
+        Assert.Equal(new McpEndpoint(McpTransport.Http, new Uri("http://127.0.0.1:9400/"), ListensOnEveryInterface: false) { UrlSetting = "Snail:Http:Url" }, endpoint);
     }
 
     /// <summary>An address at the root, in either spelling, wins over any address in the section.</summary>
@@ -223,7 +223,7 @@ public sealed class McpEndpointTests
         var narrowed = McpEndpoint.Read(Settings(new() { ["Url"] = "http://127.0.0.1:8840/" }), everywhere, isHttpOnly: true, containerVariable: null, server: null);
 
         Assert.Equal(new McpEndpoint(McpTransport.Http, new Uri("http://0.0.0.0:8840/"), ListensOnEveryInterface: true), byDefault);
-        Assert.Equal(new McpEndpoint(McpTransport.Http, new Uri("http://127.0.0.1:8840/"), ListensOnEveryInterface: false), narrowed);
+        Assert.Equal(new McpEndpoint(McpTransport.Http, new Uri("http://127.0.0.1:8840/"), ListensOnEveryInterface: false) { UrlSetting = "Url" }, narrowed);
     }
 
     [Theory]
@@ -244,17 +244,134 @@ public sealed class McpEndpointTests
         Assert.Contains(value, refusal.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>Snail.MCP.Blender signed links with Http:Url while SNAIL_MCP_BLENDER_URL moved the listener; the endpoint names the key it read.</summary>
+    [Theory]
+    [InlineData(null, null, null)]
+    [InlineData("http://127.0.0.1:9400/", null, "Url")]
+    [InlineData(null, "http://127.0.0.1:9400/", "Http:Url")]
+    [InlineData("http://127.0.0.1:9400/", "http://127.0.0.1:9500/", "Url")]
+    public void Read_TheKeyOfTheAddress_IsNamed(string? url, string? httpUrl, string? expected) =>
+        Assert.Equal(expected, Read(new() { ["Url"] = url, ["Http:Url"] = httpUrl }).UrlSetting);
+
+    [Fact]
+    public void Read_TheKeyOfTheAddressInTheFallbackSection_IsNamedWithIt() =>
+        Assert.Equal("Snail:Url", Read(new() { ["Snail:Url"] = "http://127.0.0.1:9400/" }, "Snail").UrlSetting);
+
+    /// <summary>A host name was served on loopback without a word; an address is an IP address or localhost.</summary>
+    [Fact]
+    public void Read_AnHttpUrlAtAHostName_IsRefusedNamingIt()
+    {
+        var refusal = Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(Settings(new() { ["Transport"] = "Http", ["Url"] = "http://studio.lan:9400/" }), Default, isHttpOnly: false, containerVariable: null, server: "demo"));
+
+        Assert.StartsWith("SNAIL_MCP_DEMO_URL (or Url in the settings file) is 'http://studio.lan:9400/'; ", refusal.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Over stdio nothing listens, so an address it would listen on is not held to anything.</summary>
+    [Fact]
+    public void Read_AStdioServerWithAUrlBeyondItsReach_IsStdio() =>
+        Assert.Equal(McpTransport.Stdio, Read(new() { ["Url"] = "http://0.0.0.0:9400/" }, reach: McpReach.LoopbackOnly).Transport);
+
+    /// <summary>Snail.MCP.Blender and AfterEffects listen on a LAN address behind their tokens; a server that guards itself keeps that.</summary>
+    [Fact]
+    public void Read_ALanAddressOfAnUnrestrictedServer_IsListenedOnAsNamed()
+    {
+        var endpoint = Read(new() { ["Transport"] = "Http", ["Url"] = "http://192.168.1.5:9400/" });
+
+        Assert.Equal(new McpEndpoint(McpTransport.Http, new Uri("http://192.168.1.5:9400/"), ListensOnEveryInterface: false) { UrlSetting = "Url" }, endpoint);
+    }
+
+    /// <summary>#86: a keyless server held to loopback refuses each way of opening it, naming what the operator set.</summary>
+    [Theory]
+    [InlineData(McpReach.LoopbackOnly, "ListensOnEveryInterface", "true", "SNAIL_MCP_DEMO_LISTENS_ON_EVERY_INTERFACE (or ListensOnEveryInterface in the settings file) is 'true'; ")]
+    [InlineData(McpReach.LoopbackOnly, "Url", "http://0.0.0.0:9400/", "SNAIL_MCP_DEMO_URL (or Url in the settings file) is 'http://0.0.0.0:9400/'; ")]
+    [InlineData(McpReach.LoopbackOnly, "Url", "http://[::]:9400/", "SNAIL_MCP_DEMO_URL (or Url in the settings file) is 'http://[::]:9400/'; ")]
+    [InlineData(McpReach.LoopbackOnly, "Http:Url", "http://192.168.1.5:9400/", "SNAIL_MCP_DEMO_HTTP__URL (or Http:Url in the settings file) is 'http://192.168.1.5:9400/'; ")]
+    [InlineData(McpReach.LoopbackOrContainer, "ListensOnEveryInterface", "true", "SNAIL_MCP_DEMO_LISTENS_ON_EVERY_INTERFACE (or ListensOnEveryInterface in the settings file) is 'true'; ")]
+    [InlineData(McpReach.LoopbackOrContainer, "Url", "http://0.0.0.0:9400/", "SNAIL_MCP_DEMO_URL (or Url in the settings file) is 'http://0.0.0.0:9400/'; ")]
+    [InlineData(McpReach.LoopbackOrContainer, "Url", "http://10.0.0.7:9400/", "SNAIL_MCP_DEMO_URL (or Url in the settings file) is 'http://10.0.0.7:9400/'; ")]
+    public void Read_BeyondTheReach_IsRefusedNamingTheVariable(McpReach reach, string key, string value, string expected)
+    {
+        var options = new McpEndpointOptions { Reach = reach };
+
+        var refusal = Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(Settings(new() { ["Transport"] = "Http", [key] = value }), Default, isHttpOnly: false, containerVariable: null, server: "demo", options));
+
+        Assert.StartsWith(expected, refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("loopback alone", refusal.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Snail.MCP.Memory ships no image: a start inside a container would open every interface, so it is refused naming the variable.</summary>
+    [Fact]
+    public void Read_InsideAContainer_LoopbackOnly_IsRefusedNamingTheContainerVariable()
+    {
+        var options = new McpEndpointOptions { Reach = McpReach.LoopbackOnly };
+
+        var refusal = Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(Settings(new() { ["Port"] = "9400" }), Default, isHttpOnly: false, containerVariable: "true", server: "demo", options));
+
+        Assert.StartsWith("DOTNET_RUNNING_IN_CONTAINER is 'true'; ", refusal.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Snail.MCP.Git and FileSystem ship an image: inside it the published port is the boundary, and an image that names 0.0.0.0 keeps working.</summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("http://0.0.0.0:9400/")]
+    public void Read_InsideAContainer_LoopbackOrContainer_ListensOnEveryInterface(string? url)
+    {
+        var options = new McpEndpointOptions { Reach = McpReach.LoopbackOrContainer };
+
+        var endpoint = McpEndpoint.Read(Settings(new() { ["Port"] = "9400", ["Url"] = url }), Default, isHttpOnly: false, containerVariable: "true", server: "demo", options);
+
+        Assert.True(endpoint.ListensOnEveryInterface);
+        Assert.Equal(9400, endpoint.Url.Port);
+    }
+
+    [Theory]
+    [InlineData(McpReach.LoopbackOnly, "http://127.0.0.1:9400/")]
+    [InlineData(McpReach.LoopbackOnly, "http://[::1]:9400/")]
+    [InlineData(McpReach.LoopbackOnly, "http://localhost:9400/")]
+    [InlineData(McpReach.LoopbackOrContainer, "http://127.0.0.1:9400/")]
+    public void Read_OnLoopback_IsWithinEveryReach(McpReach reach, string url)
+    {
+        var endpoint = Read(new() { ["Transport"] = "Http", ["Url"] = url }, reach: reach);
+
+        Assert.False(endpoint.ListensOnEveryInterface);
+        Assert.Equal(new Uri(url), endpoint.Url);
+    }
+
+    /// <summary>A server that listens on every interface by default cannot also hold itself to loopback; the refusal says the default is the server's.</summary>
+    [Fact]
+    public void ReadHttp_ADefaultBeyondTheReach_IsRefusedNamingTheDefault()
+    {
+        var options = new McpEndpointOptions { Reach = McpReach.LoopbackOnly };
+
+        var refusal = Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(Settings([]), new Uri("http://0.0.0.0:8830/"), isHttpOnly: true, containerVariable: null, server: "demo", options));
+
+        Assert.StartsWith("The server's default address is 'http://0.0.0.0:8830/'; ", refusal.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Read_ThePublicCallsWithOptions_ReadTheFallbackSectionAndTheReach()
+    {
+        var options = new McpEndpointOptions { FallbackSection = "Snail", Reach = McpReach.LoopbackOnly };
+
+        Assert.Equal(8822, McpEndpoint.Read(Settings(new() { ["Snail:Port"] = "8822" }), Default, options).Url.Port);
+        Assert.Throws<InvalidOperationException>(() => McpEndpoint.ReadHttp(Settings(new() { ["Snail:ListensOnEveryInterface"] = "true" }), Default, options));
+    }
+
+    [Fact]
+    public void Read_ABlankFallbackSectionInTheOptions_IsRefused() =>
+        Assert.Throws<ArgumentException>(() => McpEndpoint.Read(Settings([]), Default, new McpEndpointOptions { FallbackSection = " " }));
+
     [Fact]
     public void CreateBuilder_AStdioEndpoint_IsRefused() =>
         Assert.Throws<ArgumentException>(() => McpHttpHost.CreateBuilder([], new McpEndpoint(McpTransport.Stdio, Default, ListensOnEveryInterface: false)));
 
-    /// <summary>An address beyond loopback is never served without the flag or a container that asks for it.</summary>
+    /// <summary>The host cannot listen on a name; how far an address may reach is the read's to decide.</summary>
     [Fact]
-    public void CreateBuilder_AnAddressBeyondLoopbackWithoutTheFlag_IsRefused() =>
-        Assert.Throws<ArgumentException>(() => McpHttpHost.CreateBuilder([], new McpEndpoint(McpTransport.Http, new Uri("http://192.168.1.5:9400/"), ListensOnEveryInterface: false)));
+    public void CreateBuilder_AnEndpointAtAHostName_IsRefused() =>
+        Assert.Throws<ArgumentException>(() => McpHttpHost.CreateBuilder([], new McpEndpoint(McpTransport.Http, new Uri("http://studio.lan:9400/"), ListensOnEveryInterface: false)));
 
-    private static McpEndpoint Read(Dictionary<string, string?> values, string? fallbackSection = null) =>
-        McpEndpoint.Read(Settings(values), Default, isHttpOnly: false, containerVariable: null, server: null, fallbackSection);
+    private static McpEndpoint Read(Dictionary<string, string?> values, string? fallbackSection = null, McpReach reach = McpReach.Unrestricted) =>
+        McpEndpoint.Read(Settings(values), Default, isHttpOnly: false, containerVariable: null, server: null, new McpEndpointOptions { FallbackSection = fallbackSection, Reach = reach });
 
     private static McpEndpoint ReadHttp(Dictionary<string, string?> values) => McpEndpoint.Read(Settings(values), Default, isHttpOnly: true, containerVariable: null, server: null);
 

@@ -1,7 +1,9 @@
 using System.ComponentModel;
 using System.Net;
 using System.Net.Sockets;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Client;
@@ -172,30 +174,143 @@ public sealed class McpHttpHostTests : IAsyncLifetime
     [InlineData(false, HttpStatusCode.ServiceUnavailable)]
     public async Task MapHealth_WithACheck_AnswersAsItSays(bool isHealthy, HttpStatusCode expected)
     {
-        var status = await CheckedHealthAsync((_, _) => Task.FromResult(isHealthy));
+        var (status, body, _) = await CheckedHealthAsync((_, _) => Task.FromResult(new HealthAnswer(isHealthy)));
 
         Assert.Equal(expected, status);
+        Assert.Empty(body);
     }
 
     [Fact]
-    public async Task MapHealth_ACheckThatThrows_Answers503()
+    public async Task MapHealth_ACheckThatThrows_Answers503WithNoBody()
     {
-        var status = await CheckedHealthAsync((_, _) => throw new InvalidOperationException("The browser is gone."));
+        var (status, body, _) = await CheckedHealthAsync((_, _) => throw new InvalidOperationException("The browser is gone."));
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, status);
+        Assert.Empty(body);
     }
 
     [Fact]
     public async Task MapHealth_TheCheck_IsAskedWithTheServersServices()
     {
-        var status = await CheckedHealthAsync((services, _) => Task.FromResult(services.GetService<McpActivity>() is not null));
+        var (status, _, _) = await CheckedHealthAsync((services, _) => Task.FromResult(new HealthAnswer(services.GetService<McpActivity>() is not null)));
 
         Assert.Equal(HttpStatusCode.OK, status);
     }
 
+    /// <summary>Snail.MCP.Blender's /healthz is a contract with a body, and says Blender is down while the server itself is healthy.</summary>
+    [Fact]
+    public async Task MapHealth_ABody_IsAnsweredAsJson()
+    {
+        var (status, body, type) = await CheckedHealthAsync((_, _) => Task.FromResult(new HealthAnswer(true, new JsonObject { ["status"] = "ok", ["blender"] = "down" })));
+
+        Assert.Equal(HttpStatusCode.OK, status);
+        Assert.Equal("""{"status":"ok","blender":"down"}""", body);
+        Assert.Equal("application/json", type);
+    }
+
+    /// <summary>A server an orchestrator should restart says why in the body of its 503.</summary>
+    [Fact]
+    public async Task MapHealth_AnUnhealthyAnswerWithABody_Answers503WithIt()
+    {
+        var (status, body, _) = await CheckedHealthAsync((_, _) => Task.FromResult(new HealthAnswer(false, new JsonObject { ["status"] = "stalled" })));
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, status);
+        Assert.Equal("""{"status":"stalled"}""", body);
+    }
+
     [Fact]
     public void MapHealth_ABlankPath_IsRefused() =>
-        Assert.Throws<ArgumentException>(() => _app.MapHealth(" ", (_, _) => Task.FromResult(true)));
+        Assert.Throws<ArgumentException>(() => _app.MapHealth(" ", (_, _) => Task.FromResult(new HealthAnswer(true))));
+
+    /// <summary>The refusal holds for the MCP endpoint: Snail.MCP.Figma's plugin sends Origin: null to the bridge, AfterEffects' pages post forms with an Origin.</summary>
+    [Theory]
+    [InlineData("/mcp", HttpStatusCode.Forbidden)]
+    [InlineData("/MCP", HttpStatusCode.Forbidden)]
+    [InlineData("/mcp/sse", HttpStatusCode.Forbidden)]
+    [InlineData("/mcpx", HttpStatusCode.OK)]
+    [InlineData("/page", HttpStatusCode.OK)]
+    public async Task MapLocalMcp_TheRefusal_HoldsForTheEndpointAlone(string path, HttpStatusCode expected)
+    {
+        var port = FreePort();
+        var builder = McpHttpHost.CreateBuilder([], new Uri($"http://127.0.0.1:{port}/"));
+        builder.Services.AddMcpServer().WithLocalHttpTransport();
+        await using var app = builder.Build();
+        app.MapLocalMcp();
+        app.MapFallback(() => "page");
+        await app.StartAsync();
+
+        var status = await FromABrowserAsync(new Uri($"http://127.0.0.1:{port}{path}"), HttpMethod.Get);
+
+        Assert.Equal(expected, status);
+    }
+
+    [Fact]
+    public async Task MapLocalMcp_TheHealthCheck_AnswersABrowser() =>
+        Assert.Equal(HttpStatusCode.OK, await FromABrowserAsync(new Uri(_url, McpHttpHost.DefaultHealthPath), HttpMethod.Get));
+
+    /// <summary>Snail.MCP.Figma: the MCP endpoint and the bridge are two ports of one host, and only the MCP one refuses.</summary>
+    [Fact]
+    public async Task UseBrowserRefusal_OnAPort_LetsAnotherPortThrough()
+    {
+        var mcp = FreePort();
+        var bridge = FreePort();
+        var builder = McpHttpHost.CreateBuilder([], new Uri($"http://127.0.0.1:{mcp}/"));
+        builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, bridge));
+        await using var app = builder.Build();
+        app.UseBrowserRefusal(McpHttpHost.DefaultPath, mcp);
+        app.MapGet("/mcp", () => "answered");
+        await app.StartAsync();
+
+        Assert.Equal(HttpStatusCode.Forbidden, await FromABrowserAsync(new Uri($"http://127.0.0.1:{mcp}/mcp"), HttpMethod.Get));
+        Assert.Equal(HttpStatusCode.OK, await FromABrowserAsync(new Uri($"http://127.0.0.1:{bridge}/mcp"), HttpMethod.Get));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("mcp")]
+    public void UseBrowserRefusal_NotAPath_IsRefused(string path) =>
+        Assert.ThrowsAny<ArgumentException>(() => _app.UseBrowserRefusal(path));
+
+    /// <summary>Snail.MCP.Blender keeps a whole WebApplication for its pages and sign-in, and wrote app.Urls by hand.</summary>
+    [Fact]
+    public async Task UseMcpEndpoint_AWholeWebApplication_ListensWhereTheEndpointSays()
+    {
+        var port = FreePort();
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = [] });
+        builder.WebHost.UseUrls("http://127.0.0.1:1");
+
+        builder.UseMcpEndpoint(new McpEndpoint(McpTransport.Http, new Uri($"http://127.0.0.1:{port}/"), ListensOnEveryInterface: false));
+
+        Assert.Contains(builder.Services, service => service.ServiceType == typeof(McpActivity));
+        Assert.Equal(HttpStatusCode.OK, await HealthAsync(builder, port));
+    }
+
+    [Fact]
+    public void UseMcpEndpoint_AStdioEndpoint_IsRefused() =>
+        Assert.Throws<ArgumentException>(() => WebApplication.CreateBuilder().UseMcpEndpoint(new McpEndpoint(McpTransport.Stdio, new Uri("http://127.0.0.1:9230/"), ListensOnEveryInterface: false)));
+
+    /// <summary>Snail.MCP.Figma's stdio server serves its plugin's bridge on Kestrel, and repeated the host's lines for it.</summary>
+    [Fact]
+    public async Task CreateStdioBuilder_ListensOnlyWhereTheServerSays_OverItsSettings()
+    {
+        var port = FreePort();
+        var settings = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Bridge:Port"] = $"{port}" }).Build();
+
+        var builder = McpHttpHost.CreateStdioBuilder([], settings);
+        builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, int.Parse(builder.Configuration["Bridge:Port"]!, System.Globalization.CultureInfo.InvariantCulture)));
+
+        Assert.Contains(builder.Services, service => service.ServiceType == typeof(McpActivity));
+        Assert.Equal(HttpStatusCode.OK, await HealthAsync(builder, port));
+    }
+
+    /// <summary>Snail.MCP.Blender and AfterEffects listen on a LAN address behind their tokens; how far an endpoint reaches is the read's to decide.</summary>
+    [Fact]
+    public void CreateBuilder_AnEndpointAtALanAddress_IsBuilt()
+    {
+        var builder = McpHttpHost.CreateBuilder([], new McpEndpoint(McpTransport.Http, new Uri("http://192.168.1.5:9230/"), ListensOnEveryInterface: false), new ConfigurationBuilder().Build());
+
+        Assert.NotNull(builder);
+    }
 
     /// <summary>The settings the program read are the host's, read once — and an in-process test, under the runner, gives them the same way.</summary>
     [Fact]
@@ -226,21 +341,34 @@ public sealed class McpHttpHostTests : IAsyncLifetime
 
     [Theory]
     [InlineData(McpTransport.Stdio, "http://127.0.0.1:9230/")]
-    [InlineData(McpTransport.Http, "http://192.168.1.5:9230/")]
+    [InlineData(McpTransport.Http, "http://example.com:9230/")]
     [InlineData(McpTransport.Http, "https://127.0.0.1:9230/")]
     public void CreateBuilder_WithSettings_RefusesWhatTheEndpointOverloadRefuses(McpTransport transport, string url) =>
         Assert.Throws<ArgumentException>(() => McpHttpHost.CreateBuilder([], new McpEndpoint(transport, new Uri(url), ListensOnEveryInterface: false), new ConfigurationBuilder().Build()));
 
-    private static async Task<HttpStatusCode> CheckedHealthAsync(Func<IServiceProvider, CancellationToken, Task<bool>> isHealthy)
+    private static async Task<(HttpStatusCode Status, string Body, string? Type)> CheckedHealthAsync(Func<IServiceProvider, CancellationToken, Task<HealthAnswer>> check)
     {
         var port = FreePort();
         await using var app = McpHttpHost.CreateBuilder([], new Uri($"http://127.0.0.1:{port}/")).Build();
 
-        app.MapHealth(McpHttpHost.DefaultHealthPath, isHealthy);
+        app.MapHealth(McpHttpHost.DefaultHealthPath, check);
         await app.StartAsync();
 
         using var http = new HttpClient();
         using var response = await http.GetAsync(new Uri($"http://127.0.0.1:{port}{McpHttpHost.DefaultHealthPath}"));
+        var body = await response.Content.ReadAsStringAsync();
+
+        return (response.StatusCode, body, response.Content.Headers.ContentType?.MediaType);
+    }
+
+    private static async Task<HttpStatusCode> FromABrowserAsync(Uri address, HttpMethod method)
+    {
+        using var http = new HttpClient();
+        using var request = new HttpRequestMessage(method, address);
+
+        request.Headers.Add("Origin", "null");
+
+        using var response = await http.SendAsync(request);
 
         return response.StatusCode;
     }

@@ -179,8 +179,8 @@ when the server would wait for a message that never comes. A server built with `
 heard no MCP message for a period of its own choosing, unless it says it is busy: Snail.MCP.Figma stays while its
 plugin is connected. Any MCP message counts — a call, a listing, a ping — and a server shared over HTTP is never
 stopped, whatever the period. The period is the server's setting, named in its README: Snail.MCP.Figma and Snail.MCP.Memory
-stop after 60 minutes, Snail.MCP.Blender and Snail.MCP.AfterEffects only when theirs is set, and `0` turns it off. The
-stop is one line on stderr, at information.
+stop after 60 minutes, Snail.MCP.Blender and Snail.MCP.AfterEffects only when theirs is set, and `0` — or any period
+below it — turns it off. The stop is one line on stderr, at warning.
 
 ## Where a server answers
 
@@ -200,9 +200,32 @@ listen. A server that answers only over HTTP (`McpEndpoint.ReadHttp`) is HTTP wh
 names `0.0.0.0` or `[::]`, and inside a container — the .NET images set `DOTNET_RUNNING_IN_CONTAINER=true` — since a
 container's published port does not reach its loopback; anywhere else it stays on loopback, because the endpoint asks
 for no key. A server that listens on every interface by default names `0.0.0.0` in its default address, and a loopback
-`Url` narrows it. A value a setting cannot mean — `Transport=Htpp`, a port that is not a number — stops the server at
-its start with a line that names the variable and the key of the settings file:
-`SNAIL_MCP_<SHORT>_PORT (or Port in the settings file) is 'eighty'; …`.
+`Url` narrows it. A `Url` at an IP address beyond loopback — a LAN one — is listened on as named, by a server that
+guards its endpoint with a key of its own (Snail.MCP.Blender, AfterEffects); a `Url` at a host name is refused, since a
+server listens on an address: an IP address, `localhost`, or `0.0.0.0` for every interface. A value a setting cannot
+mean — `Transport=Htpp`, a port that is not a number — stops the server at its start with a line that names the
+variable and the key of the settings file: `SNAIL_MCP_<SHORT>_PORT (or Port in the settings file) is 'eighty'; …`.
+
+A server whose endpoint asks for no key keeps to loopback whatever its settings say, and says so in its README:
+
+| The server | Its reach | Refused at its start |
+| --- | --- | --- |
+| ships no image — Snail.MCP.Memory, CodeContext, Figma | loopback only | `ListensOnEveryInterface=true`, a `Url` at `0.0.0.0`, `[::]` or beyond loopback, and a start inside a container (`DOTNET_RUNNING_IN_CONTAINER=true`) |
+| ships an image — Snail.MCP.Git, FileSystem, Documents, Playwright, Roslyn, Sandbox, Security, Connector | loopback, every interface inside its container | the same on the machine; inside the container the published port is the boundary |
+| guards its endpoint with a token — Snail.MCP.Blender, AfterEffects | as the settings say | nothing |
+
+Snail.MCP.E2E answers on every interface by design, under launchd too, and keeps the reach its settings give it.
+
+The refusal names what the operator set — `SNAIL_MCP_MEMORY_LISTENS_ON_EVERY_INTERFACE (or ListensOnEveryInterface in
+the settings file) is 'true'; this server answers on loopback alone, since its endpoint asks for no key, …` or
+`DOTNET_RUNNING_IN_CONTAINER is 'true'; …` — rather than serving the server to the network. A server reads its endpoint
+with `McpEndpoint.Read(settings, defaultUrl, new McpEndpointOptions { Reach = McpReach.LoopbackOnly })` (or
+`McpReach.LoopbackOrContainer`, and `FallbackSection` for the section below).
+
+The address is read from `Url` before `Http:Url`, so `SNAIL_MCP_<SHORT>_URL` moves the listener of a server that keeps
+its address under `Http`; `McpEndpoint.UrlSetting` names the key it was read from. A server that signs links with its
+address — Snail.MCP.Blender's uploads and downloads — signs them with the endpoint's `Url`, where it listens, not with
+`Http:Url` read on its own.
 
 A server that keeps its other settings in a section of its settings file — Snail.MCP.Playwright, FileSystem, Documents
 and Git keep theirs under `Snail` — reads these keys there too: `{"Snail": {"Port": 8820}}` in the file, or
@@ -213,9 +236,14 @@ refusal names the key where it was found, `SNAIL_MCP_<SHORT>_SNAIL__PORT (or Sna
 in its README that it does.
 
 A server whose process may run while it cannot serve answers its health check by what it serves through:
-`MapHealth(path, isHealthy)` answers 503 while the check says no, or throws — Snail.MCP.Playwright's `/healthz` while its
+`MapHealth(path, check)` answers 503 while the check says no, or throws — Snail.MCP.Playwright's `/healthz` while its
 browser does not answer — so an orchestrator restarts it and `HttpServerProgram` waits for it; `MapHealth()` alone
-answers 200 for a process that answers HTTP.
+answers 200 for a process that answers HTTP. A check may answer with a body, as JSON: Snail.MCP.Blender's `/healthz`
+says `{"status":"ok","blender":"up"}` — or `down`, or `stalled` — with 200, since the server itself still serves.
+
+A request that carries an `Origin` — a page in a browser always sends one, an agent's client never does — is refused
+with 403 at the MCP endpoint, `/mcp` and the paths under it. The other endpoints of a server answer browsers as the
+server decides: Snail.MCP.Figma's plugin bridge, Snail.MCP.AfterEffects' and Blender's pages behind their sign-in.
 
 ## Checking an installed server
 

@@ -18,14 +18,14 @@ namespace Snail.Sdk.Mcp.Testing;
 /// </para>
 /// <para>
 /// The port is Kestrel's choice, port 0 on 127.0.0.1, read back once the host has started: nothing can take it between
-/// the choice and the bind, as it can with <see cref="Ports.Free"/>. Disposed, the host is stopped and disposed; the
-/// sessions a test opened are the test's to dispose.
+/// the choice and the bind, as it can with <see cref="Ports.Free"/>. A server that must know its address before it
+/// starts — Snail.MCP.Blender signs links with it as its services are built — is given a port, <c>Ports.Free()</c>, and
+/// told its address by its settings. Disposed, the host is stopped and disposed; the sessions a test opened are the
+/// test's to dispose.
 /// </para>
 /// </remarks>
 public sealed class InProcessServer : IAsyncDisposable
 {
-    private static readonly Uri AnyLoopbackPort = new("http://127.0.0.1:0/");
-
     private readonly WebApplication _app;
     private bool _isDisposed;
 
@@ -52,16 +52,21 @@ public sealed class InProcessServer : IAsyncDisposable
     /// <param name="configure">Registers the server: <c>builder.Services.AddMcpServer().WithLocalHttpTransport().WithTools&lt;…&gt;()</c>.</param>
     /// <param name="map">Maps the endpoints; <c>app.MapLocalMcp()</c> when null.</param>
     /// <param name="path">The path <paramref name="map"/> maps the MCP endpoint at; <see cref="McpHttpHost.DefaultPath"/> unless named.</param>
+    /// <param name="port">The port of 127.0.0.1 the host listens on; 0, Kestrel's choice, unless the server must know its address before it starts.</param>
     /// <param name="cancellationToken">Gives up on the start.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The port is negative or beyond the last one.</exception>
     public static Task<InProcessServer> StartAsync(
         Action<WebApplicationBuilder> configure,
         Action<WebApplication>? map = null,
         string path = McpHttpHost.DefaultPath,
+        int port = 0,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(configure);
+        ArgumentOutOfRangeException.ThrowIfNegative(port);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(port, ushort.MaxValue);
 
-        var builder = McpHttpHost.CreateBuilder([], AnyLoopbackPort);
+        var builder = McpHttpHost.CreateBuilder([], new Uri($"http://127.0.0.1:{port}/"));
 
         configure(builder);
 
@@ -78,9 +83,16 @@ public sealed class InProcessServer : IAsyncDisposable
     /// <summary>A host the server built itself, as its program builds it, started and handed back with the port it bound.</summary>
     /// <example><c>await InProcessServer.ServeAsync(McpServerHost.Listening([], config, new McpEndpoint(McpTransport.Http, new Uri("http://127.0.0.1:0/"), false)))</c></example>
     /// <remarks>
+    /// <para>
     /// For a server whose program builds its host in a method of its own — <c>McpServerHost.Listening(args, config,
     /// endpoint)</c> — given an endpoint on <c>http://127.0.0.1:0/</c>, so the test runs exactly what the program runs.
     /// The host is the server's from then on: stopped and disposed with it, and disposed too when it fails to start.
+    /// </para>
+    /// <para>
+    /// A server that keeps a whole <c>WebApplication</c> of its own — pages, sign-in, a token in front of the MCP
+    /// endpoint, <c>builder.UseMcpEndpoint(endpoint)</c> — is served alike; one that signs links with its address before
+    /// it starts is given a port of its own, <c>Ports.Free()</c>, in the settings it reads the endpoint from.
+    /// </para>
     /// </remarks>
     /// <param name="app">The host, built and not started, listening on a loopback address.</param>
     /// <param name="path">The path the host maps the MCP endpoint at; <see cref="McpHttpHost.DefaultPath"/> unless named.</param>

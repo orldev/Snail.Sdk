@@ -24,12 +24,17 @@ A change that a repository must act on says what to do.
   `await HttpServerProgram.StartAsync("Snail.MCP.<Name>", "SNAIL_<SHORT>_SERVER", environment)` in `InitializeAsync`
   and `await server.DisposeAsync()`, and its browser test with
   `Assert.Empty(await HttpGuards.ProblemsAsync(server.Endpoint))`; `dotnet new s3l-mcp`'s `HttpContractTests` does.
+  `HttpGuards.AuthorizedProblemsAsync(endpoint, authorization)` checks an endpoint behind a token of its own instead —
+  Snail.MCP.Blender and AfterEffects, which may listen beyond loopback: a page's request without the key answered 401 or
+  403, never 200, an agent's client without it refused too, and one with it let in.
 - `InProcessServer` of `Snail.Sdk.Mcp.Testing`: a server over HTTP in the test's own process, for what needs it whole —
   the door, the grant from the query, the tools Snail.Sdk adds — without a process per test.
   `await InProcessServer.StartAsync(builder => …, app => …)` builds it on `McpHttpHost.CreateBuilder` at
   `127.0.0.1:0` (`app.MapLocalMcp()` when no map is given), and `InProcessServer.ServeAsync(app)` starts a host the
   server's program built itself on such an endpoint; either reads back the port Kestrel bound, so nothing can take it
-  in between. `Address`, `Endpoint`, `Services` and `SessionAsync(query)` are those of `HttpServerProgram`; disposing
+  in between. `StartAsync(…, port: Ports.Free())` listens on a port the test chose, for a server that signs links with
+  its address before it starts (Snail.MCP.Blender), and `ServeAsync` serves a whole `WebApplication` of the server's
+  own alike. `Address`, `Endpoint`, `Services` and `SessionAsync(query)` are those of `HttpServerProgram`; disposing
   it stops and disposes the host. The package now references `Snail.Sdk.Mcp.Http`, and through it the ASP.NET Core
   shared framework, which a test project always has. Snail.MCP.Git may replace `tests/Support/TestServer.cs` and
   Snail.MCP.FileSystem `tests/Support/Listening.cs` with
@@ -144,8 +149,12 @@ A change that a repository must act on says what to do.
   without closing its stdin, which waited for ever. Any MCP message counts, over the filter the idle trim counts with —
   the watchers Snail.MCP.Blender, AfterEffects, Figma and Memory kept of their own counted `tools/call` alone, so a
   client that only pings now keeps the server up. A server served over HTTP is never stopped, so a program of both
-  transports registers it alike. `TimeSpan.Zero` turns it off; the period and its default stay the server's setting.
-  A server drops its `IdleShutdownWatcher`, `IActivityTracker` and their registration for one call.
+  transports registers it alike. A period of zero or less turns it off — a server passes its setting straight through,
+  and a negative one no longer stops it at its start with an exception that named no setting (Snail.MCP.Figma); the
+  period and its default stay the server's setting. The quiet is measured by the `TimeProvider` the services hold
+  (`TimeProvider.System` when none), so a test that registers a clock moves the period with it (Snail.MCP.Memory), and
+  the stop is logged at warning, as the fleet's watchers wrote it. A server drops its `IdleShutdownWatcher`,
+  `IActivityTracker` and their registration for one call.
 - `McpEndpoint.Read(settings, defaultUrl)` and `McpTransport`: where a server of both transports answers, from either of
   the two ways the fleet says it — `Transport` with `Url` (or `Http:Url`), or a `Port` alone — on every interface inside
   a container (`DOTNET_RUNNING_IN_CONTAINER=true`), with `ListensOnEveryInterface`, or at `0.0.0.0`, on loopback
@@ -157,17 +166,46 @@ A change that a repository must act on says what to do.
   `SNAIL_MCP_SANDBOX_URL (or Url in the settings file) is '…'`, for a program built on Snail.Sdk.Mcp, which names its
   server in its assembly; the key alone for any other. A server that listens on every interface outside a container
   too — Snail.MCP.E2E under launchd — names `0.0.0.0` in its default URL: a `Port` keeps that host, a loopback `Url`
-  narrows it. `McpHttpHost.CreateBuilder(args, endpoint)` builds the host it names, loopback or every interface. A
+  narrows it. `McpHttpHost.CreateBuilder(args, endpoint)` builds the host it names, at its address or on every
+  interface, and leaves how far it may reach to the read. A
   server drops its `McpServerHost` choice and its `Transport` enum. `Read(settings, defaultUrl, fallbackSection)` and
   `ReadHttp(…, fallbackSection)` also look in a section for a key the root does not hold, key by key, the root winning:
   Snail.MCP.Playwright, FileSystem, Documents and Git keep their settings under `Snail`, and their operators wrote the
   endpoint there, where a read at the root alone did not look. A refusal names the key where it was found,
   `SNAIL_MCP_FILESYSTEM_SNAIL__PORT (or Snail:Port in the settings file) is '…'`. Such a server passes `"Snail"` and
-  drops the remark that the section is not read.
-- `McpHttpHost.MapHealth(path = "/healthz", isHealthy = null)`: 200 with no body, for a container's healthcheck, which
-  the servers in images mapped by hand; with `isHealthy` — asked with the request's services and its cancellation —
-  503 while the server cannot serve, and when the check throws. Snail.MCP.Playwright mapped a `/healthz` of its own
-  that asked whether its browser answers; it passes that check instead, and `HttpServerProgram` waits for it alike.
+  drops the remark that the section is not read. `Read(settings, defaultUrl, options)` and `ReadHttp(…, options)` take
+  a `McpEndpointOptions` — its `FallbackSection`, and its `Reach`: a keyless server keeps to loopback with
+  `McpReach.LoopbackOnly` (Snail.MCP.Memory, CodeContext, Figma), or `McpReach.LoopbackOrContainer` when it ships an
+  image (Git, FileSystem, Documents, Playwright, Roslyn, Sandbox, Security, Connector, `dotnet new s3l-mcp`), and `ListensOnEveryInterface=true`, a
+  URL at `0.0.0.0` or beyond loopback, and — for `LoopbackOnly` — a start inside a container are refused at the read,
+  naming the variable, `DOTNET_RUNNING_IN_CONTAINER is 'true'; …` among them. The old `CreateBuilder(args, url)` refused
+  an address beyond loopback; the endpoint opened every interface for any of the three, so a keyless server could be
+  served to the network by one setting (Snail.MCP.Memory). `McpReach.Unrestricted`, the reads without options, keeps
+  that for a server that guards its endpoint, and listens on an IP address beyond loopback — a LAN one, Snail.MCP.Blender
+  and AfterEffects — as named; a URL at a host name, which was served on loopback without a word, is refused at the
+  read. `McpEndpoint.UrlSetting` names the key the address was read from (`Url`, `Http:Url`, or either under the
+  section; null for the default): Snail.MCP.Blender signed its links with `Http:Url` while `SNAIL_MCP_BLENDER_URL` had
+  moved the listener.
+- `McpHttpHost.MapHealth(path = "/healthz", check = null)`: 200 with no body, for a container's healthcheck, which
+  the servers in images mapped by hand; with `check` — asked with the request's services and its cancellation — the
+  `HealthAnswer(isHealthy, body)` it gives: 200 or 503, and its `JsonNode` body as `application/json`; 503 with no body
+  when the check throws. Snail.MCP.Playwright mapped a `/healthz` of its own that asked whether its browser answers; it
+  may pass that check instead, `new HealthAnswer(isAnswering)`, and `HttpServerProgram` waits for it alike.
+  Snail.MCP.Blender and AfterEffects may keep their `{"status":"ok","blender":"up|down|stalled"}` contract with
+  `new HealthAnswer(true, await health.LivenessAsync(ct))` and drop their `HealthEndpoints`.
+- `McpHttpHost.CreateStdioBuilder(args, settings)`: the host of a stdio server that serves HTTP of its own beside MCP —
+  an empty web host over its settings, stderr at their levels, the idle trim, Kestrel listening only where the server
+  says, no MCP endpoint. Snail.MCP.Figma's plugin bridge is a Kestrel endpoint of the stdio server, and its
+  `ServerHost.CreateStdioBuilder` repeated these lines; it may call this instead.
+- `builder.UseMcpEndpoint(endpoint)` of `McpHttpHost`: a whole `WebApplication.CreateBuilder` the server keeps — Razor
+  pages, sign-in, antiforgery, which the empty builders leave out — listens where the endpoint says (given to Kestrel,
+  so `urls` cannot move it), logs on stderr at the levels its configuration names and trims the heap when idle.
+  Snail.MCP.Blender cleared `app.Urls` and wrote the address there by hand, without the rest; it may call this on its
+  builder instead.
+- `app.UseBrowserRefusal(path = "/mcp", port = null)` of `McpHttpHost`: the refusal `MapLocalMcp` holds — 403 to a
+  request with an `Origin` — for a server that maps the MCP endpoint itself, behind its own authorization or on one port
+  of several. Joined before `UseAuthentication`, it refuses a browser before it is challenged. Snail.MCP.Figma and
+  AfterEffects may drop their own `RefuseBrowsers`.
 - `ServerSecret` of `Snail.Sdk.Mcp.Hosting`: `ReadOrCreate(file, length)` keeps a secret in the server's data folder —
   readable by its owner alone from its first byte, written to a draft and moved into place whole, made by one process
   at a time under a lock beside it so every server starting at once agrees on one, and never replaced: a file of
@@ -393,6 +431,12 @@ A change that a repository must act on says what to do.
 
 ### Changed
 
+- `MapLocalMcp` refuses a request with an `Origin` at the MCP endpoint — its path and the paths under it — rather than
+  on the whole host. Snail.MCP.Figma's plugin calls the bridge of the same process with `Origin: null`, and the pages of
+  Snail.MCP.AfterEffects post forms with an `Origin`, so each mapped the endpoint itself behind a refusal of its own;
+  they may call `MapLocalMcp()` (with `.RequireAuthorization(…)` where the endpoint wants a token) or `UseBrowserRefusal`.
+  The health check is no longer behind the refusal; the endpoints a server maps beside the MCP one are its own to
+  guard. `HttpGuards.ProblemsAsync` checks the MCP endpoint as before.
 - The server libraries are built on ModelContextProtocol 2.3.1, the version the fleet pins: built on 2.3.0, a stdio
   server's tests restored `ModelContextProtocol.AspNetCore` 2.3.0 through `Snail.Sdk.Mcp.Testing` → `Snail.Sdk.Mcp.Http`,
   which asks for `ModelContextProtocol` 2.3.0 exactly, and failed on NU1608 beside the fleet's 2.3.1. The s3l-mcp

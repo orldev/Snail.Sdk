@@ -82,6 +82,6 @@ internal sealed partial class IdleShutdown(
         }
     }
 
-    [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "No MCP message for {Seconds:F0} s: the client is gone, the server stops")]
+    [LoggerMessage(EventId = 2, Level = LogLevel.Warning, Message = "No MCP message for {Seconds:F0} s: the client is gone, the server stops")]
     private static partial void Stopping(ILogger logger, double seconds);
 }

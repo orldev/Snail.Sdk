@@ -8,7 +8,7 @@ namespace Snail.MCP.Template.Tools;
 
 /// <summary>The state of the server: the sample tool a new server starts from.</summary>
 /// <remarks>
-/// Every tool answers through ToolAnswer: <c>{"ok":true,"data":…}</c>, or <c>{"ok":false,"error":…,"hint":…}</c> flagged
+/// Every tool answers through ToolAnswer: <c>{"ok":true,"data":…}</c>, or <c>{"ok":false,"error":…,"hint":…,"type":…}</c> flagged
 /// isError. A failure the tool foresees is <c>ToolAnswer.Failed</c>; one it does not is an exception, which
 /// <c>ExplainFailures</c> answers in the same envelope.
 /// </remarks>

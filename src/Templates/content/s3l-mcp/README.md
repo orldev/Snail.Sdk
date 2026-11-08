@@ -7,7 +7,7 @@ Its tools: [docs/reference/tools](docs/reference/tools/index.md), written from t
 shared workflows.
 
 Every tool answers with the envelope of `Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer`, `{"ok":true,"data":…}` or
-`{"ok":false,"error":…,"hint":…}` flagged `isError`; a tool that throws is answered the same way (`ExplainFailures`).
+`{"ok":false,"error":…,"hint":…,"type":…}` flagged `isError`; a tool that throws is answered the same way (`ExplainFailures`).
 <!--#if (UsesHttp) -->
 
 Over HTTP one server serves every session at `http://127.0.0.1:9300/mcp` (`SNAIL_MCP_TMPLSHORT_URL`; every interface

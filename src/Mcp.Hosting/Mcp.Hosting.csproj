@@ -26,8 +26,13 @@
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
   </ItemGroup>
 
+  <!--
+    Snail.Sdk.Mcp.Programs is released with this package, at one version, so it may read a failure as ExplainFailures
+    does (ToolFailures.FailureOf) without that reading becoming public API of either.
+  -->
   <ItemGroup>
     <InternalsVisibleTo Include="Snail.Sdk.Mcp.Tests" />
+    <InternalsVisibleTo Include="Snail.Sdk.Mcp.Programs" />
   </ItemGroup>
 
 </Project>

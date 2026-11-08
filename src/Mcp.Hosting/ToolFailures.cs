@@ -132,37 +132,61 @@ public static partial class ToolFailures
         return new CallToolResult { IsError = true, Content = [new TextContentBlock { Text = text }] };
     }
 
-    /// <summary>A failure the tool did not answer itself, in the server's words, logged as the server's own when its type is <c>internal</c>.</summary>
-    private static AnswerFailure Unforeseen(RequestContext<CallToolRequestParams> request, Exception failure, FailureOptions words)
+    private static AnswerFailure Unforeseen(RequestContext<CallToolRequestParams> request, Exception failure, FailureOptions words) =>
+        Unforeseen(request.Params?.Name ?? "a tool", failure, words, LoggersOf(request.Services ?? request.Server.Services), Hint);
+
+    /// <summary>A failure a job's work or a program's command threw, in the words <c>ExplainFailures</c> gives a tool's: a refusal in its own, anything else as the server's failure.</summary>
+    /// <remarks>
+    /// One reading for a tool, a job and a command, so the words a server sets in <see cref="FailureOptions.Error"/> — to
+    /// keep a path or a connection string out of what a model reads — hold for all three: a job's failure went out as the
+    /// exception's message whatever the server had set, and a command that threw ended its program as a failure of
+    /// <c>run_program</c> with the commands it had sent lost.
+    /// </remarks>
+    /// <param name="subject">What failed, as the words and the log name it: a job's kind, a program's command.</param>
+    /// <param name="failure">What it threw.</param>
+    /// <param name="services">The services the server's <see cref="FailureOptions"/> and loggers are read from; the defaults when null.</param>
+    /// <param name="internalHint">The hint of a failure of the server the server words no hint for: a job's is null, since <c>JobAnswer</c> gives the hint of its options.</param>
+    internal static AnswerFailure FailureOf(string subject, Exception failure, IServiceProvider? services, string? internalHint)
     {
-        var tool = request.Params?.Name ?? "a tool";
-        var error = words.Error?.Invoke(tool, failure) ?? failure.Message;
-        var named = words.RefusalOf(failure);
-        var type = named?.Type ?? words.Type?.Invoke(tool, failure) ?? Internal;
-        var isInternal = string.Equals(type, Internal, StringComparison.Ordinal);
-        var loggers = request.Services?.GetService<ILoggerFactory>() ?? request.Server.Services?.GetService<ILoggerFactory>();
+        if (failure is ToolRefusalException refusal)
+            return new AnswerFailure(refusal.Error, refusal.Hint, refusal.Type) { Details = refusal.Details };
+
+        FailureOptions words = services?.GetService<IOptions<FailureOptions>>()?.Value ?? new FailureOptions();
+
+        return Unforeseen(subject, failure, words, LoggersOf(services), internalHint);
+    }
+
+    /// <summary>A failure nobody answered, in the server's words, logged as the server's own when its type is <c>internal</c>.</summary>
+    private static AnswerFailure Unforeseen(string subject, Exception failure, FailureOptions words, ILoggerFactory? loggers, string? internalHint)
+    {
+        string error = words.Error?.Invoke(subject, failure) ?? failure.Message;
+        FailureOptions.Refusal? named = words.RefusalOf(failure);
+        string type = named?.Type ?? words.Type?.Invoke(subject, failure) ?? Internal;
+        bool isInternal = string.Equals(type, Internal, StringComparison.Ordinal);
 
         if (loggers is not null)
         {
-            var logger = loggers.CreateLogger(typeof(ToolFailures));
+            ILogger logger = loggers.CreateLogger(typeof(ToolFailures));
 
             if (isInternal)
-                Failed(logger, failure, tool);
+                Failed(logger, failure, subject);
             else
-                Refused(logger, tool, type, error);
+                Refused(logger, subject, type, error);
         }
 
-        return new AnswerFailure(error, HintOf(tool, failure, words, named, isInternal), type);
+        return new AnswerFailure(error, HintOf(subject, failure, words, named, isInternal ? internalHint : null), type);
     }
 
+    private static ILoggerFactory? LoggersOf(IServiceProvider? services) => services?.GetService<ILoggerFactory>();
+
     /// <summary>The hint of a failure the tool did not answer: the refusal's the server named, the server's own, or the default hint when the failure is the server's.</summary>
-    private static string? HintOf(string tool, Exception failure, FailureOptions words, FailureOptions.Refusal? named, bool isInternal)
+    private static string? HintOf(string tool, Exception failure, FailureOptions words, FailureOptions.Refusal? named, string? internalHint)
     {
         if (named is not null)
             return named.Hint?.Invoke(failure);
 
         if (ReferenceEquals(words.Hint, FailureOptions.InternalOnly))
-            return isInternal ? Hint : null;
+            return internalHint;
 
         return words.Hint?.Invoke(tool, failure);
     }

@@ -66,7 +66,7 @@ public sealed class Job
     }
 
     /// <summary>Runs the work to its end; <paramref name="kept"/> is told of the end before <see cref="Completion"/> is, so whoever awaits the job finds the jobs kept as they will stand.</summary>
-    internal async Task RunAsync(Func<IProgress<JobProgress>, CancellationToken, Task<JobEnding>> work, CancellationToken stopping, TimeProvider clock, Action<Job> kept)
+    internal async Task RunAsync(Func<IProgress<JobProgress>, CancellationToken, Task<JobEnding>> work, Func<Exception, AnswerFailure> explained, CancellationToken stopping, TimeProvider clock, Action<Job> kept)
     {
         using var either = CancellationTokenSource.CreateLinkedTokenSource(_cancelling.Token, stopping);
         var progress = new Steps(step => Change(report => report with { Progress = step.Share ?? report.Progress, Message = step.What ?? report.Message }));
@@ -81,13 +81,11 @@ public sealed class Job
         {
             End(new JobEnding(JobState.Cancelled, "cancelled"), clock, kept);
         }
-        catch (ToolRefusalException refusal)
-        {
-            End(new JobEnding(JobState.Failed, refusal.Error, Jobs.DetailsOf(refusal.Details), refusal.Hint, refusal.Type), clock, kept);
-        }
         catch (Exception failure)
         {
-            End(new JobEnding(JobState.Failed, failure.Message, Type: ToolFailures.Internal), clock, kept);
+            AnswerFailure told = explained(failure);
+
+            End(new JobEnding(JobState.Failed, told.Error, Jobs.DetailsOf(told.Details), told.Hint, told.Type), clock, kept);
         }
     }
 

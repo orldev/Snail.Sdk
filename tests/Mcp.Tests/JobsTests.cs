@@ -263,6 +263,18 @@ public sealed class JobsTests
         Assert.EndsWith("\"message\":\"no scene\",\"type\":\"internal\"}", thrown.ToJson(), StringComparison.Ordinal);
     }
 
+    /// <summary>A job's failure went out as the exception's message whatever words the server set to keep a path or a connection string out of what a model reads.</summary>
+    [Fact]
+    public async Task Job_ThatThrows_FailsInTheWordsTheServerGivesAFailure()
+    {
+        using var services = new ServiceCollection().Configure<FailureOptions>(words => words.Error = (_, _) => "the scene could not be read").BuildServiceProvider();
+        var jobs = new Jobs("sample") { Services = services };
+
+        var thrown = await jobs.Start("bad", (_, _) => Task.FromException<Outcome>(new InvalidOperationException("no scene at /Users/someone/secret.blend")), SampleJson.Default.Outcome).Completion.WaitAsync(Patience);
+
+        Assert.Equal("the scene could not be read", thrown.Message);
+    }
+
     /// <summary>A report written before the hint and type existed, or by another server, reads as it did.</summary>
     [Fact]
     public void Report_WithoutHintAndType_ReadsAsBefore_AndOneWithFieldsUnknown_Too()

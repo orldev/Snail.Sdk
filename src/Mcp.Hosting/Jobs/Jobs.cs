@@ -56,6 +56,9 @@ public sealed class Jobs
         _stopping = lifetime?.ApplicationStopping ?? CancellationToken.None;
     }
 
+    /// <summary>The services a work that threw is read with, as <c>ExplainFailures</c> reads a tool that threw; the defaults when null.</summary>
+    internal IServiceProvider? Services { get; init; }
+
     /// <summary>Raised with every change of any job: a state, a progress step.</summary>
     public event Action<JobReport>? Changed;
 
@@ -169,15 +172,15 @@ public sealed class Jobs
         var job = new Job(uri, owner, _clock.GetUtcNow(), report => Changed?.Invoke(report));
 
         _jobs[uri] = job;
-        _ = RunAsync(job, work);
+        _ = RunAsync(job, kind, work);
 
         return job;
     }
 
-    private async Task RunAsync(Job job, Func<IProgress<JobProgress>, CancellationToken, Task<JobEnding>> work)
+    private async Task RunAsync(Job job, string kind, Func<IProgress<JobProgress>, CancellationToken, Task<JobEnding>> work)
     {
         await Task.Yield();
-        await job.RunAsync(work, _stopping, _clock, Keep).ConfigureAwait(false);
+        await job.RunAsync(work, failure => ToolFailures.FailureOf(kind, failure, Services, internalHint: null), _stopping, _clock, Keep).ConfigureAwait(false);
     }
 
     /// <summary>Keeps an ended job, forgetting its owner's oldest past <see cref="Kept"/> and the server's oldest past <see cref="KeptInAll"/>.</summary>

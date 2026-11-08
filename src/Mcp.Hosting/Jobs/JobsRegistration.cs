@@ -50,7 +50,7 @@ public static class JobsRegistration
 
             ListenStreams.Register(builder.Services);
             builder.Services.AddSingleton(new JobOwnership(ownerOf));
-            builder.Services.AddSingleton(provider => new Jobs(server, provider.GetService<TimeProvider>(), provider.GetService<IHostApplicationLifetime>()));
+            builder.Services.AddSingleton(provider => new Jobs(server, provider.GetService<TimeProvider>(), provider.GetService<IHostApplicationLifetime>()) { Services = provider });
             builder.Services.AddSingleton<JobWatchers>();
             builder.Services.AddOptions<McpServerOptions>().PostConfigure<JobWatchers>(JobWatchers.Configure);
 

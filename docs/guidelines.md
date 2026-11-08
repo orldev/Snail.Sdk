@@ -138,12 +138,23 @@ strictly as code.
 - **One answer envelope.** A tool answers with `ToolAnswer` of `Snail.Sdk.Mcp.Hosting`: one text block,
   `{"ok":true,"data":…}` or `{"ok":false,"error":"…","hint":"…"}`, a failure flagged `isError` as well, since a model
   reads the shape it was given last and a refusal shaped otherwise is one it misreads as an answer. What a caller can act
-  on comes back as an `Answer<T>`, never as an exception; `.ExplainFailures()` answers what nobody foresaw. No server
-  writes the envelope itself, nor keeps a `JsonSerializerContext` only for a `JsonObject` (`ToolAnswer.ObjectInfo`).
+  on comes back as an `Answer<T>`, never as an exception — read with `TryGet`, handed on with `As<TOther>()` or `Map`,
+  answered with `ToolAnswer.From` or `ToolAnswer.Failed(answer)`, never field by field — and `.ExplainFailures()`
+  answers what nobody foresaw. No server writes the envelope itself, nor keeps a `JsonSerializerContext` only for a
+  `JsonObject` (`ToolAnswer.ObjectInfo`).
+- **The fields of `data` are mapped in `AnswerFields`.** A server's mappers from its domain records to the JSON of an
+  answer live in one static class of `Tools` named `AnswerFields`, an overload per record — `AnswerFields.Of(report)` —
+  passed to `ToolAnswer.From(answer, AnswerFields.Of)` and `answer.Map(AnswerFields.Of)`. Not `…Data` (S3L0006), not
+  `AnswerContent`, `ConnectorAnswers` or a name per server: one name, so a reader finds the shape of every answer in the
+  same file of every server. Typed data the server keeps a generated context for goes straight into the text with
+  `ToolAnswer.Ok(data, typeInfo)`.
 - **A long operation is a job, never a poll.** Work that outlasts a call — a render, an index pass, a test run — runs
   through `Jobs.Start` of `Snail.Sdk.Mcp.Hosting`: the tool takes `int wait = 60`, answers within it with the result
   (`job.ForAsync`) or with the job's `job://` resource, and the client that can wait is told of the end by its
-  subscription (`Snail.Sdk.Mcp.JobClient`). No `*_status` tool — the resource is the status; one that says where
+  subscription (`Snail.Sdk.Mcp.JobClient`). Work that can fail as the call's or the world's fault returns an
+  `Answer<T>`, so its job ends failed with the answer's error, hint and type, never succeeded with a failure as its
+  result; the tool answers with `JobAnswer.Envelope(report)`, or `JobAnswer.Result(report, running)` when its answer is
+  the work's result. No `*_status` tool — the resource is the status; one that says where
   something else stands is named in `SnailStatusToolsBecause` with its reason — and no description that
   says "poll" or "call again": a model made a timer spends a turn on every look. Progress within the call stays
   `IProgress<ProgressNotificationValue>`. (S3LC0032; `ToolGuards` names a description that tells the model to poll)

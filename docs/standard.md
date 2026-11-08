@@ -320,17 +320,25 @@ And for the server project (no kind):
   with no turn of a model spent; one that cannot reads the resource when it wants. No `*_status` tool, no "poll" in a
   description (S3LC0032). A job's URI ends in a random id; a server many clients share gives its jobs an owner
   (`Jobs.Start(kind, owner, …)`, `.WithJobs("<short>", ownerOf)`), and a job of another owner is unknown to a client. A
-  tool that answers in words of its own returns `JobAnswer.Of(report, said)`: its text, with the report beside it.
+  tool that answers in words of its own returns `JobAnswer.Of(report, said)`: its text, with the report beside it. Work
+  that returns an `Answer<T>` (`Jobs.Start(kind, owner, work, typeInfo)`) ends a failure as a failed job — the error its
+  `Message`, the hint and type `JobReport.Hint` and `JobReport.Type` — and a tool whose answer is the work's result
+  answers `JobAnswer.Result(report, running)`: the result as the data once succeeded, the failure flagged once failed,
+  the report with `running` beside it while it runs.
 - One answer envelope (`Snail.Sdk.Mcp.Hosting.Answers`): a tool's text is one block of compact JSON with nothing escaped
   that JSON allows, `{"ok":true,"data":…}` or `{"ok":false,"error":"…","hint":"…","type":"…","data":…}` with a field
   that has no value left out, written by `ToolAnswer.Ok(data, shape)`, `ToolAnswer.Failed(error, hint, type, data)` or
-  `ToolAnswer.From(answer, data)` from an `Answer<T>` (success is its error being null). A failure is always `isError`
+  `ToolAnswer.From(answer, data)` from an `Answer<T>` (success is its error being null; `TryGet`, `As<TOther>()`, `Map`
+  and `ToolAnswer.Failed(answer)` carry it without copying a field), typed data through `ToolAnswer.Ok(data, typeInfo)`
+  with no tree of nodes, the data mapped from domain records in the server's `AnswerFields`. `ToolAnswer.Text(result)`
+  is the envelope outside a result and `ToolAnswer.Of(envelope)` a stored one answered again. A failure is always `isError`
   and text alone; a success carries its data as the structured content, or the whole envelope (`AnswerShape.Envelope`,
   for tools with an output schema), or none. `ToolAnswer.Word` spells an enum value in the casing the server chose,
   `ToolAnswer.Moment` a moment; `ToolAnswer.ObjectInfo` is the generated `JsonObject` a job's result needs.
   `.ExplainFailures()` beside `AddMcpServer` answers a tool that threw with the envelope, `type` `internal`, logged once,
-  and flags an envelope with `ok` false that a tool returned as a string; a cancelled call stays cancelled. A job
-  answered in the envelope is `JobAnswer.Envelope(report, beside)`.
+  and flags an envelope with `ok` false that a tool returned as a string; a cancelled call stays cancelled; arguments
+  the MCP SDK could not bind are `type` `arguments`, naming the parameter; `FailureOptions` words the rest. A job
+  answered in the envelope is `JobAnswer.Envelope(report, beside, hint)`.
 - What a session's address grants it (`Snail.Sdk.Mcp.Hosting.Sessions`): a server many roles reach is opened at
   `…/mcp?root=/workspaces/<task>&tool=<name>&tool=…`, a URL the platform writes and the model never can.
   `.RefuseWhatWasNotGranted()` refuses and hides a tool the address did not name (`SessionGrant`, or the server's own

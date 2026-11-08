@@ -32,7 +32,7 @@ namespace Snail.Sdk.Mcp.Hosting.Discovery;
 /// lost with it (Snail.MCP.Roslyn). Only the client's cancelling the call ends the run with what it throws.
 /// </para>
 /// </remarks>
-internal static partial class RunTools
+internal static class RunTools
 {
     public const string Name = "run_tools";
 

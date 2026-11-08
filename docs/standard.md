@@ -611,7 +611,10 @@ dotnet build -p:SnailReference=true
   (`error S3LD0001: …`, [the codes](conformance.md)).
 - The tools a server's `With…` calls register — `find_tool`, `run_tools`, `run_program`, the skill tools — are read from
   its host: the generator runs the entry point until the host is built and stops it there, so no hosted service starts
-  and no tool runs. A family names them with `"tools": [names]` instead of `"type"`; the ones no family names get the
+  and no tool runs. It runs it in a process of its own with an empty temporary home, none of the server's
+  `SNAIL_MCP_<SHORT>_` variables and `SNAIL_MCP_<SHORT>_CONFIG` naming a file that never exists, as `ServerProgram`
+  starts a server under test, and deletes the home afterwards: what the composition writes never reaches the
+  developer's data, and the reference does not depend on their settings. A family names them with `"tools": [names]` instead of `"type"`; the ones no family names get the
   page `discovery`.
 
 The reference is committed, and the shared CI writes it again and fails when it differs, so the published pages are

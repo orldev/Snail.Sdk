@@ -7,6 +7,10 @@ const string usage = """
     Snail.Sdk.Docs site <file of the site's facts> <output folder>
     """;
 
+// The server's host, read by the tools command in a process of its own with a home of its own: not for a person to type.
+if (args is [HostTools.Command, var hosted, var answer])
+    HostTools.Answer(hosted, answer);
+
 string? written;
 
 try

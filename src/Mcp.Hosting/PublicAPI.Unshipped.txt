@@ -129,8 +129,12 @@ static Snail.Sdk.Mcp.Hosting.ServerFolders.ExpandHome(string? path, string! fall
 static Snail.Sdk.Mcp.Hosting.ServerFolders.Home.get -> string!
 static Snail.Sdk.Mcp.Hosting.ServerSecret.Matches(string! expected, string? presented) -> bool
 static Snail.Sdk.Mcp.Hosting.ServerSecret.Matches(System.ReadOnlySpan<byte> expected, System.ReadOnlySpan<byte> presented) -> bool
-static Snail.Sdk.Mcp.Hosting.ServerSecret.ReadOrCreate(string! file, int length = 32) -> byte[]!
-static Snail.Sdk.Mcp.Hosting.ServerSecret.ReadOrCreateHex(string! file, int length = 32) -> string!
+static Snail.Sdk.Mcp.Hosting.ServerSecret.ReadOrCreate(string! file) -> byte[]!
+static Snail.Sdk.Mcp.Hosting.ServerSecret.ReadOrCreate(string! file, int length) -> byte[]!
+static Snail.Sdk.Mcp.Hosting.ServerSecret.ReadOrCreate(string! file, int length, out bool created) -> byte[]!
+static Snail.Sdk.Mcp.Hosting.ServerSecret.ReadOrCreateHex(string! file) -> string!
+static Snail.Sdk.Mcp.Hosting.ServerSecret.ReadOrCreateHex(string! file, int length) -> string!
+static Snail.Sdk.Mcp.Hosting.ServerSecret.ReadOrCreateHex(string! file, int length, out bool created) -> string!
 Snail.Sdk.Mcp.Hosting.Sessions.ForwardsAttribute
 Snail.Sdk.Mcp.Hosting.Sessions.ForwardsAttribute.ForwardsAttribute() -> void
 Snail.Sdk.Mcp.Hosting.Sessions.GrantOptions

@@ -57,6 +57,16 @@ public static class ToolAnswers
         /// <exception cref="InvalidOperationException">The text is not the envelope.</exception>
         public string? Type() => EnvelopeOf(answer)["type"]?.GetValue<string>();
 
+        /// <summary>A field the envelope carries at its top level beside <c>data</c> — <c>fileKey</c>, <c>metrics</c>, as <c>ToolAnswer.Ok(data, shape, beside)</c> writes them; null when it has none of that name.</summary>
+        /// <param name="name">The field's name; one of the envelope's own — <c>ok</c>, <c>data</c> — reads that too.</param>
+        /// <exception cref="InvalidOperationException">The text is not the envelope.</exception>
+        public JsonNode? Field(string name)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+            return EnvelopeOf(answer)[name]?.DeepClone();
+        }
+
         /// <summary>The job's report the answer carries as its structured content, or null when it carries none.</summary>
         /// <remarks>Where <c>JobAnswer</c> puts it, and where a client of <c>Snail.Sdk.Mcp.JobClient</c> reads it.</remarks>
         public JobReport? Report()

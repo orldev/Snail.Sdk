@@ -6,7 +6,7 @@ namespace Snail.Sdk.Mcp.Hosting.Answers;
 /// <summary>A value, or why there is none in words a caller can act on.</summary>
 /// <remarks>
 /// <para>
-/// Failure travels as data up to the tool, which turns it into the envelope with <see cref="ToolAnswer.From{T}(Answer{T}, Func{T, System.Text.Json.Nodes.JsonNode}, AnswerShape)"/>,
+/// Failure travels as data up to the tool, which turns it into the envelope with <see cref="ToolAnswer.From{T}(Answer{T}, Func{T, System.Text.Json.Nodes.JsonNode})"/>,
 /// or up to a job, which then ends failed (<c>Jobs.Start</c> with work that answers an <c>Answer&lt;T&gt;</c>).
 /// Success is <see cref="Error"/> being null, never <see cref="Value"/> being set: the value of a value type is never
 /// null, so <c>Value is { }</c> holds for a failed <c>Answer&lt;bool&gt;</c> too and answered it as <c>false</c>

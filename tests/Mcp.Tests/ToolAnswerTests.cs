@@ -566,6 +566,119 @@ public sealed class ToolAnswerTests
         Assert.False(ToolAnswer.IsFailure(answer));
     }
 
+    /// <summary>Snail.MCP.Figma's contract reads fileKey, source and metrics beside the data on 17 tools; the envelope had no place for them.</summary>
+    [Fact]
+    public void Ok_WithFieldsBeside_WritesThemAfterTheData_AndTheStructuredContentStaysTheData()
+    {
+        var answer = ToolAnswer.Ok(new JsonObject { ["id"] = "1:2" }, AnswerShape.Data, new JsonObject { ["fileKey"] = "abc", ["source"] = "cache", ["metrics"] = new JsonObject { ["bytesIn"] = 10 } });
+
+        Assert.Equal("""{"ok":true,"data":{"id":"1:2"},"fileKey":"abc","source":"cache","metrics":{"bytesIn":10}}""", answer.Text());
+        Assert.Equal("""{"id":"1:2"}""", answer.StructuredContent!.Value.GetRawText());
+    }
+
+    [Fact]
+    public void Ok_WithFieldsBeside_ShapedAsTheEnvelope_CarriesThemInTheStructuredContent()
+    {
+        var answer = ToolAnswer.Ok(new JsonArray(1, 2), AnswerShape.Envelope, new JsonObject { ["nodeId"] = "1:2" });
+
+        Assert.Equal("""{"ok":true,"data":[1,2],"nodeId":"1:2"}""", answer.StructuredContent!.Value.GetRawText());
+        Assert.Equal(answer.Text(), answer.StructuredContent.Value.GetRawText());
+    }
+
+    [Fact]
+    public void Ok_WithAFieldBesideThatIsNull_LeavesItOut()
+    {
+        var answer = ToolAnswer.Ok(new JsonObject(), AnswerShape.None, new JsonObject { ["staleReason"] = null, ["source"] = "figma-api" });
+
+        Assert.Equal("""{"ok":true,"data":{},"source":"figma-api"}""", answer.Text());
+    }
+
+    [Theory]
+    [InlineData("ok")]
+    [InlineData("error")]
+    [InlineData("hint")]
+    [InlineData("type")]
+    [InlineData("data")]
+    public void Ok_WithAFieldBesideNamedAsTheEnvelopesOwn_Throws(string name) =>
+        Assert.Throws<ArgumentException>(() => ToolAnswer.Ok(new JsonObject(), AnswerShape.Data, new JsonObject { [name] = 1 }));
+
+    [Theory]
+    [InlineData("""{"ok":true,"data":{"a":1},"fileKey":"abc","metrics":{"bytesIn":3}}""")]
+    [InlineData("""{"ok":false,"error":"No.","hint":"Ask.","type":"refused","data":{"done":2},"fileKey":"abc"}""")]
+    public void Of_AStoredEnvelopeWithFieldsBeside_KeepsThem(string envelope)
+    {
+        var answer = ToolAnswer.Of(JsonNode.Parse(envelope)!.AsObject());
+
+        Assert.Equal(envelope, answer.Text());
+    }
+
+    [Fact]
+    public void Of_AStoredEnvelopeWithAFieldBeforeTheData_WritesItAfter()
+    {
+        var answer = ToolAnswer.Of(JsonNode.Parse("""{"fileKey":"abc","ok":true,"data":{"a":1}}""")!.AsObject());
+
+        Assert.Equal("""{"ok":true,"data":{"a":1},"fileKey":"abc"}""", answer.Text());
+        Assert.Equal("""{"a":1}""", answer.StructuredContent!.Value.GetRawText());
+    }
+
+    /// <summary>136 tools of Snail.MCP.Figma return a string: <c>ToolAnswer.Text(ToolAnswer.Ok(data, AnswerShape.None))</c> each time was long.</summary>
+    [Fact]
+    public void OkText_IsTheTextOfTheAnswer()
+    {
+        var data = new JsonObject { ["name"] = "Кнопка<T>" };
+
+        Assert.Equal(ToolAnswer.Text(ToolAnswer.Ok(data, AnswerShape.None)), ToolAnswer.OkText(data));
+        Assert.Equal("""{"ok":true,"data":{"name":"Кнопка<T>"}}""", ToolAnswer.OkText(data));
+    }
+
+    [Fact]
+    public void OkText_WithFieldsBeside_IsTheTextOfTheAnswer()
+    {
+        var data = new JsonObject { ["id"] = "1:2" };
+        var beside = new JsonObject { ["fileKey"] = "abc" };
+
+        Assert.Equal(ToolAnswer.Text(ToolAnswer.Ok(data, AnswerShape.None, beside)), ToolAnswer.OkText(data, beside));
+    }
+
+    [Fact]
+    public void FailedText_IsTheTextOfTheFailure_ThatExplainFailuresFlags()
+    {
+        var text = ToolAnswer.FailedText("No such node.", "List the page first.", "missing", new JsonObject { ["done"] = 1 });
+
+        Assert.Equal(ToolAnswer.Text(ToolAnswer.Failed("No such node.", "List the page first.", "missing", new JsonObject { ["done"] = 1 })), text);
+        Assert.True(ToolAnswer.IsFailure(new CallToolResult { Content = [new TextContentBlock { Text = text }] }));
+    }
+
+    [Fact]
+    public void From_ASuccessOfTypedData_IsWrittenAsOkWritesIt()
+    {
+        var read = new FileRead("a.txt", 3);
+
+        var answer = ToolAnswer.From(Answer.Ok(read), EnvelopeJson.Default.FileRead);
+
+        Assert.Equal(ToolAnswer.Ok(read, EnvelopeJson.Default.FileRead).Text(), answer.Text());
+        Assert.Equal("""{"path":"a.txt","lines":3}""", answer.StructuredContent!.Value.GetRawText());
+    }
+
+    [Fact]
+    public void From_ASuccessOfTypedData_CarriesTheShapeAsked()
+    {
+        var answer = ToolAnswer.From(Answer.Ok(new FileRead("a.txt", 3)), EnvelopeJson.Default.FileRead, AnswerShape.None);
+
+        Assert.Null(answer.StructuredContent);
+    }
+
+    [Fact]
+    public void From_AFailureOfTypedData_IsTheFailureEnvelope_WithItsDetails()
+    {
+        Answer<FileRead> failed = Answer.Failed("No such file.", "List the folder.", "missing", new JsonObject { ["tried"] = "a.txt" });
+
+        var answer = ToolAnswer.From(failed, EnvelopeJson.Default.FileRead);
+
+        Assert.True(answer.IsError);
+        Assert.Equal("""{"ok":false,"error":"No such file.","hint":"List the folder.","type":"missing","data":{"tried":"a.txt"}}""", answer.Text());
+    }
+
     /// <summary>Snail.MCP.FileSystem kept Answered&lt;T&gt; for its output schemas; the envelope type is the SDK's now, and the same JSON.</summary>
     [Fact]
     public void Envelope_OfASuccess_IsTheStructuredContentAndTheTextOfAnEnvelopeAnswer()
@@ -585,7 +698,7 @@ public sealed class ToolAnswerTests
     {
         var answer = ToolAnswer.Failed("No such file.", "List the folder.", "missing");
 
-        var typed = JsonSerializer.Serialize(new Envelope<FileRead>(false, null, "No such file.", "List the folder.", "missing"), EnvelopeJson.Default.EnvelopeFileRead);
+        var typed = JsonSerializer.Serialize(new Envelope<FileRead>(false, null!, "No such file.", "List the folder.", "missing"), EnvelopeJson.Default.EnvelopeFileRead);
 
         Assert.Equal(answer.Text(), typed);
     }
@@ -602,6 +715,19 @@ public sealed class ToolAnswerTests
         Assert.Equal(["ok", "error", "hint", "type", "data"], properties.EnumerateObject().Select(property => property.Name));
         Assert.Equal("boolean", properties.GetProperty("ok").GetProperty("type").GetString());
         Assert.True(properties.GetProperty("data").ToString().Contains("\"lines\"", StringComparison.Ordinal));
+    }
+
+    /// <summary>The schema is a success's, and a success always has its data: null published as allowed let a client take an empty success for a valid one (Snail.MCP.Figma).</summary>
+    [Fact]
+    public void Envelope_AsTheDeclaredOutput_PublishesDataAsRequiredAndNeverNull()
+    {
+        var method = typeof(ToolAnswerTests).GetMethod(nameof(ReadFile), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+
+        var tool = ModelContextProtocol.Server.McpServerTool.Create(method, (object?)null, new ModelContextProtocol.Server.McpServerToolCreateOptions { SerializerOptions = ToolJson.Options(EnvelopeJson.Default) });
+
+        var schema = tool.ProtocolTool.OutputSchema!.Value;
+        Assert.Equal("object", schema.GetProperty("properties").GetProperty("data").GetProperty("type").GetString());
+        Assert.Contains("data", schema.GetProperty("required").EnumerateArray().Select(name => name.GetString()));
     }
 
     [ModelContextProtocol.Server.McpServerTool(Name = "read_file", UseStructuredContent = true, OutputSchemaType = typeof(Envelope<FileRead>))]

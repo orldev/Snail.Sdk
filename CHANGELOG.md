@@ -136,10 +136,9 @@ A change that a repository must act on says what to do.
   answers none (Snail.MCP.Roslyn). Every server of the fleet answers in the envelope; `options.AnswersText = true` is for
   a server outside it whose answers are text a command, a hook or a person reads as it is, and answers what was thrown,
   arguments that did not bind, a `ToolRefusalException` and a thrown step of `run_tools` as `error — hint`, flagged
-  `isError`, no JSON (its type still decides what is logged). Up to 0.5.0-local.7 it lived in
-  `Snail.Sdk.Mcp.Hosting.Answers`, so the host registration of every server of the fleet imported the envelope's
-  namespace for this one call: a server on a local version drops `using Snail.Sdk.Mcp.Hosting.Answers;` where it only
-  served `ExplainFailures` (IDE0005 names the file) and has `using Snail.Sdk.Mcp.Hosting;` there.
+  `isError`, no JSON (its type still decides what is logged). It lives in
+  `Snail.Sdk.Mcp.Hosting`, beside `McpHost`, so a host registration imports no namespace of the envelope for this one
+  call.
 - `JobAnswer.Envelope(report, beside, hint)`: a job in the envelope — the report as the text's data, with the fields of
   `beside` added there, and the report alone as the structured content a client of `Snail.Sdk.Mcp.JobClient` reads.
   Replaces `ToolResponse.Job(report)` of Snail.MCP.Security, BuildBridge, AfterEffects and Blender. A job that failed or
@@ -229,7 +228,7 @@ A change that a repository must act on says what to do.
   names the variable and what it can be. `McpEndpoint.Read` and `ReadHttp` throw it for every setting they refuse —
   a value its key cannot mean, an endpoint beyond the server's reach — and `ServerSecretRefusedException` is one. They
   threw a bare `InvalidOperationException`, which ended the process unhandled with a stack trace and exit code 134 —
-  a crash, where a person had set a wrong value (the whole fleet on 0.5.0-local.4). A program catches it around its
+  a crash, where a person had set a wrong value. A program catches it around its
   start, writes the message to stderr and exits with 1, as the program of `dotnet new s3l-mcp` now does:
   `try { await ServerHost.RunAsync(args); return 0; } catch (StartRefusedException refused) { await Console.Error.WriteLineAsync(refused.Message); return 1; }`.
   It stays an `InvalidOperationException`, so a `catch` of that keeps catching it; a test that asserted the type
@@ -253,7 +252,7 @@ A change that a repository must act on says what to do.
   `SNAIL_MCP_BLENDER_BRIDGE__PORT (or Bridge:Port in the settings file) is 'abc'; it is not a number (Int32).` The
   configuration binder threw an `InvalidOperationException`, "Failed to convert configuration value 'abc' at
   'Bridge:Port' to type 'System.Int32'.", which the refusal of the start did not cover: Snail.MCP.Blender crashed with a
-  trace and exit code 134 (0.5.0-local.6). Two places bind. Options a host binds as it starts — `ValidateOnStart()`, a
+  trace and exit code 134. Two places bind. Options a host binds as it starts — `ValidateOnStart()`, a
   hosted service reading them — are refused by every host the SDK builds (`AddStartRefusal()`), the variable named by the
   server the entry assembly carries, the key alone in a program that names none (`Bridge:Port is 'abc'; …`), and the
   host's error line with the trace left out; nothing to change. Settings a server binds before any host exists — Blender's
@@ -598,7 +597,7 @@ A change that a repository must act on says what to do.
   `DOTNET_RUNNING_IN_CONTAINER` — and the home is deleted afterwards, so a registration that creates its data folder
   or opens its database at composition touches none of the developer's data, and a broken local settings file does
   not break the reference (Snail.MCP.Plans and Snail.MCP.Memory created `~/.s3l-mcp-plans` and `~/.s3l-mcp-memory`
-  on a docs build of 0.5.0-local.3). A family of `docs/tools.json` names such tools by name, `{ "tools": ["find_tool",
+  on a docs build). A family of `docs/tools.json` names such tools by name, `{ "tools": ["find_tool",
   "run_tools"], "slug": "discovery", "title": "Finding a tool" }`; the ones no family names go to a page of their own,
   `discovery.md`, after the rest; naming a tool the server does not register is S3LD0002. A host that cannot be built
   is warning S3LD0004, and the reference keeps the classes' tools. To adopt, a server that dropped a family of these
@@ -620,7 +619,7 @@ A change that a repository must act on says what to do.
   `ToString()`, `JsonSerializer.Serialize`, `JsonNode.ToJsonString`, also through `?:`, `??`, a switch expression and
   `Task.FromResult`). Nothing checked the guideline (finding #52). What it cannot see it leaves alone — an answer
   handed over by a call or a local variable, `object`, a type parameter, `Envelope<T>` — and a test's tools are spared
-  by `Snail.Sdk.Tests.globalconfig`. Run over the fleet on 0.5.0-local.5 it reports one tool: Snail.MCP.Figma's
+  by `Snail.Sdk.Tests.globalconfig`. Run over the fleet it reported one tool: Snail.MCP.Figma's
   `csharp_diagnose` returns `report.ToJsonString(SerializerOptions)`, JSON that is not the envelope, and returns
   `ToolAnswer.OkText(report)` instead. A server outside the fleet whose answers are text suppresses it with its reason.
 

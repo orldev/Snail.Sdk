@@ -373,7 +373,8 @@ And for the server project (no kind):
   size budget counts the text. A picture follows the envelope in a block of its own (`result.WithImage(bytes, mime)`),
   never base64 in the JSON. `ToolAnswer.Word` spells an enum value in the casing the server chose,
   `ToolAnswer.Moment` a moment; `ToolAnswer.ObjectInfo` is the generated `JsonObject` a job's result needs.
-  `.ExplainFailures()` beside `AddMcpServer` answers a tool that threw with the envelope, `type` `internal`, logged once,
+  `.ExplainFailures()` beside `AddMcpServer` — `Snail.Sdk.Mcp.Hosting`'s, beside `McpHost`, so registering it takes
+  no `using` of the envelope's namespace — answers a tool that threw with the envelope, `type` `internal`, logged once,
   and flags an envelope with `ok` false that a tool returned as a string; a cancelled call stays cancelled; arguments
   the MCP SDK could not bind are `type` `arguments`, naming the parameter; a `ToolRefusalException` — a caller's mistake
   found deep inside — is answered in its own error, hint and type and not logged; `FailureOptions` words the rest,

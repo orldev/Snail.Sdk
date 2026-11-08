@@ -2,7 +2,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Snail.Sdk.Mcp.Hosting;
-using Snail.Sdk.Mcp.Hosting.Answers;
 
 #endif
 namespace Snail.MCP.Template.Extensions;

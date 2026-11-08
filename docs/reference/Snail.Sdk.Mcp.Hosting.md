@@ -162,6 +162,15 @@ A start refused for what the operator set — a setting that cannot mean anythin
 | `StartRefusedException(string message)` | A start refused, in a sentence that names what the operator set and what it can be. |
 | `StartRefusedException(string message, Exception? innerException)` | A start refused, with the failure that showed it. |
 
+### static class ToolFailures
+
+A failure of a tool told as the envelope every answer is, and flagged as one by the protocol.
+
+| Member | Summary |
+| --- | --- |
+| `IMcpServerBuilder ExplainFailures(this IMcpServerBuilder builder)` | Answers a tool that threw with the failure envelope — its message, a hint and the type `internal` — logged once with its trace, and flags an answer that is the failure envelope but not an error as one. |
+| `IMcpServerBuilder ExplainFailures(this IMcpServerBuilder builder, Action<FailureOptions> configure)` | Answers a tool that threw with the failure envelope, in the words `configure` gives a failure nobody foresaw: its error, its hint and its type, each from the tool's name and what it threw. |
+
 ### static class ToolJson
 
 The JSON options a server's tools are registered with: the MCP SDK's own, with the server's types put first.
@@ -285,15 +294,6 @@ A tool's answer as every Snail server gives it: one text block holding the envel
 | `string OkText(JsonNode data, JsonObject? beside = null, string? hint = null)` | The text of a successful answer with fields of the tool's own after its data, and what to do next, for a tool that returns a string. |
 | `string Text(CallToolResult result)` | The envelope a result carries: the text of its first block, which is where every answer of `ToolAnswer` writes it. |
 | `string Word<TEnum>(TEnum value, WordCase casing = 0)` | An enum value as the answer spells it, in the casing the server chose. |
-
-### static class ToolFailures
-
-A failure of a tool told as the envelope every answer is, and flagged as one by the protocol.
-
-| Member | Summary |
-| --- | --- |
-| `IMcpServerBuilder ExplainFailures(this IMcpServerBuilder builder)` | Answers a tool that threw with the failure envelope — its message, a hint and the type `internal` — logged once with its trace, and flags an answer that is the failure envelope but not an error as one. |
-| `IMcpServerBuilder ExplainFailures(this IMcpServerBuilder builder, Action<FailureOptions> configure)` | Answers a tool that threw with the failure envelope, in the words `configure` gives a failure nobody foresaw: its error, its hint and its type, each from the tool's name and what it threw. |
 
 ### class ToolRefusalException
 

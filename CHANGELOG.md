@@ -108,7 +108,8 @@ A change that a repository must act on says what to do.
   Blender) passes `type:` and says `type` instead of `data.type` in its instructions. Each server keeps its mappers from
   domain records to the fields of `data` in one static class of its `Tools`, `AnswerFields`, an overload per record
   (`AnswerFields.Of(report)`), passed to `ToolAnswer.From` and `Answer.Map`; a name ending in `Data` is S3L0006's.
-- `.ExplainFailures()` on `IMcpServerBuilder`: a tool that throws is answered with the failure envelope — its message, a
+- `.ExplainFailures()` on `IMcpServerBuilder`, in `Snail.Sdk.Mcp.Hosting` beside `McpHost` — its `FailureOptions` and
+  the envelope's other types stay in `.Answers`: a tool that throws is answered with the failure envelope — its message, a
   hint, `type` `internal` — and logged once with its trace, instead of the MCP SDK's bare "An error occurred invoking
   …"; and a result whose text is the envelope with `ok` false but no `isError` — a tool that returns the envelope as a
   string — is flagged. It goes first among the call filters wherever it is called; a call its client cancelled stays
@@ -135,7 +136,10 @@ A change that a repository must act on says what to do.
   answers none (Snail.MCP.Roslyn). Every server of the fleet answers in the envelope; `options.AnswersText = true` is for
   a server outside it whose answers are text a command, a hook or a person reads as it is, and answers what was thrown,
   arguments that did not bind, a `ToolRefusalException` and a thrown step of `run_tools` as `error — hint`, flagged
-  `isError`, no JSON (its type still decides what is logged).
+  `isError`, no JSON (its type still decides what is logged). Up to 0.5.0-local.7 it lived in
+  `Snail.Sdk.Mcp.Hosting.Answers`, so the host registration of every server of the fleet imported the envelope's
+  namespace for this one call: a server on a local version drops `using Snail.Sdk.Mcp.Hosting.Answers;` where it only
+  served `ExplainFailures` (IDE0005 names the file) and has `using Snail.Sdk.Mcp.Hosting;` there.
 - `JobAnswer.Envelope(report, beside, hint)`: a job in the envelope — the report as the text's data, with the fields of
   `beside` added there, and the report alone as the structured content a client of `Snail.Sdk.Mcp.JobClient` reads.
   Replaces `ToolResponse.Job(report)` of Snail.MCP.Security, BuildBridge, AfterEffects and Blender. A job that failed or

@@ -27,8 +27,8 @@ What every Snail MCP server starts from:
   `ToolAnswer.Text`/`ToolAnswer.Of` carry the envelope outside a result and back; `result.WithImage(bytes, mime)` adds
   a picture after it, and `Envelope<T>` is its type for an output schema. `Answer<T>` with `TryGet`, `As<TOther>()` and
   `Map` is the value-or-why behind it, `Answer.Failed(error, hint, type, details)` a failure of any `Answer<T>` with what
-  was learned before it. `.ExplainFailures()` answers a tool that threw with it, a call whose arguments did not bind with
-  `type` `arguments`, and a `ToolRefusalException` in its own words.
+  was learned before it. `.ExplainFailures()`, in `Snail.Sdk.Mcp.Hosting` itself, answers a tool that threw with it, a
+  call whose arguments did not bind with `type` `arguments`, and a `ToolRefusalException` in its own words.
 - `Jobs.Start` and `JobAnswer`: a long operation as a job; work that returns an `Answer<T>` ends a failure as a failed
   job with its hint and type, and `JobAnswer.Envelope` or `JobAnswer.Result` answers the tool.
 - `Snail.Sdk.Mcp.Hosting.Sessions`: what a session's address (`?tool=`, `?root=`) grants it.

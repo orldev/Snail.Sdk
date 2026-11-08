@@ -2,6 +2,8 @@
 using Snail.Sdk.Mcp.Hosting.Jobs;
 using Snail.Sdk.Mcp.JobClient;
 #endif
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 using Snail.Sdk.Mcp.Testing;
 
 namespace Snail.MCP.Template.Tests;
@@ -24,9 +26,9 @@ public sealed class HttpContractTests : IAsyncLifetime
     [Fact]
     public async Task Tools_OverHttp_KeepTheGuardRules()
     {
-        await using var client = await _server.SessionAsync();
+        await using McpClient client = await _server.SessionAsync();
 
-        var listed = await client.ListToolsAsync();
+        IList<McpClientTool> listed = await client.ListToolsAsync();
 
         Assert.Empty(ToolGuards.Problems(listed.Select(tool => tool.ProtocolTool)));
     }
@@ -34,9 +36,9 @@ public sealed class HttpContractTests : IAsyncLifetime
     [Fact]
     public async Task Diagnose_OverHttp_NamesTheServer()
     {
-        await using var client = await _server.SessionAsync();
+        await using McpClient client = await _server.SessionAsync();
 
-        var answer = await client.CallToolAsync("tmplshort_diagnose", new Dictionary<string, object?>());
+        CallToolResult answer = await client.CallToolAsync("tmplshort_diagnose", new Dictionary<string, object?>());
 
         Assert.True(answer.IsOk(), answer.Text());
         Assert.Equal(Assembly, answer.Data()!["server"]!.GetValue<string>());
@@ -46,9 +48,9 @@ public sealed class HttpContractTests : IAsyncLifetime
     [Fact]
     public async Task Tools_GrantedOne_ListThatOneAlone()
     {
-        await using var client = await _server.SessionAsync("tool=tmplshort_diagnose");
+        await using McpClient client = await _server.SessionAsync("tool=tmplshort_diagnose");
 
-        var listed = await client.ListToolsAsync();
+        IList<McpClientTool> listed = await client.ListToolsAsync();
 
         Assert.Equal(["tmplshort_diagnose"], listed.Select(tool => tool.Name));
     }
@@ -56,9 +58,9 @@ public sealed class HttpContractTests : IAsyncLifetime
     [Fact]
     public async Task Diagnose_NotGranted_IsNotListed()
     {
-        await using var client = await _server.SessionAsync("tool=tmplshort_other");
+        await using McpClient client = await _server.SessionAsync("tool=tmplshort_other");
 
-        var listed = await client.ListToolsAsync();
+        IList<McpClientTool> listed = await client.ListToolsAsync();
 
         Assert.Empty(listed);
     }
@@ -67,9 +69,9 @@ public sealed class HttpContractTests : IAsyncLifetime
     [Fact]
     public async Task Diagnose_NotGranted_IsRefusedInTheEnvelope()
     {
-        await using var client = await _server.SessionAsync("tool=tmplshort_other");
+        await using McpClient client = await _server.SessionAsync("tool=tmplshort_other");
 
-        var answer = await client.CallToolAsync("tmplshort_diagnose", new Dictionary<string, object?>());
+        CallToolResult answer = await client.CallToolAsync("tmplshort_diagnose", new Dictionary<string, object?>());
 
         Assert.True(answer.IsError);
         Assert.Equal("notGranted", answer.Type());
@@ -80,9 +82,9 @@ public sealed class HttpContractTests : IAsyncLifetime
     [Fact]
     public async Task Work_OverHttp_IsAwaitedWithoutPolling()
     {
-        await using var client = await _server.SessionAsync();
+        await using McpClient client = await _server.SessionAsync();
 
-        var report = await client.CallJobAsync("tmplshort_work", new Dictionary<string, object?> { ["upTo"] = 3 });
+        JobReport report = await client.CallJobAsync("tmplshort_work", new Dictionary<string, object?> { ["upTo"] = 3 });
 
         Assert.Equal(JobState.Succeeded, report.State);
         Assert.Equal(3, report.Result!.Value.GetProperty("count").GetInt32());
@@ -104,7 +106,7 @@ public sealed class HttpContractTests : IAsyncLifetime
             ["DOTNET_RUNNING_IN_CONTAINER"] = null,
         };
 
-        var refused = await Assert.ThrowsAsync<ServerExitedException>(() => HttpServerProgram.StartAsync(Assembly, Variable, environment));
+        ServerExitedException refused = await Assert.ThrowsAsync<ServerExitedException>(() => HttpServerProgram.StartAsync(Assembly, Variable, environment));
 
         Assert.Equal(1, refused.ExitCode);
         Assert.StartsWith("SNAIL_MCP_TMPLSHORT_LISTENS_ON_EVERY_INTERFACE", refused.Stderr, StringComparison.Ordinal);

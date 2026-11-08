@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Snail.Sdk.Mcp.Hosting;
 using Snail.Sdk.Mcp.Hosting.Sessions;
@@ -20,7 +21,7 @@ public static class HttpServerHost
     /// <summary>Runs the server over Streamable HTTP until the system ends it.</summary>
     public static Task RunAsync(string[] args)
     {
-        var builder = McpHttpHost.CreateBuilder(args, ServerSettings.Endpoint, ServerSettings.Values);
+        WebApplicationBuilder builder = McpHttpHost.CreateBuilder(args, ServerSettings.Endpoint, ServerSettings.Values);
 
         builder.Services.AddMcpServer(ServerRegistration.Describe)
             .ExplainFailures()
@@ -28,7 +29,7 @@ public static class HttpServerHost
             .WithSessionGrant()
             .WithServerTools();
 
-        var app = builder.Build();
+        WebApplication app = builder.Build();
 
         app.MapLocalMcp();
         app.MapHealth();

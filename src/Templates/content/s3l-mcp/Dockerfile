@@ -16,7 +16,7 @@
 #
 #if (UsesHttp)
 # Over HTTP the server listens on every interface of the container, on the port of SNAIL_MCP_TMPLSHORT_URL (or
-# SNAIL_MCP_TMPLSHORT_PORT): McpEndpoint.Read reads DOTNET_RUNNING_IN_CONTAINER, which the .NET images set. The published
+# SNAIL_MCP_TMPLSHORT_PORT): McpEndpoint reads DOTNET_RUNNING_IN_CONTAINER, which the .NET images set. The published
 # port is the boundary, and a browser's request is still refused. GET /healthz answers 200 for an orchestrator's
 # healthcheck.
 #

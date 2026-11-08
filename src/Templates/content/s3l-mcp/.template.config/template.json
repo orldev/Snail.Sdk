@@ -70,7 +70,7 @@
         },
         {
           "choice": "Http",
-          "description": "one server for every session, over loopback HTTP"
+          "description": "one server for every session, over HTTP: loopback on the machine, every interface in a container"
         },
         {
           "choice": "Both",

@@ -49,7 +49,7 @@ internal static class ToolCatalog
         var inClasses = declared.Values.SelectMany(declaration => declaration.Tools).Select(tool => tool.Name).ToHashSet(StringComparer.Ordinal);
         var host = HostTools.Read(context);
         var registered = host.Tools
-            .Select(tool => (Entry: sdk.Entry(tool.Protocol), tool.Skill))
+            .Select(tool => (Entry: Sdk.Entry(tool.Wire), tool.Skill))
             .Where(tool => !inClasses.Contains(tool.Entry.Name))
             .GroupBy(tool => tool.Entry.Name, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
@@ -67,6 +67,9 @@ internal static class ToolCatalog
 
         return new Catalog(families, prompts, resources, warnings);
     }
+
+    /// <summary>A wire object the server's host made, such as a tool's <c>ProtocolTool</c>, as the server's own MCP SDK writes it.</summary>
+    internal static JsonElement Wire(ServerContext context, object protocol) => new Sdk(context).Entry(protocol).Wire;
 
     /// <summary>Stops on a family that names a tool the server does not register beyond its classes.</summary>
     private static void Check(CatalogSettings settings, HashSet<string> inClasses, IEnumerable<string> registered, string? failure)
@@ -227,7 +230,7 @@ internal static class ToolCatalog
             return (string)serialize.Invoke(null, [protocol, protocol.GetType(), _jsonOptions])!;
         }
 
-        private static CatalogEntry Entry(JsonElement wire)
+        public static CatalogEntry Entry(JsonElement wire)
         {
             var name = wire.TryGetProperty("name", out var named) ? named.GetString() ?? string.Empty : string.Empty;
             var description = wire.TryGetProperty("description", out var described) ? described.GetString() ?? string.Empty : string.Empty;

@@ -330,7 +330,13 @@ A change that a repository must act on says what to do.
   skills are on). The generator ran no code and read the server's classes only, so these tools left the reference and a
   family kept for them failed S3LD0002 (Snail.MCP.Sandbox dropped its discovery page). It now runs the server's entry
   point until its host is built, reads the host's tool collection and stops it there, as `dotnet ef` does: no hosted
-  service starts and no tool runs. A family of `docs/tools.json` names such tools by name, `{ "tools": ["find_tool",
+  service starts and no tool runs. The code before `Build()` runs in a process of its own on a machine that is not the
+  developer's — an empty temporary home (`HOME`, `USERPROFILE`) as its home and working directory, no `XDG_*_HOME`, none
+  of the server's `SNAIL_MCP_<SHORT>_` variables but `SNAIL_MCP_<SHORT>_CONFIG` naming a file that never exists, no
+  `DOTNET_RUNNING_IN_CONTAINER` — and the home is deleted afterwards, so a registration that creates its data folder
+  or opens its database at composition touches none of the developer's data, and a broken local settings file does
+  not break the reference (Snail.MCP.Plans and Snail.MCP.Memory created `~/.s3l-mcp-plans` and `~/.s3l-mcp-memory`
+  on a docs build of 0.5.0-local.3). A family of `docs/tools.json` names such tools by name, `{ "tools": ["find_tool",
   "run_tools"], "slug": "discovery", "title": "Finding a tool" }`; the ones no family names go to a page of their own,
   `discovery.md`, after the rest; naming a tool the server does not register is S3LD0002. A host that cannot be built
   is warning S3LD0004, and the reference keeps the classes' tools. To adopt, a server that dropped a family of these

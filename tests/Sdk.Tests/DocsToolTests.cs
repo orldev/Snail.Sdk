@@ -12,7 +12,7 @@ public sealed class DocsToolTests(SdkFeed sdk) : IDisposable
           <RootNamespace>Server</RootNamespace>
         </PropertyGroup>
         <ItemGroup>
-          <PackageReference Include="ModelContextProtocol" Version="2.3.0" />
+          <PackageReference Include="ModelContextProtocol" Version="2.3.1" />
         </ItemGroup>
         """;
 
@@ -35,7 +35,7 @@ public sealed class DocsToolTests(SdkFeed sdk) : IDisposable
           <RootNamespace>Server</RootNamespace>
         </PropertyGroup>
         <ItemGroup>
-          <PackageReference Include="ModelContextProtocol" Version="2.3.0" />
+          <PackageReference Include="ModelContextProtocol" Version="2.3.1" />
           <PackageReference Include="Snail.Sdk.Mcp.Programs" />
         </ItemGroup>
         """;
@@ -229,6 +229,78 @@ public sealed class DocsToolTests(SdkFeed sdk) : IDisposable
 
         Assert.NotEqual(0, gone);
         Assert.Contains("error S3LD0002: docs/tools.json names tools the server does not register: run_programs", goneOutput, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A server's registration that creates its data folder at composition, as Snail.MCP.Memory's AddSqliteStorage does,
+    /// creates it in a home of the generator's, deleted afterwards — never in the developer's — and the server reads no
+    /// settings file of the developer's: not the broken one in the working directory the build runs in.
+    /// </summary>
+    /// <remarks>Snail.MCP.Plans and Snail.MCP.Memory created ~/.s3l-mcp-plans and ~/.s3l-mcp-memory on a docs build of 0.5.0-local.3.</remarks>
+    [Fact]
+    public void Build_OfAServerWhoseRegistrationWritesItsData_LeavesTheDevelopersHomeAlone()
+    {
+        var name = $"docshome{Guid.NewGuid():N}"[..20];
+        var realData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), $".s3l-mcp-{name}");
+        var seen = Path.Combine(_root, $"{name}.seen");
+        var registration = $$"""
+            using Microsoft.Extensions.DependencyInjection;
+            using Snail.Sdk.Mcp.Hosting;
+
+            namespace Server;
+
+            /// <summary>The notes' storage.</summary>
+            public static class NotesRegistration
+            {
+                /// <summary>Opens the notes' storage, creating its folder, as a server opening its database at registration does.</summary>
+                public static IServiceCollection AddNotes(this IServiceCollection services)
+                {
+                    var data = ServerFolders.DataDirectory("{{name}}");
+
+                    Directory.CreateDirectory(data);
+                    File.WriteAllText(Path.Combine(data, "notes.db"), "opened");
+                    File.WriteAllLines(@"{{seen}}", [ServerFolders.Home, Environment.GetEnvironmentVariable("SNAIL_MCP_{{name.ToUpperInvariant()}}_CONFIG") ?? string.Empty, Directory.GetCurrentDirectory()]);
+
+                    return services;
+                }
+            }
+            """;
+        var program = """
+            using Microsoft.Extensions.DependencyInjection;
+            using Microsoft.Extensions.Hosting;
+            using Server;
+            using Snail.Sdk.Mcp.Hosting;
+            using Snail.Sdk.Mcp.Hosting.Discovery;
+
+            var builder = McpHost.CreateBuilder(args);
+
+            builder.Services.AddNotes();
+            builder.Services.AddMcpServer().WithStdioServerTransport().WithTools<EchoTools>().WithToolDiscovery();
+
+            await builder.Build().RunAsync();
+            """;
+        var folder = sdk.Project("Snail.Sdk.Mcp", $"Snail.MCP.{name}", Server, ("Program.cs", program), ("EchoTools.cs", Tools), ("NotesRegistration.cs", registration),
+            ($".s3l-mcp-{name}.json", "{ this is no JSON"));
+
+        Assert.False(Directory.Exists(realData), $"{realData} is there before the build");
+
+        var (exitCode, output) = SdkFeed.Dotnet(folder, "build", "-p:SnailReference=true", $"-p:SnailReferenceSettings={Path.Combine(folder, "absent.json")}");
+        var sawHome = File.Exists(seen) ? File.ReadAllLines(seen) : [];
+        var leaked = Directory.Exists(realData);
+
+        if (leaked)
+            Directory.Delete(realData, recursive: true);
+
+        Assert.True(exitCode == 0, output);
+        Assert.False(leaked, $"the build created {realData} in the developer's home");
+        Assert.DoesNotContain("S3LD0004", output, StringComparison.Ordinal);
+        Assert.Contains("find_tool", File.ReadAllText(Path.Combine(folder, "docs", "reference", "tools", "index.md")), StringComparison.Ordinal);
+        Assert.Equal(3, sawHome.Length);
+        Assert.NotEqual(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), sawHome[0]);
+        Assert.False(Directory.Exists(sawHome[0]), $"the server's home {sawHome[0]} was left behind");
+        Assert.NotEqual(string.Empty, sawHome[1]);
+        Assert.False(File.Exists(sawHome[1]));
+        Assert.NotEqual(Path.GetFullPath(folder), Path.GetFullPath(sawHome[2]));
     }
 
     public void Dispose() => Directory.Delete(_root, recursive: true);

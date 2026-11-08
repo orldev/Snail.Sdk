@@ -351,7 +351,9 @@ And for the server project (no kind):
   that has no value left out, written by `ToolAnswer.Ok(data, shape)`, `ToolAnswer.Failed(error, hint, type, data)` or
   `ToolAnswer.From(answer, data)` from an `Answer<T>` (success is its error being null; `TryGet`, `As<TOther>()`, `Map`
   and `ToolAnswer.Failed(answer)` carry it without copying a field; `Answer.Failed(error, hint, type, details)` needs no
-  type argument, and its `details`, what the work learned before it stopped, are the failure's `data`), typed data through `ToolAnswer.Ok(data, typeInfo)`
+  type argument, and its `details`, what the work learned before it stopped, are the failure's `data` — a layer without
+  the JSON mapper hands them on as they are, `.WithDetails(value)`, and the tool writes them,
+  `ToolAnswer.From<T, TDetails>(answer, data, details)`), typed data through `ToolAnswer.Ok(data, typeInfo)`
   with no tree of nodes (`ToolAnswer.From(answer, typeInfo)` from an `Answer<T>`), the data mapped from domain records
   in the server's `AnswerFields`. Fields a tool's contract keeps beside the data go after it at the top level through
   `ToolAnswer.Ok(data, shape, beside)`, never written by hand; a tool that returns a string returns

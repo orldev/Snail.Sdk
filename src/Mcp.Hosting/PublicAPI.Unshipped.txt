@@ -14,6 +14,8 @@ Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Type.get -> string?
 Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Type.init -> void
 Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Value.get -> T?
 Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Value.init -> void
+Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.WithDetails<TDetails>(TDetails details) -> Snail.Sdk.Mcp.Hosting.Answers.Answer<T>!
+Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.TryGetDetails<TDetails>(out TDetails details) -> bool
 Snail.Sdk.Mcp.Hosting.Answers.AnswerShape
 Snail.Sdk.Mcp.Hosting.Answers.AnswerShape.Data = 0 -> Snail.Sdk.Mcp.Hosting.Answers.AnswerShape
 Snail.Sdk.Mcp.Hosting.Answers.AnswerShape.Envelope = 1 -> Snail.Sdk.Mcp.Hosting.Answers.AnswerShape
@@ -34,6 +36,8 @@ static Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.operator ==(Snail.Sdk.Mcp.Hosting
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Failed(string! error, string? hint = null, string? type = null, System.Text.Json.Nodes.JsonNode? data = null) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.From<T>(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>! answer, System.Func<T, System.Text.Json.Nodes.JsonNode!>! data) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.From<T>(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>! answer, System.Func<T, System.Text.Json.Nodes.JsonNode!>! data, Snail.Sdk.Mcp.Hosting.Answers.AnswerShape shape) -> ModelContextProtocol.Protocol.CallToolResult!
+static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.From<T, TDetails>(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>! answer, System.Func<T, System.Text.Json.Nodes.JsonNode!>! data, System.Func<TDetails, System.Text.Json.Nodes.JsonNode!>! details) -> ModelContextProtocol.Protocol.CallToolResult!
+static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.From<T, TDetails>(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>! answer, System.Func<T, System.Text.Json.Nodes.JsonNode!>! data, System.Func<TDetails, System.Text.Json.Nodes.JsonNode!>! details, Snail.Sdk.Mcp.Hosting.Answers.AnswerShape shape) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.From<T>(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>! answer, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T>! type) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.From<T>(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>! answer, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T>! type, Snail.Sdk.Mcp.Hosting.Answers.AnswerShape shape) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.IsFailure(ModelContextProtocol.Protocol.CallToolResult! result) -> bool
@@ -60,6 +64,7 @@ Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Equals(Snail.Sdk.Mcp.Hosting.Answers
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.<Clone>$() -> Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure!
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Deconstruct(out string! Error, out string? Hint, out string? Type) -> void
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Type.get -> string?
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.WithDetails<TDetails>(TDetails details) -> Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure!
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Type.init -> void
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Error.get -> string!
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Error.init -> void

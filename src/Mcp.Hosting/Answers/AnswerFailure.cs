@@ -11,6 +11,19 @@ public sealed record AnswerFailure(string Error, string? Hint = null, string? Ty
     /// <summary>What the work learned before it stopped, answered as the failure's <c>data</c>.</summary>
     public JsonNode? Details { get; init; }
 
+    /// <summary>The details as the layer that failed holds them: what <see cref="WithDetails{TDetails}"/> carries.</summary>
+    internal object? TypedDetails { get; init; }
+
+    /// <summary>The same failure carrying <paramref name="details"/> as they are, for the tool to write as its <c>data</c>: <c>return Answer.Failed("…").WithDetails(duplicate);</c>.</summary>
+    /// <remarks>What <see cref="Answer{T}.WithDetails{TDetails}"/> is for an answer of a type: a domain layer hands on what it learned, and the tool that knows how to write it maps it.</remarks>
+    /// <param name="details">What the work learned before it stopped, as the layer holds it; a <see cref="JsonNode"/> becomes <see cref="Details"/> itself.</param>
+    public AnswerFailure WithDetails<TDetails>(TDetails details)
+    {
+        ArgumentNullException.ThrowIfNull(details);
+
+        return details is JsonNode node ? this with { Details = node, TypedDetails = null } : this with { Details = null, TypedDetails = details };
+    }
+
     /// <summary>The failure as an answer of <typeparamref name="T"/>, its error, hint, type and details kept: where nothing implies the type — <c>var</c>, an argument of a generic method.</summary>
-    public Answer<T> As<T>() => new(default, Error, Hint, Type) { Details = Details };
+    public Answer<T> As<T>() => new(default, Error, Hint, Type) { Details = Details, TypedDetails = TypedDetails };
 }

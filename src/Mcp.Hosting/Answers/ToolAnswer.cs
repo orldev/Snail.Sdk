@@ -220,6 +220,38 @@ public static class ToolAnswer
         return answer.TryGet(out var value) ? Ok(data(value), shape) : Failed(answer.Error, answer.Hint, answer.Type, answer.Details);
     }
 
+    /// <summary>An answer as a tool result: its value through <paramref name="data"/>, or its failure with the details its layer handed on written through <paramref name="details"/>.</summary>
+    /// <remarks>
+    /// The details a domain layer carries as they are (<see cref="Answer{T}.WithDetails{TDetails}"/>) are written here, by
+    /// the tool that holds the mapper, rather than by a mapper passed down to the layer (Snail.MCP.Memory's
+    /// <c>duplicateOf</c>): <c>ToolAnswer.From&lt;Remembered, ScoredRecord&gt;(answer, AnswerFields.Of, AnswerFields.Of)</c>. A failure
+    /// whose details are not a <typeparamref name="TDetails"/> is answered with its JSON <see cref="Answer{T}.Details"/>.
+    /// </remarks>
+    /// <param name="answer">The answer: a value, or why there is none.</param>
+    /// <param name="data">How the value is written.</param>
+    /// <param name="details">How the failure's details are written.</param>
+    public static CallToolResult From<T, TDetails>(Answer<T> answer, Func<T, JsonNode> data, Func<TDetails, JsonNode> details) =>
+        From(answer, data, details, AnswerShape.Data);
+
+    /// <summary>An answer as a tool result: its value through <paramref name="data"/> with the structured content <paramref name="shape"/> names, or its failure with the details its layer handed on written through <paramref name="details"/>.</summary>
+    /// <param name="answer">The answer: a value, or why there is none.</param>
+    /// <param name="data">How the value is written.</param>
+    /// <param name="details">How the failure's details are written.</param>
+    /// <param name="shape">The structured content of a success.</param>
+    public static CallToolResult From<T, TDetails>(Answer<T> answer, Func<T, JsonNode> data, Func<TDetails, JsonNode> details, AnswerShape shape)
+    {
+        ArgumentNullException.ThrowIfNull(answer);
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(details);
+
+        if (answer.TryGet(out var value))
+            return Ok(data(value), shape);
+
+        var said = answer.TryGetDetails<TDetails>(out var learned) ? details(learned) : answer.Details;
+
+        return Failed(answer.Error, answer.Hint, answer.Type, said);
+    }
+
     /// <summary>An answer of typed data as a tool result: its value written from its generated type, as <see cref="Ok{T}(T, JsonTypeInfo{T})"/> writes it, or its failure with its details as the data.</summary>
     /// <remarks>Where a server mapped its own records to nodes only to hand them to <see cref="From{T}(Answer{T}, Func{T, JsonNode}, AnswerShape)"/> (Snail.MCP.Obsidian).</remarks>
     /// <param name="answer">The answer: a value, or why there is none.</param>

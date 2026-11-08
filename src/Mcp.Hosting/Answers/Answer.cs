@@ -44,6 +44,54 @@ public sealed record Answer<T>(T? Value, string? Error, string? Hint, string? Ty
     /// <remarks>Snail.MCP.Playwright kept a failed answer's value for this, and Snail.MCP.Git a record beside the answer.</remarks>
     public JsonNode? Details { get; init; }
 
+    /// <summary>The details as the layer that failed holds them, mapped to JSON by the tool that answers: what <see cref="WithDetails{TDetails}"/> carries.</summary>
+    internal object? TypedDetails { get; init; }
+
+    /// <summary>The same failure carrying <paramref name="details"/> as they are, for the tool to write as the failure's <c>data</c>: <c>ToolAnswer.From(answer, data, details)</c>.</summary>
+    /// <remarks>
+    /// <para>
+    /// A domain layer knows what it learned — the record a new one would duplicate — and the tool knows how such a record
+    /// is written, since the JSON mapper lives with the tools. <see cref="Details"/> is JSON already, so a layer that
+    /// wanted to say more than words was handed the mapper as an argument (Snail.MCP.Memory passed <c>duplicateOf</c> down to
+    /// its <c>RecordLifecycle</c>). Here it hands on the value, and <see cref="ToolAnswer.From{T, TDetails}(Answer{T}, Func{T, JsonNode}, Func{TDetails, JsonNode})"/>
+    /// writes it; a test of the layer reads it back with <see cref="TryGetDetails{TDetails}"/>.
+    /// </para>
+    /// <para>
+    /// The value goes on with the failure through <see cref="As{TOther}"/> and <see cref="Map{TOther}"/>. Only a tool that maps
+    /// it writes it: <see cref="ToolAnswer.From{T}(Answer{T}, Func{T, JsonNode})"/>, <see cref="ToolAnswer.Failed{T}(Answer{T})"/>
+    /// and a failed job answer the JSON <see cref="Details"/> alone, since nothing there knows how to write the value. A
+    /// <see cref="JsonNode"/> is JSON already and becomes <see cref="Details"/> itself.
+    /// </para>
+    /// </remarks>
+    /// <param name="details">What the work learned before it stopped, as the layer holds it.</param>
+    /// <exception cref="InvalidOperationException">The answer is a success, whose details are never read.</exception>
+    public Answer<T> WithDetails<TDetails>(TDetails details)
+    {
+        ArgumentNullException.ThrowIfNull(details);
+
+        if (IsSuccess)
+            throw new InvalidOperationException(SuccessHasNoFailure);
+
+        return details is JsonNode node ? this with { Details = node, TypedDetails = null } : this with { Details = null, TypedDetails = details };
+    }
+
+    /// <summary>The details a failure carries as the layer that failed gave them (<see cref="WithDetails{TDetails}"/>), when they are a <typeparamref name="TDetails"/>.</summary>
+    /// <param name="details">The details when they are a <typeparamref name="TDetails"/>; the default otherwise.</param>
+    /// <returns>Whether the failure carries details of that type.</returns>
+    public bool TryGetDetails<TDetails>([MaybeNullWhen(false)] out TDetails details)
+    {
+        if (TypedDetails is TDetails typed)
+        {
+            details = typed;
+
+            return true;
+        }
+
+        details = default;
+
+        return false;
+    }
+
     /// <summary>The value, when the answer is a success: <c>if (!answer.TryGet(out var value)) return ToolAnswer.Failed(answer);</c>.</summary>
     /// <param name="value">The value on success, as nullable as <typeparamref name="T"/> is; the default otherwise.</param>
     /// <returns>Whether the answer is a success; when it is not, <see cref="Error"/> says why.</returns>
@@ -59,7 +107,7 @@ public sealed record Answer<T>(T? Value, string? Error, string? Hint, string? Ty
     /// <remarks>Copied by hand, the type was the field left behind (Snail.MCP.BuildBridge, 17 places).</remarks>
     /// <exception cref="InvalidOperationException">The answer is a success, which has a value to carry rather than a failure.</exception>
     public Answer<TOther> As<TOther>() =>
-        IsSuccess ? throw new InvalidOperationException(SuccessHasNoFailure) : new(default, Error, Hint, Type) { Details = Details };
+        IsSuccess ? throw new InvalidOperationException(SuccessHasNoFailure) : new(default, Error, Hint, Type) { Details = Details, TypedDetails = TypedDetails };
 
     /// <summary>The value made into another through <paramref name="map"/>, or the same failure with its error, hint, type and details.</summary>
     /// <remarks>How work that answers a domain value ends as the data a tool or a job gives: <c>(await runs.RunAsync(…)).Map(AnswerFields.Of)</c>.</remarks>

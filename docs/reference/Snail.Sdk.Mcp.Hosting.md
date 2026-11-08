@@ -186,6 +186,7 @@ A value, or why there is none in words a caller can act on.
 | Member | Summary |
 | --- | --- |
 | `Answer(T? Value, string? Error, string? Hint, string? Type = null)` | A value, or why there is none in words a caller can act on. |
+| `Answer<T> WithDetails<TDetails>(TDetails details)` | The same failure carrying `details` as they are, for the tool to write as the failure's `data`: `ToolAnswer.From(answer, data, details)`. |
 | `Answer<T> op_Implicit(AnswerFailure failure)` |  |
 | `Answer<TOther> As<TOther>()` | The same failure as an answer of another type, its error, hint and type kept: a failure handed on past a layer that answers something else. |
 | `Answer<TOther> Map<TOther>(Func<T, TOther> map)` | The value made into another through `map`, or the same failure with its error, hint, type and details. |
@@ -193,6 +194,7 @@ A value, or why there is none in words a caller can act on.
 | `T? Value { get; init; }` | What was asked for, when it was had. |
 | `bool IsSuccess { get; }` | Whether the value was had; `Error` says why not otherwise. |
 | `bool TryGet(out T value)` | The value, when the answer is a success: `if (!answer.TryGet(out var value)) return ToolAnswer.Failed(answer);`. |
+| `bool TryGetDetails<TDetails>(out TDetails details)` | The details a failure carries as the layer that failed gave them (`WithDetails1`), when they are a `TDetails`. |
 | `string? Error { get; init; }` | Why it was not, in words the model can act on; null on success. |
 | `string? Hint { get; init; }` | What to do about it, when there is something to do. |
 | `string? Type { get; init; }` | The kind of failure, a word a program can branch on, such as `timeout`. |
@@ -204,6 +206,7 @@ A failure not yet of any answer's type: what `Failed` makes, and what becomes th
 | Member | Summary |
 | --- | --- |
 | `Answer<T> As<T>()` | The failure as an answer of `T`, its error, hint, type and details kept: where nothing implies the type — `var`, an argument of a generic method. |
+| `AnswerFailure WithDetails<TDetails>(TDetails details)` | The same failure carrying `details` as they are, for the tool to write as its `data`: `return Answer.Failed("…").WithDetails(duplicate);`. |
 | `AnswerFailure(string Error, string? Hint = null, string? Type = null)` | A failure not yet of any answer's type: what `Failed` makes, and what becomes the `Answer1` expected where it is returned. |
 | `JsonNode? Details { get; init; }` | What the work learned before it stopped, answered as the failure's `data`. |
 | `string Error { get; init; }` | Why there is no value, in words the model can act on. |
@@ -255,6 +258,8 @@ A tool's answer as every Snail server gives it: one text block holding the envel
 | `CallToolResult Failed(string error, string? hint = null, string? type = null, JsonNode? data = null)` | A failed answer: why, what to do, the kind of failure and what there is to report, flagged as an error, as text alone. |
 | `CallToolResult Failed<T>(Answer<T> failed)` | A failed answer as the tool's answer: its error, hint and type, and its details as the data. |
 | `CallToolResult Failed<T>(Answer<T> failed, JsonNode? data)` | A failed answer as the tool's answer, with what there is to report all the same as its data: `data`, or the answer's details when it is null. |
+| `CallToolResult From<T, TDetails>(Answer<T> answer, Func<T, JsonNode> data, Func<TDetails, JsonNode> details)` | An answer as a tool result: its value through `data`, or its failure with the details its layer handed on written through `details`. |
+| `CallToolResult From<T, TDetails>(Answer<T> answer, Func<T, JsonNode> data, Func<TDetails, JsonNode> details, AnswerShape shape)` | An answer as a tool result: its value through `data` with the structured content `shape` names, or its failure with the details its layer handed on written through `details`. |
 | `CallToolResult From<T>(Answer<T> answer)` | An answer whose value is JSON already as a tool result: the value as the data, or its failure with its details as the data. |
 | `CallToolResult From<T>(Answer<T> answer, AnswerShape shape)` | An answer whose value is JSON already as a tool result, with the structured content `shape` names. |
 | `CallToolResult From<T>(Answer<T> answer, Func<T, JsonNode> data)` | An answer as a tool result: its value through `data`, or its failure with its details as the data. |

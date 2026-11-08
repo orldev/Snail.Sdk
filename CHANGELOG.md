@@ -64,6 +64,15 @@ A change that a repository must act on says what to do.
   for `var` and `Task.FromResult`. A failure carries what the work learned before it stopped as `Details`, JSON that
   goes on with it through `As` and `Map` and is answered as the failure's `data` by `ToolAnswer.From` and
   `ToolAnswer.Failed(answer)` (Playwright's `Stopped`, Git's `SequenceRun`), and as the result of a failed job.
+  A layer that holds no JSON mapper hands its details on as they are, `Answer.Failed(…).WithDetails(duplicate)`, and the
+  tool writes them with its own: `ToolAnswer.From<T, TDetails>(answer, data, details)` (and with a `shape`) answers a
+  failure whose details are a `TDetails` with `details(value)` as its `data`, any other with its JSON `Details`;
+  `answer.TryGetDetails<TDetails>(out var value)` reads them back in a test of the layer, and they go on through `As`
+  and `Map`. A `JsonNode` given is the JSON `Details` itself; a tool that maps nothing — `From(answer, data)`,
+  `Failed(answer)`, a failed job — answers the JSON alone. Snail.MCP.Memory passed `duplicateOf`, a mapper, down to
+  `RecordLifecycle.RememberAsync` for this: it drops the parameter, returns
+  `Answer.Failed(Messages.DuplicateFound(…), Messages.DuplicateFoundHint, Refusals.Duplicate).WithDetails(duplicate)`,
+  and `remember` answers `ToolAnswer.From<Remembered, ScoredRecord>(answer, AnswerFields.Of, AnswerFields.Of)`.
   `answer.As<TOther>()` carries a failure on as
   an answer of another type with its error, hint and type (it throws on a success), `answer.Map(f)` makes a success's
   value another and carries a failure as it is, and `ToolAnswer.Failed(answer, data)` answers a failure whole — the

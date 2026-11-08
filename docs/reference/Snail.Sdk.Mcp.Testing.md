@@ -19,6 +19,7 @@ The guard rules every Snail server's HTTP endpoint keeps, checked by requests to
 
 | Member | Summary |
 | --- | --- |
+| `Task<IReadOnlyList<string>> AuthorizedProblemsAsync(Uri endpoint, AuthenticationHeaderValue authorization, CancellationToken cancellationToken = default)` | Every rule an endpoint behind a key breaks, one line each; empty when all hold. |
 | `Task<IReadOnlyList<string>> ProblemsAsync(Uri endpoint, CancellationToken cancellationToken = default)` | Every rule the endpoint breaks, one line each; empty when all hold. |
 
 ### class HttpServerProgram
@@ -43,11 +44,19 @@ A server over HTTP in the test's own process, on a free loopback port, built on 
 | --- | --- |
 | `IServiceProvider Services { get; }` | The server's services: the tools it registered, its options, what a test wants to see changed. |
 | `Task<InProcessServer> ServeAsync(WebApplication app, string path = "/mcp", CancellationToken cancellationToken = default)` | A host the server built itself, as its program builds it, started and handed back with the port it bound. |
-| `Task<InProcessServer> StartAsync(Action<WebApplicationBuilder> configure, Action<WebApplication>? map = null, string path = "/mcp", CancellationToken cancellationToken = default)` | A host of `CreateBuilder` on 127.0.0.1, given its services by `configure`, its endpoints by `map`, and started. |
+| `Task<InProcessServer> StartAsync(Action<WebApplicationBuilder> configure, Action<WebApplication>? map = null, string path = "/mcp", int port = 0, CancellationToken cancellationToken = default)` | A host of `CreateBuilder` on 127.0.0.1, given its services by `configure`, its endpoints by `map`, and started. |
 | `Task<McpClient> SessionAsync(string? query = null, McpClientOptions? options = null, CancellationToken cancellationToken = default)` | A session opened at `Endpoint`, with `query` — `root=…&tool=…` — as its address when given. |
 | `Uri Address { get; }` | Where the server listens: `http://127.0.0.1:<port>/`. |
 | `Uri Endpoint { get; }` | The MCP endpoint of the server, `/mcp` under `Address` unless the start named another path. |
 | `ValueTask DisposeAsync()` | Stops the host and disposes it. |
+
+### static class OutputSchemas
+
+Whether a tool's answer is what its output schema says it is: what a test asserts before a client that validates the structured content refuses it.
+
+| Member | Summary |
+| --- | --- |
+| `IReadOnlyList<string> Problems(Tool tool, CallToolResult result)` | What in the answer does not fit the tool's output schema, one line each, the place named as a path from `$`; none when it fits. |
 
 ### static class Ports
 
@@ -86,6 +95,7 @@ What a test reads from a tool's answer.
 | `IReadOnlyList<ImageContentBlock> Images(this CallToolResult answer)` | The pictures that follow the envelope, in their order; none when the answer carries none. |
 | `JobReport? Report(this CallToolResult answer)` | The job's report the answer carries as its structured content, or null when it carries none. |
 | `JsonNode? Data(this CallToolResult answer)` | The data of the envelope: what a success answers, or what a failure reports all the same; null when it has none. |
+| `JsonNode? Field(this CallToolResult answer, string name)` | A field the envelope carries at its top level beside `data` — `fileKey`, `metrics`, as `ToolAnswer.Ok(data, shape, beside)` writes them; null when it has none of that name. |
 | `bool IsOk(this CallToolResult answer)` | Whether the envelope says the call went through. |
 | `string Text(this CallToolResult answer)` | The text of a tool's answer: the text block it opens with, which holds the envelope in every Snail server, the pictures after it left aside. |
 | `string? Error(this CallToolResult answer)` | Why the call did not go through; null on success. |

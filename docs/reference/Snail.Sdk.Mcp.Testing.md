@@ -35,6 +35,20 @@ A server under test over HTTP, started as a program on a free loopback port the 
 | `const string DefaultReadiness` | The path a server answers with success once it is ready, unless the test names another. |
 | `string Log { get; }` | What the server has written on stderr so far — its log — one line after another. |
 
+### class InProcessServer
+
+A server over HTTP in the test's own process, on a free loopback port, built on the host every server is built on.
+
+| Member | Summary |
+| --- | --- |
+| `IServiceProvider Services { get; }` | The server's services: the tools it registered, its options, what a test wants to see changed. |
+| `Task<InProcessServer> ServeAsync(WebApplication app, string path = "/mcp", CancellationToken cancellationToken = default)` | A host the server built itself, as its program builds it, started and handed back with the port it bound. |
+| `Task<InProcessServer> StartAsync(Action<WebApplicationBuilder> configure, Action<WebApplication>? map = null, string path = "/mcp", CancellationToken cancellationToken = default)` | A host of `CreateBuilder` on 127.0.0.1, given its services by `configure`, its endpoints by `map`, and started. |
+| `Task<McpClient> SessionAsync(string? query = null, McpClientOptions? options = null, CancellationToken cancellationToken = default)` | A session opened at `Endpoint`, with `query` — `root=…&tool=…` — as its address when given. |
+| `Uri Address { get; }` | Where the server listens: `http://127.0.0.1:<port>/`. |
+| `Uri Endpoint { get; }` | The MCP endpoint of the server, `/mcp` under `Address` unless the start named another path. |
+| `ValueTask DisposeAsync()` | Stops the host and disposes it. |
+
 ### static class Ports
 
 Ports a test hands to the servers and stand-ins it starts.
@@ -69,12 +83,14 @@ What a test reads from a tool's answer.
 
 | Member | Summary |
 | --- | --- |
+| `IReadOnlyList<ImageContentBlock> Images(this CallToolResult answer)` | The pictures that follow the envelope, in their order; none when the answer carries none. |
 | `JobReport? Report(this CallToolResult answer)` | The job's report the answer carries as its structured content, or null when it carries none. |
 | `JsonNode? Data(this CallToolResult answer)` | The data of the envelope: what a success answers, or what a failure reports all the same; null when it has none. |
 | `bool IsOk(this CallToolResult answer)` | Whether the envelope says the call went through. |
-| `string Text(this CallToolResult answer)` | The text of a tool's answer, which is one text block in every Snail server. |
+| `string Text(this CallToolResult answer)` | The text of a tool's answer: the text block it opens with, which holds the envelope in every Snail server, the pictures after it left aside. |
 | `string? Error(this CallToolResult answer)` | Why the call did not go through; null on success. |
 | `string? Hint(this CallToolResult answer)` | What the failure says to do about it; null when it says nothing. |
+| `string? Type(this CallToolResult answer)` | The kind of failure, the word a program branches on — `internal`, `arguments`, a server's own; null when it names none. |
 
 ### static class ToolGuards
 

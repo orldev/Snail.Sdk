@@ -21,10 +21,11 @@ The host of a server every session of the machine shares, over Streamable HTTP o
 
 | Member | Summary |
 | --- | --- |
-| `IEndpointConventionBuilder MapHealth(this WebApplication app, string path = "/healthz")` | Maps a health check that answers 200 with no body, for a container's healthcheck and an orchestrator. |
+| `IEndpointConventionBuilder MapHealth(this WebApplication app, string path = "/healthz", Func<IServiceProvider, CancellationToken, Task<bool>>? isHealthy = null)` | Maps a health check for a container's healthcheck and an orchestrator: 200 with no body, or 503 while `isHealthy` says the server cannot serve. |
 | `IEndpointConventionBuilder MapLocalMcp(this WebApplication app, string path = "/mcp")` | Maps the MCP endpoint behind the refusal of every request a browser makes. |
 | `IMcpServerBuilder WithLocalHttpTransport(this IMcpServerBuilder builder)` | Streamable HTTP with a session for every client. |
 | `WebApplicationBuilder CreateBuilder(string[] args, McpEndpoint endpoint)` | The host of the endpoint a server's settings ask for: on loopback at its URL, or on every interface at its port. |
+| `WebApplicationBuilder CreateBuilder(string[] args, McpEndpoint endpoint, IConfiguration settings)` | The host of the endpoint a server's settings ask for, over those settings as the program read them rather than read again. |
 | `WebApplicationBuilder CreateBuilder(string[] args, Uri url)` | An empty web host listening on `url`, log lines on stderr at the levels its settings name, the heap trimmed when idle. |
 | `WebApplicationBuilder CreateContainerBuilder(string[] args, int port)` | The same host for a server that runs in a container image: listening on `port` on every interface, since a container's published port does not reach its loopback. |
 | `const string DefaultHealthPath` | Where a health check answers unless a server says otherwise. |

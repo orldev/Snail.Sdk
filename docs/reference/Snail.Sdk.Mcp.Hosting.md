@@ -28,7 +28,9 @@ Where a server answers: over stdio, or over HTTP at an address, on loopback or o
 | Member | Summary |
 | --- | --- |
 | `McpEndpoint Read(IConfiguration settings, Uri defaultUrl)` | The endpoint the settings of a server of both transports ask for, in either of the two ways the servers of the fleet say it; stdio when they name neither a transport nor a port. |
+| `McpEndpoint Read(IConfiguration settings, Uri defaultUrl, string fallbackSection)` | The endpoint of a server of both transports whose settings may keep its keys in a section as well as at the root. |
 | `McpEndpoint ReadHttp(IConfiguration settings, Uri defaultUrl)` | The endpoint the settings of a server that answers only over HTTP ask for: HTTP whatever they name, and a transport or a port that would mean stdio refused. |
+| `McpEndpoint ReadHttp(IConfiguration settings, Uri defaultUrl, string fallbackSection)` | The endpoint of a server that answers only over HTTP whose settings may keep its keys in a section as well as at the root. |
 | `McpEndpoint(McpTransport Transport, Uri Url, bool ListensOnEveryInterface)` | Where a server answers: over stdio, or over HTTP at an address, on loopback or on every interface. |
 | `McpTransport Transport { get; init; }` | Stdio, or HTTP at `Url`. |
 | `Uri Url { get; init; }` | The address HTTP listens on; its port alone counts when the server listens on every interface. |
@@ -41,10 +43,12 @@ The host a stdio MCP server runs in.
 | Member | Summary |
 | --- | --- |
 | `HostApplicationBuilder CreateBuilder(string[] args)` | An empty host builder that logs to stderr at the levels its settings name and trims the heap when the server is idle. |
+| `HostApplicationBuilder CreateBuilder(string[] args, IConfiguration settings)` | An empty host builder over the settings the program has read already, logging to stderr at the levels they name and trimming the heap when the server is idle. |
 | `ILoggingBuilder UseLevelsFrom(this ILoggingBuilder logging, IConfiguration settings)` | Applies the log levels `settings` name, over defaults that keep the MCP SDK and ASP.NET Core to warnings and up. |
 | `ILoggingBuilder UseStderr(this ILoggingBuilder logging)` | Clears every logger and writes a line to stderr from information up, or from the level a filter sets. |
 | `IServiceCollection AddIdleShutdown(this IServiceCollection services, TimeSpan after, Func<IServiceProvider, bool>? isBusy = null)` | Stops a stdio server that has heard no MCP message for `after`, unless `isBusy` says it is busy. |
 | `IServiceCollection AddIdleTrim(this IServiceCollection services)` | Compacts the heap once the server has heard no MCP message for five minutes; both hosts call it already. |
+| `IServiceCollection AddReadyThreads(this IServiceCollection services, int workers)` | Lets the thread pool grow at once to `workers` worker threads when the host starts, rather than one or two a second. |
 
 ### enum McpTransport
 
@@ -65,6 +69,8 @@ The folders a server keeps in the user's home under its s3l name: its data and i
 | `string DataDirectory(string name)` | `~/.s3l-mcp-<name>`, where the server keeps its data; `name` is its short name, such as figma. |
 | `string ExpandHome(string path)` | The path with a leading `~` or `~/` made the user's home; any other path as it is, trimmed. |
 | `string ExpandHome(string? path, string fallback)` | The path with a leading `~` or `~/` made the user's home, or `fallback` when the path is missing or blank. |
+| `string FullPath(string path)` | The path as an absolute one: a leading `~` or `~/` made the user's home, a relative path made absolute against the working directory. |
+| `string FullPath(string? path, string fallback)` | The path as an absolute one, or `fallback` made absolute when the path is missing or blank. |
 | `string Home { get; }` | The user's home, resolved without touching the disk. |
 | `void MoveFromSnailNames(string name)` | The compatibility move from the snail names: renames the server's folders from the snail name to the s3l name and leaves a link at the snail name, when the program is an installed one. It goes in the next major version. |
 
@@ -131,8 +137,9 @@ Makes answers.
 
 | Member | Summary |
 | --- | --- |
-| `Answer<T> Failed<T>(string error, string? hint = null, string? type = null)` | No value, and why. |
+| `Answer<T> Failed<T>(string error, string? hint = null, string? type = null, JsonNode? details = null)` | No value, and why, as an answer of a type named here: where nothing else names it — `var`, `Task.FromResult`. |
 | `Answer<T> Ok<T>(T value)` | An answer carrying its value. |
+| `AnswerFailure Failed(string error, string? hint = null, string? type = null, JsonNode? details = null)` | No value, and why, as an answer of whatever type is expected: `return Answer.Failed("…");`, `ok ? Answer.Ok(value) : Answer.Failed("…")`. |
 
 ### class Answer<T>
 
@@ -141,12 +148,27 @@ A value, or why there is none in words a caller can act on.
 | Member | Summary |
 | --- | --- |
 | `Answer(T? Value, string? Error, string? Hint, string? Type = null)` | A value, or why there is none in words a caller can act on. |
+| `Answer<T> op_Implicit(AnswerFailure failure)` |  |
 | `Answer<TOther> As<TOther>()` | The same failure as an answer of another type, its error, hint and type kept: a failure handed on past a layer that answers something else. |
-| `Answer<TOther> Map<TOther>(Func<T, TOther> map)` | The value made into another through `map`, or the same failure with its error, hint and type. |
+| `Answer<TOther> Map<TOther>(Func<T, TOther> map)` | The value made into another through `map`, or the same failure with its error, hint, type and details. |
+| `JsonNode? Details { get; init; }` | What a failure learned before it stopped, answered as its `data`; null when it learned nothing worth saying, and never read on a success. |
 | `T? Value { get; init; }` | What was asked for, when it was had. |
 | `bool IsSuccess { get; }` | Whether the value was had; `Error` says why not otherwise. |
 | `bool TryGet(out T value)` | The value, when the answer is a success: `if (!answer.TryGet(out var value)) return ToolAnswer.Failed(answer);`. |
 | `string? Error { get; init; }` | Why it was not, in words the model can act on; null on success. |
+| `string? Hint { get; init; }` | What to do about it, when there is something to do. |
+| `string? Type { get; init; }` | The kind of failure, a word a program can branch on, such as `timeout`. |
+
+### class AnswerFailure
+
+A failure not yet of any answer's type: what `Failed` makes, and what becomes the `Answer1` expected where it is returned.
+
+| Member | Summary |
+| --- | --- |
+| `Answer<T> As<T>()` | The failure as an answer of `T`, its error, hint, type and details kept: where nothing implies the type — `var`, an argument of a generic method. |
+| `AnswerFailure(string Error, string? Hint = null, string? Type = null)` | A failure not yet of any answer's type: what `Failed` makes, and what becomes the `Answer1` expected where it is returned. |
+| `JsonNode? Details { get; init; }` | What the work learned before it stopped, answered as the failure's `data`. |
+| `string Error { get; init; }` | Why there is no value, in words the model can act on. |
 | `string? Hint { get; init; }` | What to do about it, when there is something to do. |
 | `string? Type { get; init; }` | The kind of failure, a word a program can branch on, such as `timeout`. |
 
@@ -160,15 +182,29 @@ What a successful answer carries as its structured content beside the text.
 | `const AnswerShape Envelope` | The whole envelope, `{"ok":true,"data":…}`, the same object as the text: for a server whose tools state it as their output schema. |
 | `const AnswerShape None` | No structured content: the text alone. |
 
+### class Envelope<T>
+
+The answer envelope as a type: the declared output of a tool whose structured content is the whole envelope, so its schema is published.
+
+| Member | Summary |
+| --- | --- |
+| `Envelope(bool IsOk, T? Data, string? Error = null, string? Hint = null, string? Type = null)` | The answer envelope as a type: the declared output of a tool whose structured content is the whole envelope, so its schema is published. |
+| `T? Data { get; init; }` | What the tool answers; on a failure, what there is to report all the same. |
+| `bool IsOk { get; init; }` | Whether the call did what was asked: `ok`. |
+| `string? Error { get; init; }` | Why the call did not go through; only on a failure. |
+| `string? Hint { get; init; }` | What to do about it; only on a failure. |
+| `string? Type { get; init; }` | The kind of failure, a word a program can branch on; only on a failure. |
+
 ### class FailureOptions
 
-The words `ExplainFailures` answers a failure nobody foresaw with: its error and its hint; the type stays `internal`.
+The words `ExplainFailures` answers a failure nobody foresaw with — its error, its hint and its type — each from the tool's name and what it threw.
 
 | Member | Summary |
 | --- | --- |
 | `FailureOptions()` |  |
 | `Func<string, Exception, string>? Error { get; set; }` | The error from the tool's name and what it threw; null answers with the message of what it threw. |
-| `string? Hint { get; set; }` | What to do about it; by default, that the server failed inside, to try once more, and to report it if it fails again. |
+| `Func<string, Exception, string?>? Hint { get; set; }` | What to do about it, from the tool's name and what it threw; by default, that the server failed inside, to try once more, and to report it if it fails again. |
+| `Func<string, Exception, string?>? Type { get; set; }` | The kind of failure, from the tool's name and what it threw; null, or null from the function, answers `internal`. |
 
 ### static class ToolAnswer
 
@@ -177,19 +213,20 @@ A tool's answer as every Snail server gives it: one text block holding the envel
 | Member | Summary |
 | --- | --- |
 | `CallToolResult Failed(string error, string? hint = null, string? type = null, JsonNode? data = null)` | A failed answer: why, what to do, the kind of failure and what there is to report, flagged as an error, as text alone. |
-| `CallToolResult Failed<T>(Answer<T> failed)` | A failed answer as the tool's answer: its error, hint and type, and what there is to report all the same. |
-| `CallToolResult Failed<T>(Answer<T> failed, JsonNode? data)` | A failed answer as the tool's answer, with what there is to report all the same as its data. |
-| `CallToolResult From<T>(Answer<T> answer)` | An answer whose value is JSON already as a tool result: the value as the data, or its failure. |
+| `CallToolResult Failed<T>(Answer<T> failed)` | A failed answer as the tool's answer: its error, hint and type, and its details as the data. |
+| `CallToolResult Failed<T>(Answer<T> failed, JsonNode? data)` | A failed answer as the tool's answer, with what there is to report all the same as its data: `data`, or the answer's details when it is null. |
+| `CallToolResult From<T>(Answer<T> answer)` | An answer whose value is JSON already as a tool result: the value as the data, or its failure with its details as the data. |
 | `CallToolResult From<T>(Answer<T> answer, AnswerShape shape)` | An answer whose value is JSON already as a tool result, with the structured content `shape` names. |
-| `CallToolResult From<T>(Answer<T> answer, Func<T, JsonNode> data, AnswerShape shape = 0)` | An answer as a tool result: its value through `data`, or its failure. |
+| `CallToolResult From<T>(Answer<T> answer, Func<T, JsonNode> data, AnswerShape shape = 0)` | An answer as a tool result: its value through `data`, or its failure with its details as the data. |
 | `CallToolResult Of(JsonObject envelope, AnswerShape shape = 0)` | The tool result a stored envelope stands for: a success with its data, or a failure with its error, hint, type and data, flagged as an error. |
 | `CallToolResult Ok(JsonNode data)` | A successful answer: the data in the envelope as the text, and as the structured content when it is an object. |
 | `CallToolResult Ok(JsonNode data, AnswerShape shape)` | A successful answer: the data in the envelope as the text, and the structured content `shape` names. |
 | `CallToolResult Ok<T>(T data, JsonTypeInfo<T> type)` | A successful answer of typed data, written from its generated type straight into the text, with the data as the structured content when it is an object. |
 | `CallToolResult Ok<T>(T data, JsonTypeInfo<T> type, AnswerShape shape)` | A successful answer of typed data, written from its generated type straight into the text: no tree of nodes is built first. |
+| `CallToolResult WithImage(this CallToolResult result, ReadOnlyMemory<byte> bytes, string mimeType)` | The answer with a picture after its text, in an image block of its own: `ToolAnswer.Ok(data, AnswerShape.None).WithImage(png, "image/png")`. |
 | `JsonSerializerOptions Wire { get; }` | The options answers are written with: compact, nothing escaped that JSON does not require, the JSON nodes generated. |
 | `JsonTypeInfo<JsonObject> ObjectInfo { get; }` | The generated type information of a JsonObject, written as answers are: the result type of a job whose work ends with an answer's data. |
-| `bool IsFailure(CallToolResult result)` | Whether a result is the failure envelope: one text block whose top-level `ok` is false. |
+| `bool IsFailure(CallToolResult result)` | Whether a result is the failure envelope: a text block whose top-level `ok` is false, with nothing after it but pictures. |
 | `string Moment(DateTimeOffset at)` | A moment as the answer spells it: round-trip ISO 8601 with its offset, the same on every machine. |
 | `string Text(CallToolResult result)` | The envelope a result carries: the text of its first block, which is where every answer of `ToolAnswer` writes it. |
 | `string Word<TEnum>(TEnum value, WordCase casing = 0)` | An enum value as the answer spells it, in the casing the server chose. |
@@ -201,7 +238,21 @@ A failure of a tool told as the envelope every answer is, and flagged as one by 
 | Member | Summary |
 | --- | --- |
 | `IMcpServerBuilder ExplainFailures(this IMcpServerBuilder builder)` | Answers a tool that threw with the failure envelope — its message, a hint and the type `internal` — logged once with its trace, and flags an answer that is the failure envelope but not an error as one. |
-| `IMcpServerBuilder ExplainFailures(this IMcpServerBuilder builder, Action<FailureOptions> configure)` | Answers a tool that threw with the failure envelope, in the words `configure` gives a failure nobody foresaw: its error and its hint, the type staying `internal`. |
+| `IMcpServerBuilder ExplainFailures(this IMcpServerBuilder builder, Action<FailureOptions> configure)` | Answers a tool that threw with the failure envelope, in the words `configure` gives a failure nobody foresaw: its error, its hint and its type, each from the tool's name and what it threw. |
+
+### class ToolRefusalException
+
+A call refused for the caller's own mistake, thrown from deep inside a tool: `ExplainFailures` answers it as it is, its error, hint and type, never as a failure of the server.
+
+| Member | Summary |
+| --- | --- |
+| `JsonNode? Details { get; init; }` | What the work learned before it was refused, answered as the failure's `data`. |
+| `ToolRefusalException()` | A refusal and why, with no hint and no kind. |
+| `ToolRefusalException(string error, Exception? innerException)` | A refusal and why, with the failure that showed it, which the answer does not quote. |
+| `ToolRefusalException(string error, string? hint = null, string? type = null)` | A refusal and why, in words the model can act on, with what to do about it and its kind. |
+| `string Error { get; }` | Why the call was refused: the error of the answer. |
+| `string? Hint { get; }` | What to do about it, when there is something to do. |
+| `string? Type { get; }` | The kind of refusal, a word a program can branch on; left out of the answer when null. |
 
 ### enum WordCase
 
@@ -220,9 +271,11 @@ How `find_tool` reads a server's tools: the words they are known by, the words t
 
 | Member | Summary |
 | --- | --- |
+| `AnswerShape Shape { get; set; }` | What a successful answer of `find_tool` carries as its structured content; the data alone unless set. |
 | `DiscoveryOptions()` |  |
 | `Func<string, string?>? CommandOf { get; set; }` | What a sequence or a program of the server calls a tool, by the tool's name; null for a tool that is no command. |
 | `IDictionary<string, string> Meanings { get; set; }` | The words each tool is asked for by beyond its name, by the tool's name: `["git_push"] = "publish send upstream share"`. |
+| `IList<string> Examples { get; set; }` | Tasks in the server's own words, shown as examples in the description of `task`: `["rename a symbol", "find unused code"]`. |
 | `IReadOnlyList<ToolEntry>? Catalog { get; set; }` | The tools searched, instead of the tools the server registered (`ToolCatalog`). |
 | `ISet<string> Noise { get; set; }` | Words dropped from every task besides the common English ones, such as `bpy` or `ae`. |
 | `string? Prefix { get; set; }` | The prefix every tool of the server shares, such as `git_`; its words are dropped from names and tasks alike. |
@@ -244,6 +297,7 @@ How much one `run_tools` call may do and bring back.
 
 | Member | Summary |
 | --- | --- |
+| `AnswerShape Shape { get; set; }` | What a successful answer of `run_tools` carries as its structured content; the data alone unless set. |
 | `SequenceOptions()` |  |
 | `int MaxSteps { get; set; }` | The most steps one call runs; twenty unless set. |
 | `int OutputBudget { get; set; }` | The characters of step answers one call brings back; fifty thousand unless set. |
@@ -274,6 +328,7 @@ Tools as entries discovery searches: read from the tools a server registers, nev
 
 | Member | Summary |
 | --- | --- |
+| `IReadOnlyList<ToolEntry> Find(IReadOnlyList<ToolEntry> entries, string? task, int limit, DiscoveryOptions? options = null)` | The entries that answer a task, best first and at most `limit`: the ranking of `find_tool`, without a server. |
 | `IReadOnlyList<ToolEntry> Of(IEnumerable<McpServerTool> tools, Func<string, string?>? commandOf)` | The entries of the tools, in the order given, each with the command `commandOf` names for it. |
 | `IReadOnlyList<ToolEntry> Of(Type toolType, IServiceProvider? services = null, JsonSerializerOptions? json = null)` | The entries of the tools one class declares, built as the MCP SDK builds them and never invoked. |
 | `string? SkillOf(McpServerTool tool)` | The skill a tool belongs to: the name of the `SkillAttribute` on its class, or null. |
@@ -300,7 +355,7 @@ One parameter of a tool as a caller fills it: its name, its JSON type, whether i
 | `ToolParameter(string Name, string Type, bool IsRequired, string? Description)` | One parameter of a tool as a caller fills it: its name, its JSON type, whether it must be sent, and what it means. |
 | `bool IsRequired { get; init; }` | Whether a call without it is refused. |
 | `string Name { get; init; }` | The name the call sends, as the tool's input schema spells it. |
-| `string Type { get; init; }` | The JSON type of the value: `string`, `integer`, `number`, `boolean`, `array` or `object`. |
+| `string Type { get; init; }` | The JSON type of the value: `string`, `integer`, `number`, `boolean` or `object`; an array by its items, `string[]` or `integer[][]`, and `array` when they say nothing. |
 | `string? Description { get; init; }` | What the model reads before filling it; null when the schema says nothing. |
 
 ## Snail.Sdk.Mcp.Hosting.Jobs
@@ -351,7 +406,7 @@ A job as its resource shows it and a client reads it.
 | `JobReport(string Uri, JobState State, DateTimeOffset StartedAt, DateTimeOffset? EndedAt, double? Progress, string? Message, JsonElement? Result)` | A job as its resource shows it and a client reads it. |
 | `JobReport? FromJson(string text)` | The report read back from a resource's text, or null when the text is not one. |
 | `JobState State { get; init; }` | Where the job stands. |
-| `JsonElement? Result { get; init; }` | The outcome, in the job's own type, once it succeeded. |
+| `JsonElement? Result { get; init; }` | The outcome, in the job's own type, once it succeeded; once it failed, what its work learned before it stopped, when it said (an answer's details, a refusal's). |
 | `bool IsRunning { get; }` | Whether the work is still running. |
 | `double? Progress { get; init; }` | How far it has got, 0 to 1, while the work reports it. |
 | `string ToJson()` | The report as its resource carries it: JSON, generated, the same on a native build. |
@@ -432,7 +487,8 @@ How `RefuseWhatWasNotGranted` holds a session to its grant.
 | `GrantOptions()` |  |
 | `bool HidesWithheldTools { get; set; }` | Whether a tool the session may not call is left out of the list it is given; true unless set. |
 | `bool RequiresGrant { get; set; }` | Whether a session whose address names no tool is refused every tool, instead of being granted all of them. |
-| `const string NotGranted` | The type a refusal carries in the envelope. |
+| `const string Hint` | What a refused caller does next: the hint of every refusal of type `NotGranted` the SDK writes. |
+| `const string NotGranted` | The type a refusal carries in the envelope: the one type of a call refused for want of a grant, whichever layer refuses it. |
 
 ### interface ISessionAddress
 
@@ -442,6 +498,7 @@ What the address the session was opened at says: `…/mcp?root=/workspaces/task&
 | --- | --- |
 | `IReadOnlyList<string> Values(string parameter)` | Every value the address gives the parameter, empty when it gives none or there is no address. |
 | `bool IsPresent { get; }` | Whether the session was opened at an address at all: false for a server started as a program. |
+| `string Subject { get; }` | What a refusal calls the one the address speaks for: `session`, or `request` where each request stands alone. |
 
 ### interface IToolGate
 
@@ -475,13 +532,22 @@ A path as a session may use it, or why it may not.
 
 | Member | Summary |
 | --- | --- |
-| `Reached No(string refusal, string? hint = null)` | A refusal, with what the caller can do about it. |
+| `Answer<T> As<T>()` | The refusal as the failed answer of a tool, its words, hint and kind kept: `if (!reached.IsAllowed) return reached.As<JsonObject>();`. |
+| `Reached No(string refusal, string? hint = null, string? type = null)` | A refusal, with what the caller can do about it and its kind. |
 | `Reached Yes(string path)` | The path, allowed. |
-| `Reached(string? Path, string? Refusal, string? Hint)` | A path as a session may use it, or why it may not. |
-| `bool IsAllowed { get; }` | Whether the session may use the path; `Path` is then the one to use. |
+| `Reached(string? Path, string? Refusal, string? Hint, string? Type = null)` | A path as a session may use it, or why it may not. |
+| `bool IsAllowed { get; }` | Whether the session may use the path; `Path` is then the one to use, and `Refusal` says why not otherwise. |
+| `const string Absent` | The kind of a file or a folder that is not there where one must be. |
+| `const string NoPath` | The kind of a call that named no path. |
+| `const string NoRoot` | The kind of a session with no root to reach anything from. |
+| `const string NotAFile` | The kind of a folder where a file must be. |
+| `const string NotAFolder` | The kind of a file where a folder must be. |
+| `const string Outside` | The kind of a path outside every root of the session. |
+| `const string Unfollowable` | The kind of a path whose links cannot be followed: a loop of them, or one that may not be read. |
 | `string? Hint { get; init; }` | What to do instead, when there is something. |
 | `string? Path { get; init; }` | The path with every link on it followed, when the session may use it. |
-| `string? Refusal { get; init; }` | Why it may not, in words the caller can act on. |
+| `string? Refusal { get; init; }` | Why it may not, in words the caller can act on; never null when `Path` is. |
+| `string? Type { get; init; }` | The kind of refusal, a word a program can branch on — `Outside`, `Absent` and the rest; null when the path is allowed. |
 
 ### static class RealPath
 
@@ -520,6 +586,7 @@ Puts a session's address to work: the tools it was granted held at the door, and
 | --- | --- |
 | `IMcpServerBuilder RefuseWhatWasNotGranted(this IMcpServerBuilder builder, Action<GrantOptions>? configure = null)` | Refuses a call to a tool the session may not use (`IToolGate`, by default `SessionGrant`), and leaves such a tool out of the list the session is given. |
 | `IMcpServerBuilder WithSessionRoots(this IMcpServerBuilder builder, Func<IServiceProvider, IReadOnlyList<string>> volumes, Action<SessionRootsOptions>? configure = null)` | `SessionRoots` for the tools: the roots the session's address names inside the `volumes` the server was configured with, or those volumes when it names none. |
+| `IServiceCollection AddSessionRoots(this IServiceCollection services, Func<IServiceProvider, IReadOnlyList<string>> volumes, Action<SessionRootsOptions>? configure = null)` | `SessionRoots` registered as `WithSessionRoots` registers them, where there is no MCP builder to call it on: a test fixture, a benchmark, a host that adds its services before its server. |
 
 ### class SessionRoots
 
@@ -535,16 +602,18 @@ The folders this session works in, read from the address it was opened at, and w
 | `SessionRoots(ISessionAddress address, IReadOnlyList<string> volumes, SessionRootsOptions? options = null)` | The folders this session works in, read from the address it was opened at, and whether a path lies in them. |
 | `bool IsAbsent { get; }` | Whether the address named a root this machine does not have. |
 | `bool IsOutside { get; }` | Whether the address named a root outside every volume. |
+| `bool ReachesEverywhere { get; }` | Whether this session reaches every path its process can: a program with no volume, at a server that set `ReachesEverywhereAsAProgram`. |
 | `const string Parameter` | What the address calls a root it hands over; repeated for more than one. |
 | `string Relative(string path)` | The path as the caller should name it again: relative to the first root when it lies under it, whole otherwise. |
 
 ### class SessionRootsOptions
 
-The words `SessionRoots` refuses in where they are the server's own.
+The words `SessionRoots` refuses in where they are the server's own, and what a program configured with nothing reaches.
 
 | Member | Summary |
 | --- | --- |
 | `SessionRootsOptions()` |  |
+| `bool ReachesEverywhereAsAProgram { get; set; }` | Whether a server started as a program, with no volume configured, reaches every path its process can; false unless set. |
 | `string? RootsSetting { get; set; }` | The setting that configures the server's roots — `SNAIL_MCP_DOCUMENTS_ROOTS` — named in the hint to a session that has none. |
 
 ### static class ToolForwarding
@@ -553,6 +622,8 @@ The one way a tool calls another tool of its server: held to the session's grant
 
 | Member | Summary |
 | --- | --- |
+| `Answer<T>? Refused<T>(RequestContext<CallToolRequestParams> context, string tool)` | The failed answer a command standing for `tool` gets when the session of `context` may not call it, or null when it may. |
+| `CallToolResult? Refused(RequestContext<CallToolRequestParams> context, string tool)` | The answer a call to `tool` gets when the session of `context` may not make it — the door's, in the server's shape — or null when it may. |
 | `ValueTask<CallToolResult> CallAsync(RequestContext<CallToolRequestParams> context, McpServerTool tool, JsonObject? arguments, CancellationToken cancellationToken)` | Runs `tool` as the protocol would — the same request, its services and session, the arguments bound by the tool's own schema — when the session may call it; the refusal, in the server's shape, otherwise. |
 | `bool IsForwarder(McpServerTool tool)` | Whether the tool calls other tools itself: it carries `ForwardsAttribute`. |
 | `string? Refusal(RequestContext<CallToolRequestParams> context, string tool)` | Why the session of `context` may not call `tool`, or null when it may. |

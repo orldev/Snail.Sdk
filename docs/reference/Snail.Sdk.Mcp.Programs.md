@@ -12,6 +12,7 @@ The commands a program calls on its global object: `git.status()`, `blender.add_
 | --- | --- |
 | `IReadOnlyList<string> Names { get; }` | The commands a program may call, in the order the answers list them. |
 | `Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, CancellationToken cancellationToken)` | Runs one command with the arguments the program passed, answering with its data or why it failed. |
+| `Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, RequestContext<CallToolRequestParams> context, CancellationToken cancellationToken)` | Runs one command for the request of `run_program` that sent it, answering with its data or why it failed. |
 | `string ToolOf(string command)` | The tool a command stands for, under whose name the session's gate grants it: `status` is `git_status`. |
 
 ### class ProgramAnswer
@@ -63,8 +64,8 @@ The kinds of stop a program reports as its `type`, words a client can branch on.
 | `const string Cancelled` | The call that ran the program was cancelled. |
 | `const string Invalid` | The call was malformed: no code, a timeout out of range, a command given something other than one object. |
 | `const string NoSuchCommand` | The program called a command the global object does not have. |
+| `const string NotGranted` | The session may not call the tool the command stands for: the fleet's one type of a refusal by the grant. |
 | `const string ProgramTooLarge` | The program nested its calls too deep, ran too many statements or held too much memory. |
-| `const string Refused` | The session may not call the tool the command stands for. |
 | `const string Runtime` | The program threw and did not catch it, or a command failed uncaught without a type of its own. |
 | `const string Syntax` | The program is not valid JavaScript. |
 | `const string Timeout` | The program ran longer than it was given. |
@@ -77,7 +78,7 @@ How `run_program` of a server is named to a program and how far a program may go
 | Member | Summary |
 | --- | --- |
 | `ProgramOptions()` |  |
-| `TimeSpan MaxTimeout { get; set; }` | The longest a call may give a program; ten minutes unless set. |
+| `TimeSpan MaxTimeout { get; set; }` | The longest a call may give a program; ten minutes unless set, and never less than `Timeout`. |
 | `TimeSpan Timeout { get; set; }` | How long a program runs when the call names no time; two minutes unless set. |
 | `int LogLineLength { get; set; }` | How long a log line may be; 1000 characters unless set. A longer one is cut and ends in an ellipsis. |
 | `int LogLines { get; set; }` | How many lines `log(…)` keeps; 200 unless set. Lines past it are dropped. |
@@ -116,7 +117,7 @@ Runs a JavaScript program whose only door to the outside is a set of commands: n
 | Member | Summary |
 | --- | --- |
 | `ProgramRunner(ProgramOptions options)` | Runs a JavaScript program whose only door to the outside is a set of commands: no files, no network, no clock but its own. |
-| `Task<ProgramRun> RunAsync(IProgramCommands commands, string code, JsonObject? input = null, TimeSpan? timeout = null, Func<string, string?>? refusal = null, CancellationToken cancellationToken = default)` | Runs `code`, the body of a function whose `return` is the result, over `commands`. |
+| `Task<ProgramRun> RunAsync(IProgramCommands commands, string code, JsonObject? input = null, TimeSpan? timeout = null, Func<string, string?>? refusal = null, RequestContext<CallToolRequestParams>? context = null, CancellationToken cancellationToken = default)` | Runs `code`, the body of a function whose `return` is the result, over `commands`. |
 
 ### class ToolCommands
 

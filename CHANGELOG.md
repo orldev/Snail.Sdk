@@ -356,6 +356,12 @@ A change that a repository must act on says what to do.
     server that owns its jobs by task — the task of the copy the session's address names, none for a session at no copy
     — which Snail.MCP.Security, Connector and E2E each wrote over their `SessionCopy`. A server that registers no
     `ISessionAddress` is told so rather than leaving every job to whoever holds its URI.
+  - `JobOwners.TaskOfCopy(services => workspaces, task, ownerOf)` owns the jobs of a server whose task is a type of its
+    own: the task read as `WorkspaceCopy.Of(root, workspaces, task)` reads it — a value among them, handed on as the
+    value — and the owner what `ownerOf` names it, the name its tools start jobs with, where the overload of an id gave
+    the folder's name whatever the server held. Snail.MCP.E2E may write
+    `JobOwners.TaskOfCopy(WorkspacesOf, TaskEnvironment.Of, environment => environment.Value)` and drop
+    `SessionCopy.IsTaskId`, which read the environment once only to throw it away.
 - `WithSessionAddress()` of `Snail.Sdk.Mcp.Http` reads the session's address from the query of each request;
   `WithLocalHttpTransport()` adds it by itself, and a server on the MCP SDK's default transport calls it beside
   `WithHttpTransport()` — before or after `RefuseWhatWasNotGranted()` and `WithSessionRoots()`, alike.

@@ -393,7 +393,7 @@ And for the server project (no kind):
   the HTTP transport alike; `services.AddSessionRoots(volumes)` registers the roots where there is no MCP builder. The task of a step is the first folder of its copy under the workspaces
   (`WorkspaceCopy.Of`, which says why a root is no copy, and `copy.ToAnswer(…)` hands the copy on as an
   `Answer<WorkspacePlace<TTask>>` in the server's words), and a server many tasks share owns its jobs by it
-  (`JobOwners.TaskOfCopy`) or by the MCP session (`JobOwners.Session` of `Snail.Sdk.Mcp.Http`).
+  (`JobOwners.TaskOfCopy`, a task type of the server's own named by its `ownerOf`) or by the MCP session (`JobOwners.Session` of `Snail.Sdk.Mcp.Http`).
 - A program instead of a call per step, when the server opts in (`Snail.Sdk.Mcp.Programs`, referenced without a
   version): `.WithPrograms<TCommands>(options => options.Global = "<short>")` registers `run_program(code, input,
   timeoutSeconds)`, a JavaScript program on Jint whose global object holds the server's commands — its own catalog

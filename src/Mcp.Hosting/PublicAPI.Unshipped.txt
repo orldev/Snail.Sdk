@@ -237,6 +237,7 @@ Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal.NotATask = 4 -> Snail.Sdk.Mcp.Hosting
 Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal.Outside = 2 -> Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal
 Snail.Sdk.Mcp.Hosting.Sessions.JobOwners
 static Snail.Sdk.Mcp.Hosting.Sessions.JobOwners.TaskOfCopy(System.Func<System.IServiceProvider!, string!>! workspaces, System.Func<string!, bool>! isTaskId) -> System.Func<System.IServiceProvider!, string?>!
+static Snail.Sdk.Mcp.Hosting.Sessions.JobOwners.TaskOfCopy<TTask>(System.Func<System.IServiceProvider!, string!>! workspaces, System.Func<string!, TTask?>! task, System.Func<TTask, string!>! ownerOf) -> System.Func<System.IServiceProvider!, string?>!
 Snail.Sdk.Mcp.Hosting.Sessions.PathKind
 Snail.Sdk.Mcp.Hosting.Sessions.PathKind.Any = 0 -> Snail.Sdk.Mcp.Hosting.Sessions.PathKind
 Snail.Sdk.Mcp.Hosting.Sessions.PathKind.File = 1 -> Snail.Sdk.Mcp.Hosting.Sessions.PathKind

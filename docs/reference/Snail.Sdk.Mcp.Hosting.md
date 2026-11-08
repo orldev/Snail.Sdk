@@ -592,6 +592,8 @@ Whose a job is, named from the session a request is served in: the owners `WithJ
 | Member | Summary |
 | --- | --- |
 | `Func<IServiceProvider, string?> TaskOfCopy(Func<IServiceProvider, string> workspaces, Func<string, bool> isTaskId)` | The owner of a request: the task of the working copy its session's address names, or none when it names no copy. |
+| `Func<IServiceProvider, string?> TaskOfCopy<TTask>(Func<IServiceProvider, string> workspaces, Func<string, TTask?> task, Func<TTask, string> ownerOf)` | The owner of a request: the task of the working copy its session's address names, read as the server reads its task and named by `ownerOf`, or none when it names no copy. |
+| `Func<IServiceProvider, string?> TaskOfCopy<TTask>(Func<IServiceProvider, string> workspaces, Func<string, TTask?> task, Func<TTask, string> ownerOf)` | The owner of a request: the task of the working copy its session's address names, read as a value the server reads and named by `ownerOf`, or none when it names no copy. |
 
 ### enum PathKind
 

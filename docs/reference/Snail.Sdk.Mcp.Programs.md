@@ -24,27 +24,8 @@ The commands a program calls on its global object: `git.status()`, `blender.add_
 | Member | Summary |
 | --- | --- |
 | `IReadOnlyList<string> Names { get; }` | The commands a program may call, in the order the answers list them. |
-| `Task<ProgramAnswer> CallAsync(CommandCall call, CancellationToken cancellationToken)` | Runs one command the program sent, with all it was sent with — the request of `run_program`, the time the program has left — answering with its data or why it failed. |
-| `Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, CancellationToken cancellationToken)` | Runs one command with the arguments the program passed, answering with its data or why it failed. |
-| `Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, RequestContext<CallToolRequestParams> context, CancellationToken cancellationToken)` | Runs one command for the request of `run_program` that sent it, answering with its data or why it failed. |
+| `Task<Answer<JsonNode?>> CallAsync(CommandCall call, CancellationToken cancellationToken)` | Runs one command the program sent, with all it was sent with — the request of `run_program`, the time the program has left — answering with its data or why it failed. |
 | `string? ToolOf(string command)` | The tool a command stands for, under whose name the session's gate grants it: `status` is `git_status`; null when it stands for none. |
-
-### class ProgramAnswer
-
-What one command answered a program: its data, or why it failed in words the program can act on.
-
-| Member | Summary |
-| --- | --- |
-| `JsonNode? Data { get; init; }` | What the command answered; null when it answered nothing. |
-| `JsonNode? Details { get; init; }` | What there is to report all the same. |
-| `ProgramAnswer Failed(string error, string? hint = null, string? type = null, JsonNode? details = null)` | No data, and why. |
-| `ProgramAnswer From(CallToolResult result)` | A tool's result as a program reads it: the data of the envelope, or its failure. |
-| `ProgramAnswer Ok(JsonNode? data)` | An answer carrying the command's data. |
-| `ProgramAnswer(JsonNode? Data, string? Error = null, string? Hint = null, string? Type = null, JsonNode? Details = null)` | What one command answered a program: its data, or why it failed in words the program can act on. |
-| `bool IsSuccess { get; }` | Whether the command went through; `Error` says why not otherwise. |
-| `string? Error { get; init; }` | Why it failed; null on success. |
-| `string? Hint { get; init; }` | What to do about it. |
-| `string? Type { get; init; }` | The kind of failure, a word a program can branch on. |
 
 ### class ProgramCall
 
@@ -79,10 +60,10 @@ The kinds of stop a program reports as its `type`, words a client can branch on.
 | `const string Invalid` | The call was malformed: no code, a timeout out of range, a command given something other than one object. |
 | `const string NoSuchCommand` | The program called a command the global object does not have. |
 | `const string NotGranted` | The session may not call the tool the command stands for: the fleet's one type of a refusal by the grant. |
-| `const string ProgramTooLarge` | The program nested its calls too deep, ran too many statements or held too much memory. |
 | `const string Runtime` | The program threw and did not catch it, or a command failed uncaught without a type of its own. |
 | `const string Syntax` | The program is not valid JavaScript. |
 | `const string Timeout` | The program ran longer than it was given. |
+| `const string TooLarge` | The program nested its calls too deep, ran too many statements or held too much memory. |
 | `const string TooManyCalls` | The program sent more commands than a program may. |
 
 ### class ProgramOptions
@@ -141,6 +122,6 @@ The commands of a server whose commands are its tools: every tool but the forwar
 | Member | Summary |
 | --- | --- |
 | `IReadOnlyList<string> Names { get; }` | The commands a program may call, in the order the answers list them. |
-| `Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, CancellationToken cancellationToken)` | Runs one command with the arguments the program passed, answering with its data or why it failed. |
+| `Task<Answer<JsonNode?>> CallAsync(CommandCall call, CancellationToken cancellationToken)` | Runs one command the program sent, with all it was sent with — the request of `run_program`, the time the program has left — answering with its data or why it failed. |
 | `ToolCommands(RequestContext<CallToolRequestParams> context, string? prefix = null)` | The tools of the server `context` was sent to, named without `prefix`. |
 | `string ToolOf(string command)` | The tool a command stands for, under whose name the session's gate grants it: `status` is `git_status`; null when it stands for none. |

@@ -46,7 +46,7 @@ How `McpEndpoint` reads a server's settings: the section it also looks in, how f
 | Member | Summary |
 | --- | --- |
 | `McpEndpointOptions()` |  |
-| `McpReach Reach { get; init; }` | How far beyond loopback the server may listen; `Unrestricted`, as the reads without options read, unless the server narrows it. |
+| `McpReach Reach { get; init; }` | How far beyond loopback the server may listen; `LoopbackOrContainer`, as the reads without options read, unless the server names another. |
 | `string? FallbackSection { get; init; }` | The section a key is looked for in when the root of the settings does not hold it, such as `Snail`; the root alone when null. |
 | `string? Server { get; init; }` | The server's short name, as `ServerSettings` takes it — `figma` — which a refusal spells the variables by: `SNAIL_MCP_FIGMA_URL (or Url in the settings file)`; null takes it from the entry assembly. |
 
@@ -197,7 +197,7 @@ A value, or why there is none in words a caller can act on.
 
 | Member | Summary |
 | --- | --- |
-| `Answer(T? Value, string? Error, string? Hint, string? Type = null)` | A value, or why there is none in words a caller can act on. |
+| `Answer(T? Value, string? Error)` | A value, or why there is none in words a caller can act on. |
 | `Answer<T> WithDetails<TDetails>(TDetails details)` | The same failure carrying `details` as they are, for the tool to write as the failure's `data`: `ToolAnswer.From(answer, data, details)`. |
 | `Answer<T> op_Implicit(AnswerFailure failure)` |  |
 | `Answer<TOther> As<TOther>()` | The same failure as an answer of another type, its error, hint and type kept: a failure handed on past a layer that answers something else. |
@@ -208,7 +208,7 @@ A value, or why there is none in words a caller can act on.
 | `bool TryGet(out T value)` | The value, when the answer is a success: `if (!answer.TryGet(out var value)) return ToolAnswer.Failed(answer);`. |
 | `bool TryGetDetails<TDetails>(out TDetails details)` | The details a failure carries as the layer that failed gave them (`WithDetails<T>`), when they are a `TDetails`. |
 | `string? Error { get; init; }` | Why it was not, in words the model can act on; null on success. |
-| `string? Hint { get; init; }` | What to do about it, when there is something to do. |
+| `string? Hint { get; init; }` | What to do about the failure, when there is something to do. |
 | `string? Type { get; init; }` | The kind of failure, a word a program can branch on, such as `timeout`. |
 
 ### class AnswerFailure
@@ -219,7 +219,7 @@ A failure not yet of any answer's type: what `Failed` makes, and what becomes th
 | --- | --- |
 | `Answer<T> As<T>()` | The failure as an answer of `T`, its error, hint, type and details kept: where nothing implies the type — `var`, an argument of a generic method. |
 | `AnswerFailure WithDetails<TDetails>(TDetails details)` | The same failure carrying `details` as they are, for the tool to write as its `data`: `return Answer.Failed("…").WithDetails(duplicate);`. |
-| `AnswerFailure(string Error, string? Hint = null, string? Type = null)` | A failure not yet of any answer's type: what `Failed` makes, and what becomes the `Answer<T>` expected where it is returned. |
+| `AnswerFailure(string Error)` | A failure not yet of any answer's type: what `Failed` makes, and what becomes the `Answer<T>` expected where it is returned. |
 | `JsonNode? Details { get; init; }` | What the work learned before it stopped, answered as the failure's `data`. |
 | `string Error { get; init; }` | Why there is no value, in words the model can act on. |
 | `string? Hint { get; init; }` | What to do about it, when there is something to do. |
@@ -241,7 +241,7 @@ The answer envelope as a type: the declared output of a tool whose structured co
 
 | Member | Summary |
 | --- | --- |
-| `Envelope(bool IsOk, T Data, string? Error = null, string? Hint = null, string? Type = null)` | The answer envelope as a type: the declared output of a tool whose structured content is the whole envelope, so its schema is published. |
+| `Envelope(bool IsOk, T Data)` | The answer envelope as a type: the declared output of a tool whose structured content is the whole envelope, so its schema is published. |
 | `T Data { get; init; }` | What the tool answers, never null on a success; on a failure, what there is to report all the same. |
 | `bool IsOk { get; init; }` | Whether the call did what was asked: `ok`. |
 | `string? Error { get; init; }` | Why the call did not go through; only on a failure. |
@@ -280,8 +280,7 @@ A tool's answer as every Snail server gives it: one text block holding the envel
 | `CallToolResult From<T>(Answer<T> answer, JsonTypeInfo<T> type, AnswerShape shape)` | An answer of typed data as a tool result, with the structured content `shape` names. |
 | `CallToolResult Of(JsonObject envelope, AnswerShape shape = 0)` | The tool result a stored envelope stands for: a success with its data, or a failure with its error, hint, type and data, flagged as an error. |
 | `CallToolResult Ok(JsonNode data)` | A successful answer: the data in the envelope as the text, and as the structured content when it is an object. |
-| `CallToolResult Ok(JsonNode data, AnswerShape shape)` | A successful answer: the data in the envelope as the text, and the structured content `shape` names. |
-| `CallToolResult Ok(JsonNode data, AnswerShape shape, JsonObject? beside = null, string? hint = null)` | A successful answer with fields of the tool's own beside its data, at the top level of the envelope after `data` — `{"ok":true,"data":…,"fileKey":"…"}` — and what to do next, when the success has something to say: `{"ok":true,"hint":"…","data":…}`. |
+| `CallToolResult Ok(JsonNode data, AnswerShape shape, JsonObject? beside = null, string? hint = null)` | A successful answer: the data in the envelope as the text, the structured content `shape` names, and — when given — fields of the tool's own after `data` and what to do next. |
 | `CallToolResult Ok<T>(T data, JsonTypeInfo<T> type)` | A successful answer of typed data, written from its generated type straight into the text, with the data as the structured content when it is an object. |
 | `CallToolResult Ok<T>(T data, JsonTypeInfo<T> type, AnswerShape shape)` | A successful answer of typed data, written from its generated type straight into the text: no tree of nodes is built first. |
 | `CallToolResult WithImage(this CallToolResult result, ReadOnlyMemory<byte> bytes, string mimeType)` | The answer with a picture after its text, in an image block of its own: `ToolAnswer.Ok(data, AnswerShape.None).WithImage(png, "image/png")`. |
@@ -290,8 +289,7 @@ A tool's answer as every Snail server gives it: one text block holding the envel
 | `bool IsFailure(CallToolResult result)` | Whether a result is the failure envelope: a text block whose top-level `ok` is false, with nothing after it but pictures. |
 | `string FailedText(string error, string? hint = null, string? type = null, JsonNode? data = null)` | The text of a failed answer, `{"ok":false,"error":…}`, for a tool that returns a string; `ExplainFailures` flags it `isError` on its way out. |
 | `string Moment(DateTimeOffset at)` | A moment as the answer spells it: round-trip ISO 8601 with its offset, the same on every machine. |
-| `string OkText(JsonNode data)` | The text of a successful answer, `{"ok":true,"data":…}`, for a tool that returns a string: no structured content, nothing escaped that JSON does not require. |
-| `string OkText(JsonNode data, JsonObject? beside = null, string? hint = null)` | The text of a successful answer with fields of the tool's own after its data, and what to do next, for a tool that returns a string. |
+| `string OkText(JsonNode data, JsonObject? beside = null, string? hint = null)` | The text of a successful answer, `{"ok":true,"data":…}`, for a tool that returns a string: no structured content, nothing escaped that JSON does not require, and — when given — fields of the tool's own after `data` and what to do next. |
 | `string Text(CallToolResult result)` | The envelope a result carries: the text of its first block, which is where every answer of `ToolAnswer` writes it. |
 | `string Word<TEnum>(TEnum value, WordCase casing = 0)` | An enum value as the answer spells it, in the casing the server chose. |
 
@@ -409,7 +407,7 @@ A tool as discovery sees it: the name to call, what it does, the skill it arrive
 | Member | Summary |
 | --- | --- |
 | `IReadOnlyList<ToolParameter> Parameters { get; init; }` | The parameters, in the order of the tool's input schema. |
-| `ToolEntry(string Name, string Description, string? Skill, string? Command, IReadOnlyList<ToolParameter> Parameters)` | A tool as discovery sees it: the name to call, what it does, the skill it arrives with, the command a program sends for it, and what it takes. |
+| `ToolEntry(string Name, string Description, IReadOnlyList<ToolParameter> Parameters)` | A tool as discovery sees it: the name to call, what it does, the skill it arrives with, the command a program sends for it, and what it takes. |
 | `string Description { get; init; }` | The tool's description; empty when it has none. |
 | `string Name { get; init; }` | The tool's name as the protocol lists it. |
 | `string? Command { get; init; }` | What a sequence or a program of the server calls the tool, or null when it is not one of its commands. |
@@ -422,7 +420,7 @@ One parameter of a tool as a caller fills it: its name, its JSON type, whether i
 | Member | Summary |
 | --- | --- |
 | `IReadOnlyList<ToolParameter>? Fields { get; init; }` | The fields of an object, or of each item of an array of objects, in the order of its schema; null for any other value, and for an object two levels down or one whose schema names none. |
-| `ToolParameter(string Name, string Type, bool IsRequired, string? Description, IReadOnlyList<ToolParameter>? Fields = null)` | One parameter of a tool as a caller fills it: its name, its JSON type, whether it must be sent, what it means, and the fields of an object. |
+| `ToolParameter(string Name, string Type, bool IsRequired)` | One parameter of a tool as a caller fills it: its name, its JSON type, whether it must be sent, what it means, and the fields of an object. |
 | `bool IsRequired { get; init; }` | Whether a call without it is refused. |
 | `string Name { get; init; }` | The name the call sends, as the tool's input schema spells it. |
 | `string Type { get; init; }` | The JSON type of the value: `string`, `integer`, `number`, `boolean` or `object`; an array by its items, `string[]` or `integer[][]`, and `array` when they say nothing. |
@@ -560,7 +558,7 @@ Marks a tool that calls other tools of its server — `run_tools`, `run_program`
 
 ### class GrantOptions
 
-How `RefuseWhatWasNotGranted` holds a session to its grant.
+How `WithSessionGrant` holds a session to its grant.
 
 | Member | Summary |
 | --- | --- |
@@ -680,7 +678,7 @@ Puts a session's address to work: the tools it was granted held at the door, and
 
 | Member | Summary |
 | --- | --- |
-| `IMcpServerBuilder RefuseWhatWasNotGranted(this IMcpServerBuilder builder, Action<GrantOptions>? configure = null)` | Refuses a call to a tool the session may not use (`IToolGate`, by default `SessionGrant`), and leaves such a tool out of the list the session is given. |
+| `IMcpServerBuilder WithSessionGrant(this IMcpServerBuilder builder, Action<GrantOptions>? configure = null)` | Refuses a call to a tool the session may not use (`IToolGate`, by default `SessionGrant`), and leaves such a tool out of the list the session is given. |
 | `IMcpServerBuilder WithSessionRoots(this IMcpServerBuilder builder, Func<IServiceProvider, IReadOnlyList<string>> volumes, Action<SessionRootsOptions>? configure = null)` | `SessionRoots` for the tools: the roots the session's address names inside the `volumes` the server was configured with, or those volumes when it names none. |
 | `IServiceCollection AddSessionRoots(this IServiceCollection services, Func<IServiceProvider, IReadOnlyList<string>> volumes, Action<SessionRootsOptions>? configure = null)` | `SessionRoots` registered as `WithSessionRoots` registers them, where there is no MCP builder to call it on: a test fixture, a benchmark, a host that adds its services before its server. |
 
@@ -693,7 +691,7 @@ The folders this session works in, read from the address it was opened at, and w
 | `IReadOnlyList<string> Absent { get; }` | Of the roots the address named, the ones this machine has no folder for. |
 | `IReadOnlyList<string> All { get; }` | The roots this session works in: the ones it named inside the volumes, or the volumes when it named none. |
 | `IReadOnlyList<string> Named { get; }` | The roots the address named, as full paths, each once. |
-| `IReadOnlyList<string> Outside { get; }` | Of the roots the address named, the ones outside every volume; none when no volume was configured. |
+| `IReadOnlyList<string> Outside { get; }` | Of the roots the address named, the ones outside every volume: each one there is when no volume was configured, unless the server reaches any named root. |
 | `IReadOnlyList<string> Unreadable { get; }` | Of the roots the address named, the ones the disk could not answer for: it threw — a folder this server may not enter, a share that timed out. |
 | `Reached Reach(string? path, PathKind mustBe = 0)` | The path as the session may use it — absolute, or relative to the first root, every link followed — or why it may not. |
 | `SessionRoots(ISessionAddress address, IReadOnlyList<string> volumes, SessionRootsOptions? options = null)` | The folders this session works in, read from the address it was opened at, and whether a path lies in them. |
@@ -712,6 +710,7 @@ The words `SessionRoots` refuses in where they are the server's own, and what a 
 | --- | --- |
 | `IRootsDisk Disk { get; set; }` | The disk a path is reached on — what is at it, where its links lead — the machine's (`Machine`) unless set. |
 | `SessionRootsOptions()` |  |
+| `bool ReachesAnyNamedRoot { get; set; }` | Whether, with no volume configured, a session reaches any root its address names; false unless set. |
 | `bool ReachesEverywhereAsAProgram { get; set; }` | Whether a server started as a program, with no volume configured, reaches every path its process can; false unless set. |
 | `string? RootsSetting { get; set; }` | The setting that configures the server's roots — `SNAIL_MCP_DOCUMENTS_ROOTS__0` — named in the hint to a session that has none: "set …". |
 

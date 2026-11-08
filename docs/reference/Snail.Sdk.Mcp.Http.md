@@ -31,8 +31,8 @@ The address a session was opened at, read from the request being served, and the
 | Member | Summary |
 | --- | --- |
 | `IMcpServerBuilder WithSessionAddress(this IMcpServerBuilder builder)` | The session's address — `?root=`, `?tool=` — read from the query of the request being served. |
-| `WebApplication RefuseSessionsItCannotServe(this WebApplication app, Func<IServiceProvider, IReadOnlyList<string>> volumes, string path = "/mcp")` | Answers 400, with the reason, to a request at `path` whose session names a root this machine does not have or the `volumes` do not hold, or names none where no volume is configured. |
-| `const string SessionHeader` | The header Streamable HTTP carries a session's id in, from the response to `initialize` on. |
+| `WebApplication UseSessionRoots(this WebApplication app, Func<IServiceProvider, IReadOnlyList<string>> volumes, string path = "/mcp")` | Answers 400, with the reason, to a request at `path` whose session names a root this machine does not have or the `volumes` do not hold, or names none where no volume is configured. |
+| `const string Header` | The header Streamable HTTP carries a session's id in, from the response to `initialize` on. |
 
 ### static class McpHttpHost
 

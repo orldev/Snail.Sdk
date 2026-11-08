@@ -11,7 +11,7 @@ namespace Snail.Sdk.Mcp.Hosting;
 /// A server whose options are validated at the start — <c>ValidateOnStart()</c>, or a hosted service that reads
 /// <c>IOptions&lt;T&gt;.Value</c> as it starts — stopped with an <see cref="OptionsValidationException"/> out of
 /// <see cref="IHost.StartAsync"/>: unhandled, a crash with a trace and exit code 134, where a person had only set a wrong
-/// value (Snail.MCP.BuildBridge, Blender, AfterEffects; 0.5.0-local.5). The program of <c>dotnet new s3l-mcp</c> catches a
+/// value (Snail.MCP.BuildBridge, Blender, AfterEffects). The program of <c>dotnet new s3l-mcp</c> catches a
 /// <see cref="StartRefusedException"/> and says it in one line with exit code 1, so the failures are carried as one.
 /// </para>
 /// <para>

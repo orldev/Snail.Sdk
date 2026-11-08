@@ -6,7 +6,7 @@ namespace Snail.Sdk.Mcp.Testing;
 /// A server that refuses its start for what the operator set says so in one line on stderr and exits with 1, and its
 /// contract test proves both. Thrown as a plain <see cref="InvalidOperationException"/>, the start left a test the
 /// message alone, so the fleet's tests parsed it — <c>" exited with 1 before "</c>, and no <c>"   at "</c> of a stack
-/// trace anywhere in it (Snail.MCP.AfterEffects, Blender, CodeContext, Figma, Playwright, Roslyn; 0.5.0-local.5). Here
+/// trace anywhere in it (Snail.MCP.AfterEffects, Blender, CodeContext, Figma, Playwright, Roslyn). Here
 /// the exit code is <see cref="ExitCode"/> and the stderr is <see cref="Stderr"/>, and the message stays what it was.
 /// </para>
 /// <para>

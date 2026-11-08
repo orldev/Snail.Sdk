@@ -59,7 +59,7 @@ public static class JobAnswer
     /// The words of a failure are the server's where <paramref name="options"/> give them: a hint chosen for the report —
     /// start it again after a cancellation, read the log after a failure — and the error of a cancelled job. One hint for
     /// both, and an error no server could change, had each server work its hint out before every call (Snail.MCP.Security,
-    /// AfterEffects; 0.5.0-local.4). The report's own hint wins, then <paramref name="hint"/>, then the options'.
+    /// AfterEffects). The report's own hint wins, then <paramref name="hint"/>, then the options'.
     /// </para>
     /// </remarks>
     public static CallToolResult Envelope(JobReport report, JsonObject? beside = null, string? hint = null, JobAnswerOptions? options = null)

@@ -8,7 +8,7 @@ namespace Snail.Sdk.Mcp.Hosting;
 /// <para>
 /// <c>SNAIL_MCP_BLENDER_BRIDGE__PORT=abc</c> stopped Snail.MCP.Blender with an unhandled
 /// <see cref="InvalidOperationException"/>, "Failed to convert configuration value 'abc' at 'Bridge:Port' to type
-/// 'System.Int32'.", a trace and exit code 134 — a crash, where a person had set a word for a number (0.5.0-local.6).
+/// 'System.Int32'.", a trace and exit code 134 — a crash, where a person had set a word for a number.
 /// The binder says it the same way wherever it runs: while a server binds its settings before any host exists
 /// (<see cref="ServerSettings.Bind(string, IConfiguration, Action{IConfiguration})"/>), and in the options a host
 /// validates or a hosted service reads as it starts (<see cref="StartRefusal"/>).

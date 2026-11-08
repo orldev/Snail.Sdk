@@ -103,7 +103,7 @@ public sealed class SessionRootsOptions
     /// <para>
     /// The roots are a list, and a variable sets one entry of it: <c>SNAIL_MCP_&lt;NAME&gt;_ROOTS__0</c>, then <c>__1</c>. The
     /// bare <c>SNAIL_MCP_&lt;NAME&gt;_ROOTS</c> binds nothing to a list, so an operator who set the name a hint gave had a
-    /// server that still served nothing (Snail.MCP.Documents, 0.5.0-local.4): name the first entry.
+    /// server that still served nothing (Snail.MCP.Documents): name the first entry.
     /// </para>
     /// </remarks>
     public string? RootsSetting { get; set; }

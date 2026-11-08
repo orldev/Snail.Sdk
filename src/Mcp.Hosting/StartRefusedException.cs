@@ -5,7 +5,7 @@ namespace Snail.Sdk.Mcp.Hosting;
 /// <para>
 /// The message is the whole of it: it names the variable or the file and what to set, and no stack trace says more to an
 /// operator. Thrown as an <see cref="InvalidOperationException"/>, it ended the process unhandled, the trace on stderr
-/// and exit code 134 — a crash, where a person had only set a wrong value (the fleet on 0.5.0-local.4). A program
+/// and exit code 134 — a crash, where a person had only set a wrong value (the fleet). A program
 /// catches this one type around its start, writes the message to stderr as one line and exits with 1, as the program of
 /// <c>dotnet new s3l-mcp</c> does:
 /// <c>catch (StartRefusedException refused) { await Console.Error.WriteLineAsync(refused.Message); return 1; }</c>.

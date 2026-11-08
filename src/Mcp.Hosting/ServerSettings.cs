@@ -69,7 +69,7 @@ public static class ServerSettings
     /// A server reads its settings before any host exists — to choose its transport, or to fix limits a tool is registered
     /// with — and the binder throws a bare <see cref="InvalidOperationException"/> for a value it cannot convert, an
     /// unhandled crash with a trace and exit code 134: <c>SNAIL_MCP_BLENDER_BRIDGE__PORT=abc</c> stopped Snail.MCP.Blender
-    /// in <c>ServerConfigExtensions.Peek</c> (0.5.0-local.6), as it would Git, FileSystem, CleanUp and Documents, which
+    /// in <c>ServerConfigExtensions.Peek</c>, as it would Git, FileSystem, CleanUp and Documents, which
     /// bind theirs alike. Here it is the refusal a program says in one line with exit code 1:
     /// <c>SNAIL_MCP_BLENDER_BRIDGE__PORT (or Bridge:Port in the settings file) is 'abc'; it is not a number (Int32).</c>
     /// Any other failure of <paramref name="bind"/> is thrown as it was.

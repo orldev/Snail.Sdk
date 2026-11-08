@@ -188,7 +188,7 @@ public static class McpHttpHost
     /// The web host's own addresses — <c>urls</c>, <c>http_ports</c>, <c>https_ports</c> — are emptied by a source added
     /// last, so the endpoint is the only address: the aspnet image sets <c>ASPNETCORE_HTTP_PORTS=8080</c>, and Kestrel
     /// warned "Overriding address(es) 'http://*:8080'" at every start of a server built on a whole web builder
-    /// (Snail.MCP.AfterEffects, Blender; 0.5.0-local.4). The values are left as they are in the sources before it. A
+    /// (Snail.MCP.AfterEffects, Blender). The values are left as they are in the sources before it. A
     /// stdio server's host has no endpoint of this host's, and keeps the addresses it was given.
     /// </remarks>
     private static void ServeAt(WebApplicationBuilder builder, Action<KestrelServerOptions>? listen)

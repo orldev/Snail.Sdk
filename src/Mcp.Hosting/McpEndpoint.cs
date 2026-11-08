@@ -313,7 +313,7 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
         public bool ListensOnEveryInterface => Flag is not null || Container is not null || IsUnspecified(Url);
 
         /// <summary>What the reach allows, in the words of a refusal: loopback alone, or loopback with every interface inside a container.</summary>
-        /// <remarks>A refusal outside a container said "loopback alone" to a server that may open every interface in its image, and its operator was told nothing of the way that is allowed (Snail.MCP.Security, Git; 0.5.0-local.4).</remarks>
+        /// <remarks>A refusal outside a container said "loopback alone" to a server that may open every interface in its image, and its operator was told nothing of the way that is allowed (Snail.MCP.Security, Git).</remarks>
         private string Allows => Allowed is McpReach.LoopbackOrContainer ? LoopbackOutsideAContainer : Loopback;
 
         /// <summary>Refuses an endpoint beyond the reach, or one on a host name it cannot listen on, naming what the operator set.</summary>

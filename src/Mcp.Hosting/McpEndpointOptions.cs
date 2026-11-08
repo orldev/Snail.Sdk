@@ -13,7 +13,7 @@ public sealed record McpEndpointOptions
     /// <remarks>
     /// The entry assembly names the server only in its own program: a test that reads the endpoint in its own process
     /// has the test runner for its entry assembly, and its refusals named the key alone, so a test of the variable a
-    /// refusal names could not be written (Snail.MCP.FileSystem, Playwright, CodeContext; 0.5.0-local.4). A server passes
+    /// refusal names could not be written (Snail.MCP.FileSystem, Playwright, CodeContext). A server passes
     /// the name it reads its settings by, the same constant as <c>ServerSettings.Read(name)</c>.
     /// </remarks>
     public string? Server { get; init; }

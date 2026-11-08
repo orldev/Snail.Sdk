@@ -163,9 +163,12 @@ public static partial class HttpSessions
         if (roots.Absent is { Count: > 0 } absent)
             return $"this machine has no {string.Join(", ", absent)}: the {subject} named a working copy that is not on the host this server runs on";
 
-        return roots.Outside is { Count: > 0 } outside
-            ? $"this server serves the working copies under {string.Join(", ", configured)}, and {string.Join(", ", outside)} is not one of them"
-            : null;
+        if (roots.Outside is not { Count: > 0 } outside)
+            return null;
+
+        return configured.Count == 0
+            ? $"this server is configured with no root, so it serves none a {subject} names, {string.Join(", ", outside)} among them: {(options?.RootsSetting is { Length: > 0 } rootsSetting ? $"set {rootsSetting}" : "configure the server's roots")}"
+            : $"this server serves the working copies under {string.Join(", ", configured)}, and {string.Join(", ", outside)} is not one of them";
     }
 
     /// <summary>Whether the transport keeps no sessions, so that each request stands alone and no session header is checked.</summary>

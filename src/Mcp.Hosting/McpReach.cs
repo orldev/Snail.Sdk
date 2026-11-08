@@ -7,7 +7,14 @@ namespace Snail.Sdk.Mcp.Hosting;
 /// and whoever reaches it. Before 0.5.0, <c>McpHttpHost.CreateBuilder(args, url)</c> refused an address beyond
 /// loopback; <see cref="McpEndpoint"/> opens every interface for <c>ListensOnEveryInterface</c>, a URL at
 /// <c>0.0.0.0</c> and a container alike, so a keyless server that did not narrow its reach could be opened to the
-/// network by one setting (Snail.MCP.Memory, 0.5.0-local.3).
+/// network by one setting (Snail.MCP.Memory).
+/// </para>
+/// <para>
+/// The default — the value of no choice, and the reach of every read without options — is
+/// <see cref="LoopbackOrContainer"/>, what <c>CreateBuilder(args, url)</c> held before 0.5.0: a server that forgot to
+/// narrow its reach stays on loopback on the machine whatever is set, and a server that guards its endpoint itself opts
+/// into <see cref="Unrestricted"/> by name. With <see cref="Unrestricted"/> the default, a keyless server that passed no
+/// options could be opened to the network by one setting.
 /// </para>
 /// <para>
 /// A refusal names what the operator set — <c>SNAIL_MCP_&lt;NAME&gt;_URL (or Url in the settings file) is '…'</c>, or
@@ -17,10 +24,6 @@ namespace Snail.Sdk.Mcp.Hosting;
 /// </remarks>
 public enum McpReach
 {
-    /// <summary>Loopback unless the settings say otherwise: every interface for <c>ListensOnEveryInterface</c>, a URL at <c>0.0.0.0</c> or <c>[::]</c>, and inside a container; an IP address beyond loopback — a LAN one — as named.</summary>
-    /// <remarks>For a server that guards its endpoint itself — Snail.MCP.Blender's and AfterEffects' tokens — and for one that answers on every interface by design, as Snail.MCP.E2E does.</remarks>
-    Unrestricted,
-
     /// <summary>Loopback on the machine, and every interface inside a container, whose published port is the boundary; anything else beyond loopback refused.</summary>
     /// <remarks>
     /// For a keyless server that also ships an image — Snail.MCP.Git, FileSystem, Documents, Playwright, Roslyn, Sandbox,
@@ -30,6 +33,10 @@ public enum McpReach
     /// It is what <c>CreateBuilder(args, url)</c> and <c>CreateContainerBuilder</c> held before 0.5.0.
     /// </remarks>
     LoopbackOrContainer,
+
+    /// <summary>Loopback unless the settings say otherwise: every interface for <c>ListensOnEveryInterface</c>, a URL at <c>0.0.0.0</c> or <c>[::]</c>, and inside a container; an IP address beyond loopback — a LAN one — as named.</summary>
+    /// <remarks>For a server that guards its endpoint itself — Snail.MCP.Blender's and AfterEffects' tokens — and for one that answers on every interface by design, as Snail.MCP.E2E does.</remarks>
+    Unrestricted,
 
     /// <summary>Loopback alone, wherever the server runs: an address beyond it refused, and a start inside a container too.</summary>
     /// <remarks>For a keyless server that ships no image — Snail.MCP.Memory, CodeContext, Figma's MCP endpoint, and Plans or Obsidian once they serve HTTP.</remarks>

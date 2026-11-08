@@ -398,7 +398,9 @@ And for the server project (no kind):
   `reached.As<T>()` — a disk that fails while a path is reached among them, `unreadable`, never the server's failure; a
   server whose disk is behind a port of its own reaches paths on it (`SessionRootsOptions.Disk`, an `IRootsDisk`), so a
   test can hand it a disk that fails — and over HTTP `app.RefuseSessionsItCannotServe(volumes)` turns away at the door a session
-  whose root the machine does not have or the volumes do not hold. Over stdio there is no address
+  whose root the machine does not have or the volumes do not hold — every root a session names, at a server configured
+  with no volume, unless it reaches any named root (`SessionRootsOptions.ReachesAnyNamedRoot`, Snail.MCP.Roslyn on
+  loopback). Over stdio there is no address
   (`SessionAddress.None`): every tool is granted, and the volumes are the roots — or, for a program a desktop client
   installs with no settings, everywhere (`SessionRootsOptions.ReachesEverywhereAsAProgram`). A refused call is type
   `notGranted` whichever layer refuses it — the door, a forwarder, a catalog (`ToolForwarding.Refused`), a program —

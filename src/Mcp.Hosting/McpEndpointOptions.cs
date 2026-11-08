@@ -6,7 +6,7 @@ public sealed record McpEndpointOptions
     /// <summary>The section a key is looked for in when the root of the settings does not hold it, such as <c>Snail</c>; the root alone when null.</summary>
     public string? FallbackSection { get; init; }
 
-    /// <summary>How far beyond loopback the server may listen; <see cref="McpReach.Unrestricted"/>, as the reads without options read, unless the server narrows it.</summary>
+    /// <summary>How far beyond loopback the server may listen; <see cref="McpReach.LoopbackOrContainer"/>, as the reads without options read, unless the server names another.</summary>
     public McpReach Reach { get; init; }
 
     /// <summary>The server's short name, as <see cref="ServerSettings"/> takes it — <c>figma</c> — which a refusal spells the variables by: <c>SNAIL_MCP_FIGMA_URL (or Url in the settings file)</c>; null takes it from the entry assembly.</summary>

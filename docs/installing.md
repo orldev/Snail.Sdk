@@ -223,7 +223,8 @@ The refusal names what the operator set — `SNAIL_MCP_MEMORY_LISTENS_ON_EVERY_I
 the settings file) is 'true'; this server answers on loopback alone, since its endpoint asks for no key, …` or
 `DOTNET_RUNNING_IN_CONTAINER is 'true'; …` — rather than serving the server to the network. A server reads its endpoint
 with `McpEndpoint.Read(settings, defaultUrl, new McpEndpointOptions { Reach = McpReach.LoopbackOnly })` (or
-`McpReach.LoopbackOrContainer`, and `FallbackSection` for the section below).
+`McpReach.Unrestricted` for a server with a token of its own, and `FallbackSection` for the section below); a read
+without options, or with no `Reach`, holds `McpReach.LoopbackOrContainer`.
 
 The address is read from `Url` before `Http:Url`, so `SNAIL_MCP_<SHORT>_URL` moves the listener of a server that keeps
 its address under `Http`; `McpEndpoint.UrlSetting` names the key it was read from. A server that signs links with its

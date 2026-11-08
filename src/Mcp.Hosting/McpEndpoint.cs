@@ -54,8 +54,9 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// <para>
     /// An endpoint over HTTP that listens on its own address listens on an IP address or <c>localhost</c>, so a URL at a
     /// host name is refused here: it was served on loopback without a word. An IP address beyond loopback, a LAN one,
-    /// is listened on as named. A keyless server narrows that with <see cref="Read(IConfiguration, Uri, McpEndpointOptions)"/>
-    /// and <see cref="McpReach"/>.
+    /// is refused on the machine, as every interface is: the reach of a read without options is
+    /// <see cref="McpReach.LoopbackOrContainer"/>, and a server that guards its endpoint itself widens it with
+    /// <see cref="Read(IConfiguration, Uri, McpEndpointOptions)"/> and <see cref="McpReach.Unrestricted"/>.
     /// </para>
     /// <para>
     /// Over stdio no port is opened, so <c>ListensOnEveryInterface=true</c> means nothing there, and is refused naming the
@@ -97,8 +98,9 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// <remarks>
     /// <para>
     /// The keys and their meaning are those of <see cref="Read(IConfiguration, Uri)"/>. A server whose endpoint asks for no
-    /// key passes <c>new McpEndpointOptions { Reach = McpReach.LoopbackOnly }</c>, or <see cref="McpReach.LoopbackOrContainer"/>
-    /// when it also ships an image: an endpoint beyond that reach is refused here, at the start, naming what the operator
+    /// key and ships no image passes <c>new McpEndpointOptions { Reach = McpReach.LoopbackOnly }</c>, one that ships an
+    /// image keeps <see cref="McpReach.LoopbackOrContainer"/>, the default, and one that guards its endpoint itself — a
+    /// token of its own — passes <see cref="McpReach.Unrestricted"/>: an endpoint beyond that reach is refused here, at the start, naming what the operator
     /// set — <c>SNAIL_MCP_MEMORY_LISTENS_ON_EVERY_INTERFACE (or ListensOnEveryInterface in the settings file) is 'true'; …</c>,
     /// <c>DOTNET_RUNNING_IN_CONTAINER is 'true'; …</c> — rather than served to the network.
     /// </para>

@@ -218,9 +218,10 @@ A change that a repository must act on says what to do.
   assembly is no Snail program: a test that reads the endpoint under the test runner got the key alone (Snail.MCP.FileSystem,
   Playwright, CodeContext pass their name). The old `CreateBuilder(args, url)` refused
   an address beyond loopback; the endpoint opened every interface for any of the three, so a keyless server could be
-  served to the network by one setting (Snail.MCP.Memory). `McpReach.Unrestricted`, the reads without options, keeps
-  that for a server that guards its endpoint, and listens on an IP address beyond loopback — a LAN one, Snail.MCP.Blender
-  and AfterEffects — as named; a URL at a host name, which was served on loopback without a word, is refused at the
+  served to the network by one setting (Snail.MCP.Memory). The default, the reach of every read without options, is
+  `LoopbackOrContainer`, so a server that forgot to narrow its reach stays on loopback on the machine;
+  `McpReach.Unrestricted`, named, keeps every interface for a server that guards its endpoint, and listens on an IP
+  address beyond loopback — a LAN one, Snail.MCP.Blender and AfterEffects — as named; a URL at a host name, which was served on loopback without a word, is refused at the
   read. `McpEndpoint.UrlSetting` names the key the address was read from (`Url`, `Http:Url`, or either under the
   section; null for the default): Snail.MCP.Blender signed its links with `Http:Url` while `SNAIL_MCP_BLENDER_URL` had
   moved the listener.
@@ -370,7 +371,10 @@ A change that a repository must act on says what to do.
     prefix was `//`, and it held nothing (Snail.MCP.Roslyn). `SessionRootsOptions.ReachesEverywhereAsAProgram` lets a
     server started as a program with no volume — no address, no settings, as a desktop client installs it — reach every
     path its process can, links still followed and `mustBe` still held; over HTTP it opens nothing, and the door turns
-    such a session away as before. Snail.MCP.Roslyn drops its `SessionReach`. `services.AddSessionRoots(volumes, …)`
+    such a session away as before. Snail.MCP.Roslyn drops its `SessionReach`. A root a session names at a server
+    configured with no volume is outside, and the door turns it away ("this server is configured with no root, so it
+    serves none a session names …"): `?root=/` was served the whole disk of the host. A server on loopback that one
+    person's clients point at whatever copy they open sets `SessionRootsOptions.ReachesAnyNamedRoot` (Snail.MCP.Roslyn). `services.AddSessionRoots(volumes, …)`
     is the same registration without an MCP builder, for a test fixture or a host that adds services first.
     `RealPath.Of(path)` is the walk alone, and
     follows a link whose target does not exist yet, which every fleet copy took for the end of the path — a write

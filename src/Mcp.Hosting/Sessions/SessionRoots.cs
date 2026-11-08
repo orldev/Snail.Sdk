@@ -124,6 +124,21 @@ public sealed class SessionRootsOptions
     /// </remarks>
     public bool ReachesEverywhereAsAProgram { get; set; }
 
+    /// <summary>Whether, with no volume configured, a session reaches any root its address names; false unless set.</summary>
+    /// <remarks>
+    /// <para>
+    /// A server over HTTP is reached by whoever reaches its port, and its address is theirs to write: with no volume and
+    /// nothing set here, <c>?root=/</c> was served the whole disk of the host. Unset, a named root at a server configured
+    /// with none is outside, and the session is turned away at the door.
+    /// </para>
+    /// <para>
+    /// For a server on loopback that one person's clients share and point at whatever copy they open —
+    /// Snail.MCP.Roslyn, which opens the solution its caller names wherever it is. A shared server configures the volume
+    /// of its working copies instead.
+    /// </para>
+    /// </remarks>
+    public bool ReachesAnyNamedRoot { get; set; }
+
     /// <summary>The disk a path is reached on — what is at it, where its links lead — the machine's (<see cref="IRootsDisk.Machine"/>) unless set.</summary>
     /// <remarks>
     /// A server that reaches the disk through a port of its own sets it to that disk, so that its chaos tests fail
@@ -145,7 +160,9 @@ public sealed class SessionRootsOptions
 /// Either the named roots or the volumes, never both. A shared server is configured with the whole volume of working
 /// copies so it can serve any of them; adding it to what a session named would hand every session every other task's
 /// files. And only named roots inside a volume: a session opened at <c>?root=/</c> was served the whole disk of the host
-/// (Snail.MCP.FileSystem). Both sides are compared with their links followed (<see cref="RealPath"/>).
+/// (Snail.MCP.FileSystem). With no volume, no named root is inside one, unless the server reaches any named root
+/// (<see cref="SessionRootsOptions.ReachesAnyNamedRoot"/>). Both sides are compared with their links followed
+/// (<see cref="RealPath"/>).
 /// </para>
 /// <para>
 /// Read on every question, from the request being served. A job that outlives its request reads nothing there: it takes
@@ -153,7 +170,7 @@ public sealed class SessionRootsOptions
 /// </para>
 /// </remarks>
 /// <param name="address">The address of the session.</param>
-/// <param name="volumes">The folders the server was configured to serve; empty when it serves whatever a session names.</param>
+/// <param name="volumes">The folders the server was configured to serve, which a named root must lie inside; empty when it was configured with none.</param>
 /// <param name="options">The server's own words; the fleet's when null.</param>
 public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> volumes, SessionRootsOptions? options = null)
 {
@@ -176,14 +193,14 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
     /// <summary>The roots the address named, as full paths, each once.</summary>
     public IReadOnlyList<string> Named => Paths(address.Values(Parameter));
 
-    /// <summary>Of the roots the address named, the ones outside every volume; none when no volume was configured.</summary>
+    /// <summary>Of the roots the address named, the ones outside every volume: each one there is when no volume was configured, unless the server reaches any named root.</summary>
     public IReadOnlyList<string> Outside
     {
         get
         {
-            var configured = Paths(volumes);
+            IReadOnlyList<string> configured = Paths(volumes);
 
-            return configured.Count == 0 ? [] : [.. Named.Where(root => FolderAt(root) is not null && !IsInside(root, configured))];
+            return [.. Named.Where(root => FolderAt(root) is not null && !IsInside(root, configured))];
         }
     }
 
@@ -387,7 +404,8 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
 
     private bool IsInside(string root, IReadOnlyList<string> configured) =>
         configured.Count == 0
-        || (RealPath.Of(root, disk: Disk) is { } real && configured.Any(volume => RealPath.Of(volume, disk: Disk) is { } inside && IsUnder(real, inside)));
+            ? options?.ReachesAnyNamedRoot == true
+            : (RealPath.Of(root, disk: Disk) is { } real && configured.Any(volume => RealPath.Of(volume, disk: Disk) is { } inside && IsUnder(real, inside)));
 
     /// <summary>Whether the path is the root or lies inside it; a sibling whose name only begins like the root's is not.</summary>
     /// <remarks>

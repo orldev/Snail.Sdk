@@ -134,6 +134,18 @@ public sealed class HttpSessionsTests
     }
 
     [Fact]
+    public async Task Door_TurnsAwayASessionThatNamesARoot_WhereNoVolumeIsConfigured()
+    {
+        var copy = TestFolder.Create();
+        await using var app = await StartAsync(builder => builder.WithLocalHttpTransport(), _ => []);
+
+        var (status, said) = await PostAsync(app, $"?root={copy}", origin: null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, status);
+        Assert.Equal($"this server is configured with no root, so it serves none a session names, {copy} among them: configure the server's roots", said);
+    }
+
+    [Fact]
     public async Task Door_TurnsAwayASessionWithNoRoot_WhereNoVolumeIsConfigured()
     {
         await using var app = await StartAsync(builder => builder.WithLocalHttpTransport(), _ => []);

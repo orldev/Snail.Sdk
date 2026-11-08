@@ -274,11 +274,20 @@ public sealed class McpEndpointTests
     {
         var everywhere = new Uri("http://0.0.0.0:8830/");
 
-        var byDefault = McpEndpoint.Read(Settings(new() { ["Port"] = "8840" }), everywhere, isHttpOnly: true, containerVariable: null, server: null);
-        var narrowed = McpEndpoint.Read(Settings(new() { ["Url"] = "http://127.0.0.1:8840/" }), everywhere, isHttpOnly: true, containerVariable: null, server: null);
+        var byDefault = McpEndpoint.Read(Settings(new() { ["Port"] = "8840" }), everywhere, isHttpOnly: true, containerVariable: null, server: null, Unrestricted);
+        var narrowed = McpEndpoint.Read(Settings(new() { ["Url"] = "http://127.0.0.1:8840/" }), everywhere, isHttpOnly: true, containerVariable: null, server: null, Unrestricted);
 
         Assert.Equal(new McpEndpoint(McpTransport.Http, new Uri("http://0.0.0.0:8840/"), ListensOnEveryInterface: true), byDefault);
         Assert.Equal(new McpEndpoint(McpTransport.Http, new Uri("http://127.0.0.1:8840/"), ListensOnEveryInterface: false) { UrlSetting = "Url" }, narrowed);
+    }
+
+    /// <summary>With Unrestricted the default, a keyless server that passed no options could be opened to the network by one setting.</summary>
+    [Fact]
+    public void Read_WithoutOptions_RefusesEveryInterfaceOnTheMachine()
+    {
+        var settings = Settings(new() { ["Url"] = "http://0.0.0.0:8840/" });
+
+        Assert.Throws<StartRefusedException>(() => McpEndpoint.Read(settings, Default, isHttpOnly: true, containerVariable: null, server: null));
     }
 
     [Theory]
@@ -475,6 +484,8 @@ public sealed class McpEndpointTests
 
     private static McpEndpoint Read(Dictionary<string, string?> values, string? fallbackSection = null, McpReach reach = McpReach.Unrestricted) =>
         McpEndpoint.Read(Settings(values), Default, isHttpOnly: false, containerVariable: null, server: null, new McpEndpointOptions { FallbackSection = fallbackSection, Reach = reach });
+
+    private static readonly McpEndpointOptions Unrestricted = new() { Reach = McpReach.Unrestricted };
 
     private static McpEndpoint ReadHttp(Dictionary<string, string?> values) => McpEndpoint.Read(Settings(values), Default, isHttpOnly: true, containerVariable: null, server: null);
 

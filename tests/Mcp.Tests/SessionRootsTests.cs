@@ -9,6 +9,40 @@ namespace Snail.Sdk.Mcp.Tests;
 /// <summary>The folders a session works in, every link on a path followed before it is judged.</summary>
 public sealed class SessionRootsTests
 {
+    /// <summary>The roots of a test that names its root and configures no volume: the path rules, not the volumes, are what it is about.</summary>
+    private static readonly SessionRootsOptions AnyNamedRoot = new() { ReachesAnyNamedRoot = true };
+
+    /// <summary>A server over HTTP with no volume served a session opened at ?root=/ the whole disk of its host.</summary>
+    [Fact]
+    public void Outside_OfARootNamedWhereNoVolumeIsConfigured_IsThatRoot()
+    {
+        var copy = TestFolder.Create();
+
+        var roots = new SessionRoots(new FixedAddress(("root", copy)), []);
+
+        Assert.Equal([copy], roots.Outside);
+    }
+
+    [Fact]
+    public void Reach_UnderARootNamedWhereNoVolumeIsConfigured_IsRefusedAsOutside()
+    {
+        var copy = TestFolder.Create();
+
+        var reached = new SessionRoots(new FixedAddress(("root", copy)), []).Reach("a.txt");
+
+        Assert.Equal(Reached.Outside, reached.Type);
+    }
+
+    [Fact]
+    public void Reach_UnderARootNamedWhereNoVolumeIsConfigured_IsAllowedAtAServerThatReachesAnyNamedRoot()
+    {
+        var copy = TestFolder.Create();
+
+        var reached = new SessionRoots(new FixedAddress(("root", copy)), [], AnyNamedRoot).Reach("a.txt");
+
+        Assert.True(reached.IsAllowed);
+    }
+
     [Fact]
     public void Roots_OfASessionThatNamesNone_AreTheVolumes()
     {
@@ -79,7 +113,7 @@ public sealed class SessionRootsTests
         var copy = TestFolder.Create();
         File.WriteAllText(Path.Combine(copy, "a.txt"), "a");
 
-        var reached = new SessionRoots(new FixedAddress(("root", copy)), []).Reach("a.txt");
+        var reached = new SessionRoots(new FixedAddress(("root", copy)), [], AnyNamedRoot).Reach("a.txt");
 
         Assert.True(reached.IsAllowed);
         Assert.Equal(Path.Combine(RealPath.Of(copy)!, "a.txt"), reached.Path);
@@ -90,7 +124,7 @@ public sealed class SessionRootsTests
     {
         var copy = TestFolder.Create();
 
-        var reached = new SessionRoots(new FixedAddress(("root", copy)), []).Reach("new/b.txt");
+        var reached = new SessionRoots(new FixedAddress(("root", copy)), [], AnyNamedRoot).Reach("new/b.txt");
 
         Assert.Equal(Path.Combine(RealPath.Of(copy)!, "new", "b.txt"), reached.Path);
     }
@@ -103,7 +137,7 @@ public sealed class SessionRootsTests
         File.WriteAllText(Path.Combine(elsewhere, "secret.txt"), "s");
         Directory.CreateSymbolicLink(Path.Combine(copy, "out"), elsewhere);
 
-        var reached = new SessionRoots(new FixedAddress(("root", copy)), []).Reach("out/secret.txt");
+        var reached = new SessionRoots(new FixedAddress(("root", copy)), [], AnyNamedRoot).Reach("out/secret.txt");
 
         Assert.False(reached.IsAllowed);
         Assert.StartsWith("'out/secret.txt' is outside this session, which works in", reached.Refusal, StringComparison.Ordinal);
@@ -117,7 +151,7 @@ public sealed class SessionRootsTests
         var elsewhere = TestFolder.Create();
         File.CreateSymbolicLink(Path.Combine(copy, "planted"), Path.Combine(elsewhere, "new.txt"));
 
-        var reached = new SessionRoots(new FixedAddress(("root", copy)), []).Reach("planted");
+        var reached = new SessionRoots(new FixedAddress(("root", copy)), [], AnyNamedRoot).Reach("planted");
 
         Assert.False(reached.IsAllowed);
     }
@@ -129,7 +163,7 @@ public sealed class SessionRootsTests
         var src = Directory.CreateDirectory(Path.Combine(copy, "src")).FullName;
         Directory.CreateSymbolicLink(Path.Combine(copy, "code"), "src");
 
-        var reached = new SessionRoots(new FixedAddress(("root", copy)), []).Reach("code/App.cs");
+        var reached = new SessionRoots(new FixedAddress(("root", copy)), [], AnyNamedRoot).Reach("code/App.cs");
 
         Assert.Equal(Path.Combine(RealPath.Of(src)!, "App.cs"), reached.Path);
     }
@@ -141,7 +175,7 @@ public sealed class SessionRootsTests
         File.CreateSymbolicLink(Path.Combine(copy, "a"), Path.Combine(copy, "b"));
         File.CreateSymbolicLink(Path.Combine(copy, "b"), Path.Combine(copy, "a"));
 
-        var reached = new SessionRoots(new FixedAddress(("root", copy)), []).Reach("a/x.txt");
+        var reached = new SessionRoots(new FixedAddress(("root", copy)), [], AnyNamedRoot).Reach("a/x.txt");
 
         Assert.False(reached.IsAllowed);
         Assert.Contains("cannot be followed", reached.Refusal, StringComparison.Ordinal);
@@ -155,7 +189,7 @@ public sealed class SessionRootsTests
 
         try
         {
-            var reached = new SessionRoots(new FixedAddress(("root", copy)), []).Reach(Path.Combine(sibling, "a.txt"));
+            var reached = new SessionRoots(new FixedAddress(("root", copy)), [], AnyNamedRoot).Reach(Path.Combine(sibling, "a.txt"));
 
             Assert.False(reached.IsAllowed);
         }
@@ -171,8 +205,8 @@ public sealed class SessionRootsTests
     {
         var copy = TestFolder.Create();
 
-        var named = new SessionRoots(new FixedAddress(("root", $"{copy}\0x")), []).Named;
-        var reached = new SessionRoots(new FixedAddress(("root", copy)), []).Reach("a\0b");
+        var named = new SessionRoots(new FixedAddress(("root", $"{copy}\0x")), [], AnyNamedRoot).Named;
+        var reached = new SessionRoots(new FixedAddress(("root", copy)), [], AnyNamedRoot).Reach("a\0b");
 
         Assert.Empty(named);
         Assert.False(reached.IsAllowed);
@@ -191,7 +225,7 @@ public sealed class SessionRootsTests
     public void Relative_OfAReachedPath_IsRelativeToTheFirstRoot()
     {
         var copy = TestFolder.Create();
-        var roots = new SessionRoots(new FixedAddress(("root", copy)), []);
+        var roots = new SessionRoots(new FixedAddress(("root", copy)), [], AnyNamedRoot);
 
         var reached = roots.Reach("src/App.cs");
 
@@ -497,7 +531,7 @@ public sealed class SessionRootsTests
         var elsewhere = TestFolder.Create();
         File.WriteAllText(Path.Combine(root, "notes.txt"), "n");
         File.CreateSymbolicLink(Path.Combine(root, "loop"), Path.Combine(root, "loop"));
-        var roots = new SessionRoots(new FixedAddress(("root", root)), []);
+        var roots = new SessionRoots(new FixedAddress(("root", root)), [], AnyNamedRoot);
 
         Assert.Equal(Reached.Outside, roots.Reach(Path.Combine(elsewhere, "a.txt")).Type);
         Assert.Equal(Reached.NoPath, roots.Reach(" ").Type);
@@ -515,7 +549,7 @@ public sealed class SessionRootsTests
     public void Refusal_IsAFailedAnswer_WithItsWordsHintAndKind_AndTheCheckTellsTheCompilerWhichIsThere()
     {
         var root = TestFolder.Create();
-        var roots = new SessionRoots(new FixedAddress(("root", root)), []);
+        var roots = new SessionRoots(new FixedAddress(("root", root)), [], AnyNamedRoot);
         var refused = roots.Reach("missing.txt", PathKind.File);
         var allowed = roots.Reach("new.txt");
 
@@ -546,7 +580,7 @@ public sealed class SessionRootsTests
         var root = TestFolder.Create();
         var elsewhere = TestFolder.Create();
 
-        var outside = new SessionRoots(new StatelessAddress(("root", root)), []).Reach(Path.Combine(elsewhere, "a.txt"));
+        var outside = new SessionRoots(new StatelessAddress(("root", root)), [], AnyNamedRoot).Reach(Path.Combine(elsewhere, "a.txt"));
         var unrooted = new SessionRoots(new StatelessAddress(), []).Reach("a.txt");
 
         Assert.StartsWith("'", outside.Refusal, StringComparison.Ordinal);
@@ -562,9 +596,9 @@ public sealed class SessionRootsTests
         var second = TestFolder.Create();
         var elsewhere = Path.Combine(TestFolder.Create(), "a.txt");
 
-        var named = new SessionRoots(new StatelessAddress(("root", first), ("root", second)), []).Reach(elsewhere);
+        var named = new SessionRoots(new StatelessAddress(("root", first), ("root", second)), [], AnyNamedRoot).Reach(elsewhere);
         var served = new SessionRoots(new StatelessAddress(), [first]).Reach(elsewhere);
-        var session = new SessionRoots(new FixedAddress(("root", first)), []).Reach(elsewhere);
+        var session = new SessionRoots(new FixedAddress(("root", first)), [], AnyNamedRoot).Reach(elsewhere);
 
         Assert.Equal($"'{elsewhere}' is outside this request's roots {first}, {second}, which its address names", named.Refusal);
         Assert.Equal($"'{elsewhere}' is outside this server's root {first}", served.Refusal);
@@ -594,7 +628,7 @@ public sealed class SessionRootsTests
     {
         var root = TestFolder.Create();
         var disk = new FailingDisk { LinkTarget = _ => throw new IOException("the share did not answer") };
-        var roots = new SessionRoots(new FixedAddress(("root", root)), [], new SessionRootsOptions { Disk = disk });
+        var roots = new SessionRoots(new FixedAddress(("root", root)), [], new SessionRootsOptions { Disk = disk, ReachesAnyNamedRoot = true });
 
         var reached = roots.Reach("a.txt", PathKind.File);
 
@@ -609,7 +643,7 @@ public sealed class SessionRootsTests
     {
         var root = TestFolder.Create();
         var disk = new FailingDisk { IsFile = _ => throw new UnauthorizedAccessException("access denied") };
-        var roots = new SessionRoots(new FixedAddress(("root", root)), [], new SessionRootsOptions { Disk = disk });
+        var roots = new SessionRoots(new FixedAddress(("root", root)), [], new SessionRootsOptions { Disk = disk, ReachesAnyNamedRoot = true });
 
         var reached = roots.Reach("a.txt", PathKind.File);
 
@@ -623,7 +657,7 @@ public sealed class SessionRootsTests
         var root = TestFolder.Create();
         var asked = 0;
         var disk = new FailingDisk { IsFolder = _ => ++asked == 1 };
-        var roots = new SessionRoots(new FixedAddress(("root", root)), [], new SessionRootsOptions { Disk = disk });
+        var roots = new SessionRoots(new FixedAddress(("root", root)), [], new SessionRootsOptions { Disk = disk, ReachesAnyNamedRoot = true });
 
         var absent = roots.Absent;
         var reached = roots.Reach(root, PathKind.Folder);
@@ -639,7 +673,7 @@ public sealed class SessionRootsTests
         var root = TestFolder.Create();
         var disk = new FailingDisk { IsFolder = _ => throw new IOException("stale handle") };
 
-        var roots = new SessionRoots(new FixedAddress(("root", root)), [], new SessionRootsOptions { Disk = disk });
+        var roots = new SessionRoots(new FixedAddress(("root", root)), [], new SessionRootsOptions { Disk = disk, ReachesAnyNamedRoot = true });
 
         Assert.Equal([root], roots.Unreadable);
         Assert.True(roots.IsUnreadable);
@@ -667,7 +701,7 @@ public sealed class SessionRootsTests
     {
         var root = TestFolder.Create();
 
-        var roots = new SessionRoots(new FixedAddress(("root", root), ("root", Path.Combine(root, "missing"))), []);
+        var roots = new SessionRoots(new FixedAddress(("root", root), ("root", Path.Combine(root, "missing"))), [], AnyNamedRoot);
 
         Assert.Empty(roots.Unreadable);
         Assert.False(roots.IsUnreadable);
@@ -688,7 +722,7 @@ public sealed class SessionRootsTests
 
         try
         {
-            var reached = new SessionRoots(new FixedAddress(("root", root)), []).Reach("locked/a.txt", PathKind.File);
+            var reached = new SessionRoots(new FixedAddress(("root", root)), [], AnyNamedRoot).Reach("locked/a.txt", PathKind.File);
 
             Assert.Equal(Environment.IsPrivilegedProcess ? null : Reached.Unreadable, reached.Type);
         }
@@ -705,7 +739,7 @@ public sealed class SessionRootsTests
         var root = TestFolder.Create();
         File.WriteAllText(Path.Combine(root, "a.txt"), "a");
 
-        var reached = new SessionRoots(new FixedAddress(("root", root)), []).Reach("a.txt/inner", PathKind.File);
+        var reached = new SessionRoots(new FixedAddress(("root", root)), [], AnyNamedRoot).Reach("a.txt/inner", PathKind.File);
 
         Assert.Equal(Reached.Absent, reached.Type);
     }
@@ -718,7 +752,7 @@ public sealed class SessionRootsTests
         var elsewhere = RealPath.Of(TestFolder.Create())!;
         var link = Path.Combine(root, "out");
         var disk = new FailingDisk { LinkTarget = path => path == link ? elsewhere : null };
-        var roots = new SessionRoots(new FixedAddress(("root", root)), [], new SessionRootsOptions { Disk = disk });
+        var roots = new SessionRoots(new FixedAddress(("root", root)), [], new SessionRootsOptions { Disk = disk, ReachesAnyNamedRoot = true });
 
         var reached = roots.Reach("out/secret.txt");
 

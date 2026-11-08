@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using Snail.Sdk.Mcp.Hosting.Answers;
 using Snail.Sdk.Mcp.Hosting.Jobs;
 
 namespace Snail.Sdk.Mcp.Tests;
@@ -155,6 +156,69 @@ public sealed class JobsTests
         Assert.Equal("no scene", failed.Message);
         Assert.Equal(JobState.Cancelled, stopped.State);
         Assert.Null(stopped.Result);
+    }
+
+    [Fact]
+    public async Task Job_WhoseWorkAnswersASuccess_SucceedsWithTheValueAsItsResult()
+    {
+        var jobs = new Jobs("sample");
+
+        var job = jobs.Start("echo", (_, _) => Task.FromResult(Answer.Ok(new Outcome("built"))), SampleJson.Default.Outcome);
+        var report = await job.Completion.WaitAsync(Patience);
+
+        Assert.Equal(JobState.Succeeded, report.State);
+        Assert.Equal("built", report.Result!.Value.GetProperty("text").GetString());
+        Assert.Null(report.Hint);
+        Assert.Null(report.Type);
+    }
+
+    /// <summary>A failure kept as the result of a succeeded job read as work done — to the resource, the client and the tool (Snail.MCP.BuildBridge over a dropped SSH).</summary>
+    [Fact]
+    public async Task Job_WhoseWorkAnswersAFailure_FailsWithItsErrorHintAndType()
+    {
+        var jobs = new Jobs("sample");
+
+        var job = jobs.Start("build", "task-1", async (progress, _) =>
+        {
+            progress.Report(new JobProgress(0.5, What: "delivering"));
+            await Task.Yield();
+
+            return Answer.Failed<Outcome>("The host did not answer over ssh.", "Check Remote Login.", "unreachable");
+        }, SampleJson.Default.Outcome);
+        var report = await job.Completion.WaitAsync(Patience);
+
+        Assert.Equal(JobState.Failed, report.State);
+        Assert.Equal("The host did not answer over ssh.", report.Message);
+        Assert.Equal("Check Remote Login.", report.Hint);
+        Assert.Equal("unreachable", report.Type);
+        Assert.Null(report.Result);
+        Assert.Equal(0.5, report.Progress);
+        Assert.Equal(report, JobReport.FromJson(report.ToJson()));
+    }
+
+    [Fact]
+    public async Task Report_WritesHintAndTypeOnlyWhenTheyHaveAValue()
+    {
+        var jobs = new Jobs("sample");
+
+        var failed = await jobs.Start("bad", (_, _) => Task.FromResult(Answer.Failed<Outcome>("No.", type: "refused")), SampleJson.Default.Outcome).Completion.WaitAsync(Patience);
+        var thrown = await jobs.Start("bad", (_, _) => Task.FromException<Outcome>(new InvalidOperationException("no scene")), SampleJson.Default.Outcome).Completion.WaitAsync(Patience);
+
+        Assert.EndsWith("\"message\":\"No.\",\"type\":\"refused\"}", failed.ToJson(), StringComparison.Ordinal);
+        Assert.DoesNotContain("hint", thrown.ToJson(), StringComparison.Ordinal);
+        Assert.DoesNotContain("type", thrown.ToJson(), StringComparison.Ordinal);
+    }
+
+    /// <summary>A report written before the hint and type existed, or by another server, reads as it did.</summary>
+    [Fact]
+    public void Report_WithoutHintAndType_ReadsAsBefore_AndOneWithFieldsUnknown_Too()
+    {
+        var old = JobReport.FromJson("""{"uri":"job://a/b/1","state":"failed","startedAt":"1970-01-01T00:00:00+00:00","message":"boom"}""");
+        var newer = JobReport.FromJson("""{"uri":"job://a/b/1","state":"failed","startedAt":"1970-01-01T00:00:00+00:00","message":"boom","hint":"h","type":"t","more":1}""");
+
+        Assert.Equal(JobState.Failed, old!.State);
+        Assert.Null(old.Hint);
+        Assert.Equal(("h", "t"), (newer!.Hint, newer.Type));
     }
 
     /// <summary>A stdio server exits with its client: a job still running when the host stops is cancelled, not left behind.</summary>

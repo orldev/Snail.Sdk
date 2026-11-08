@@ -7,9 +7,11 @@ using Microsoft.Extensions.Hosting;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using Snail.Sdk.Mcp.Hosting.Answers;
 using Snail.Sdk.Mcp.Hosting.Jobs;
 using Snail.Sdk.Mcp.Http;
 using Snail.Sdk.Mcp.JobClient;
+using Snail.Sdk.Mcp.Testing;
 
 namespace Snail.Sdk.Mcp.Tests;
 
@@ -61,6 +63,23 @@ public sealed class JobClientTests
 
         Assert.Equal(JobState.Succeeded, report.State);
         Assert.Equal("now", report.Result!.Value.GetProperty("text").GetString());
+    }
+
+    /// <summary>A job whose work answered a failure is awaited to its end and read as failed, with what the failure said.</summary>
+    [Fact]
+    public async Task CallJob_WhoseWorkAnswersAFailure_EndsFailedWithItsHintAndType()
+    {
+        await using var stand = await StreamStand.StartAsync("2025-11-25");
+
+        var report = await stand.Client.CallJobAsync("sample_refused", new Dictionary<string, object?> { ["text"] = "x" }).WaitAsync(Patience);
+        var answered = await stand.Client.CallToolAsync("sample_refused", new Dictionary<string, object?> { ["text"] = "x" }).AsTask().WaitAsync(Patience);
+
+        Assert.Equal(JobState.Failed, report.State);
+        Assert.Equal("Nothing to echo in 'x'.", report.Message);
+        Assert.Equal("Send a longer text.", report.Hint);
+        Assert.Equal("tooShort", report.Type);
+        Assert.True(answered.IsError);
+        Assert.Equal("Send a longer text.", answered.Hint());
     }
 
     /// <summary>A notification the transport lost costs a wait of the fallback, never a hang: the resource is read again on its own.</summary>
@@ -266,6 +285,20 @@ public sealed class SampleJobTools(Jobs jobs)
         var report = await job.ForAsync(TimeSpan.FromSeconds(wait), cancellationToken);
 
         return JobAnswer.Of(report, ended => new CallToolResult { Content = [new TextContentBlock { Text = ended.IsRunning ? "still echoing" : $"echoed: {ended.Result!.Value.GetProperty("text").GetString()}" }] });
+    }
+
+    [McpServerTool(Name = "sample_refused"), Description("Refuses to echo a text, as a job that fails.")]
+    public async Task<CallToolResult> RefusedAsync([Description("What to echo.")] string text, [Description("Seconds to wait for the result.")] int wait = 60, CancellationToken cancellationToken = default)
+    {
+        var job = jobs.Start("refused", async (_, token) =>
+        {
+            await Task.Delay(100, token);
+
+            return Answer.Failed<Outcome>($"Nothing to echo in '{text}'.", "Send a longer text.", "tooShort");
+        }, SampleJson.Default.Outcome);
+        var report = await job.ForAsync(TimeSpan.FromSeconds(wait), cancellationToken);
+
+        return JobAnswer.Result(report);
     }
 
     [McpServerTool(Name = "sample_quick"), Description("Echoes the text at once, as a job already ended.")]

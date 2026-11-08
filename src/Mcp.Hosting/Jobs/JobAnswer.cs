@@ -31,6 +31,7 @@ public static class JobAnswer
     /// <summary>The job as the envelope every answer is: the report as the data of the text, and as the structured content.</summary>
     /// <param name="report">The job as it stands: ended within the wait, or still running.</param>
     /// <param name="beside">Fields the tool adds to the data of the text — a note, where to look next; a field of the report's own name replaces it there.</param>
+    /// <param name="hint">What to do about a job that failed or was cancelled, when its report carries no hint of its own: start it again, read its log.</param>
     /// <remarks>
     /// <para>
     /// The structured content stays the report alone, whatever goes beside it, since that is what a client of
@@ -38,25 +39,73 @@ public static class JobAnswer
     /// </para>
     /// <para>
     /// A job that failed or was cancelled within the wait answers as a failure — <c>ok</c> false, its message as the
-    /// error, <c>failed</c> or <c>cancelled</c> as the type, the report still the data — and flagged an error. It answered
-    /// <c>ok</c> true at first, and a model reads that as the work having been done (the s3l-mcp template, 0.5.0). Unlike
-    /// other failures it keeps the report as its structured content: a job's tool has no output schema to break, and
-    /// the job client finds the report nowhere else. A running job is no failure: it answers as a success with its URI.
+    /// error, the hint and type of the answer its work failed with (<c>failed</c> when it named none, <c>cancelled</c> for
+    /// a cancelled one), the report still the data — and flagged an error. It answered <c>ok</c> true at first, and a model
+    /// reads that as the work having been done (the s3l-mcp template, 0.5.0). Unlike other failures it keeps the report as
+    /// its structured content: a job's tool has no output schema to break, and the job client finds the report nowhere
+    /// else. A running job is no failure: it answers as a success with its URI.
     /// </para>
     /// </remarks>
-    public static CallToolResult Envelope(JobReport report, JsonObject? beside = null)
+    public static CallToolResult Envelope(JobReport report, JsonObject? beside = null, string? hint = null)
     {
         ArgumentNullException.ThrowIfNull(report);
 
+        return Told(report, ReportWith(report, beside), hint);
+    }
+
+    /// <summary>
+    /// The job as the answer its tool gives when the tool's answer is the work's result: once it succeeded, the result
+    /// itself as the data; once it failed, the failure its work answered; while it runs, the report with
+    /// <paramref name="running"/> beside it. The report is the structured content throughout.
+    /// </summary>
+    /// <param name="report">The job as it stands: ended within the wait, or still running.</param>
+    /// <param name="running">Fields added to the report while the job runs — a note, the file it will write; a field of the report's own name replaces it there.</param>
+    /// <param name="hint">What to do about a job that failed or was cancelled, when its report carries no hint of its own.</param>
+    /// <remarks>
+    /// <para>
+    /// For a tool whose answer was its work's before the work became a job: a raise answers the environment, an export
+    /// the file it wrote, whether the client waited or read the job later. With the work started as an
+    /// <c>Answer&lt;T&gt;</c> (<see cref="Jobs.Start{T}(string, string?, Func{IProgress{JobProgress}, CancellationToken, Task{Answer{T}}}, System.Text.Json.Serialization.Metadata.JsonTypeInfo{T})"/>),
+    /// a failure ends the job failed with its hint and type, and is answered as the failure it is — <c>ok</c> false and
+    /// flagged an error, never a success whose data says <c>ok</c> false. Snail.MCP.E2E and Snail.MCP.Connector kept the
+    /// envelope as the job's result and parsed it back to answer it.
+    /// </para>
+    /// <para>
+    /// A failed or cancelled job answers as <see cref="Envelope"/> does, the report as its data. A job that succeeded with
+    /// no result does too, since there is nothing else to answer with.
+    /// </para>
+    /// </remarks>
+    public static CallToolResult Result(JobReport report, JsonObject? running = null, string? hint = null)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+
+        if (report.State == JobState.Succeeded && report.Result is { ValueKind: not JsonValueKind.Null and not JsonValueKind.Undefined } result)
+        {
+            var answer = ToolAnswer.Ok(result, ToolAnswer.ElementInfo, AnswerShape.None);
+            answer.StructuredContent = JsonSerializer.SerializeToElement(report, JobJson.Default.JobReport);
+
+            return answer;
+        }
+
+        return Told(report, ReportWith(report, report.IsRunning ? running : null), hint);
+    }
+
+    private static JsonObject ReportWith(JobReport report, JsonObject? beside)
+    {
         var data = JsonSerializer.SerializeToNode(report, JobJson.Default.JobReport)!.AsObject();
 
         foreach (var (name, value) in beside ?? [])
             data[name] = value?.DeepClone();
 
+        return data;
+    }
+
+    private static CallToolResult Told(JobReport report, JsonObject data, string? hint)
+    {
         var answer = report.State switch
         {
-            JobState.Failed => ToolAnswer.Failed(report.Message ?? JobFailed, type: "failed", data: data),
-            JobState.Cancelled => ToolAnswer.Failed(JobCancelled, type: "cancelled", data: data),
+            JobState.Failed => ToolAnswer.Failed(report.Message ?? JobFailed, report.Hint ?? hint, report.Type ?? Failed, data),
+            JobState.Cancelled => ToolAnswer.Failed(JobCancelled, report.Hint ?? hint, Cancelled, data),
             _ => ToolAnswer.Ok(data, AnswerShape.None)
         };
 
@@ -64,6 +113,10 @@ public static class JobAnswer
 
         return answer;
     }
+
+    private const string Failed = "failed";
+
+    private const string Cancelled = "cancelled";
 
     private const string JobFailed = "The job failed.";
 

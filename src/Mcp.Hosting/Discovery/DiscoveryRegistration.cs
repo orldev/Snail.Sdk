@@ -24,7 +24,7 @@ public static class DiscoveryRegistration
         /// schemas when the tool is called, or <see cref="DiscoveryOptions.Catalog"/>. A tool the session may not call is
         /// left out (<see cref="Sessions.IToolGate"/>). <c>intent</c> is taken for <c>task</c>. With
         /// <see cref="WithSkills"/>, each tool carries its <c>skill</c> and <c>isLoaded</c>, and <c>enable: true</c> loads the
-        /// skills of the tools found. The answer is <see cref="Answers.ToolAnswer.Ok"/> of
+        /// skills of the tools found. The answer is <see cref="Answers.ToolAnswer.Ok(System.Text.Json.Nodes.JsonNode)"/> of
         /// <c>{task, isMatched, note, tools:[{name, command, description, parameters:[{name, type, isRequired, description}]}]}</c>.
         /// </para>
         /// <para>Called twice, it registers once.</para>
@@ -76,7 +76,7 @@ public static class DiscoveryRegistration
         /// <remarks>
         /// <para>
         /// Without it, a missing parameter reaches the client as the MCP SDK's "An error occurred invoking …", and a
-        /// parameter the tool does not take is dropped without a word. The refusal is <see cref="Answers.ToolAnswer.Failed"/>
+        /// parameter the tool does not take is dropped without a word. The refusal is <see cref="Answers.ToolAnswer.Failed(string, string, string, System.Text.Json.Nodes.JsonNode)"/>
         /// with <c>type</c> <c>arguments</c> and what the tool takes as the hint; a guess is offered within a third of the
         /// name's length in edits, or when the name is a short form of a parameter (<c>timeout</c> for
         /// <c>timeoutSeconds</c>), and none for a word like nothing the tool takes.

@@ -13,7 +13,7 @@ public enum JobState
     /// <summary>The work ended with its result.</summary>
     Succeeded,
 
-    /// <summary>The work threw; <see cref="JobReport.Message"/> says what.</summary>
+    /// <summary>The work threw, or answered a failure; <see cref="JobReport.Message"/> says what, and <see cref="JobReport.Hint"/> and <see cref="JobReport.Type"/> what the answer added.</summary>
     Failed,
 
     /// <summary>The work was cancelled, by a tool or because the server stopped.</summary>
@@ -37,6 +37,12 @@ internal sealed class JobStateJson : JsonStringEnumConverter<JobState>
 /// <param name="Progress">How far it has got, 0 to 1, while the work reports it.</param>
 /// <param name="Message">The last step the work reported, or why it failed.</param>
 /// <param name="Result">The outcome, in the job's own type, once it succeeded.</param>
+/// <remarks>
+/// A job whose work answers an <c>Answer&lt;T&gt;</c> ends failed when the answer is a failure: its error is the
+/// <see cref="Message"/>, and its hint and type are <see cref="Hint"/> and <see cref="Type"/>, which the JSON leaves out
+/// while they are null — a report written before they existed reads the same, and a client that does not know them
+/// skips them.
+/// </remarks>
 public sealed record JobReport(
     string Uri,
     JobState State,
@@ -46,6 +52,12 @@ public sealed record JobReport(
     string? Message,
     JsonElement? Result)
 {
+    /// <summary>What to do about the failure, when the answer the work failed with said.</summary>
+    public string? Hint { get; init; }
+
+    /// <summary>The kind of failure, a word a program can branch on, when the answer the work failed with named one.</summary>
+    public string? Type { get; init; }
+
     /// <summary>Whether the work is still running.</summary>
     [JsonIgnore]
     public bool IsRunning => State == JobState.Running;

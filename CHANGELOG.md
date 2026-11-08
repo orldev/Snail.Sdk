@@ -32,25 +32,57 @@ A change that a repository must act on says what to do.
   (`AnswerShape.Envelope`, for tools with an output schema) or none (`AnswerShape.None`). `Answer<T>` with
   `Answer.Ok(value)` and `Answer.Failed<T>(error, hint, type)` is the value-or-why a server's application layer returns;
   success is `IsSuccess`, its error being null, never its value being set — `Value is { }` holds for a failed
-  `Answer<bool>` too. `ToolAnswer.IsFailure(result)` tells the failure envelope by its top-level `ok`;
+  `Answer<bool>` too. `IsSuccess` tells the compiler a failure has its `Error`, and `answer.TryGet(out var value)` hands
+  the value over as nullable as `T` is — no attribute vouches for `Value` itself, since an `Answer<string?>` may succeed
+  with null — so neither `Error!` nor `Value!` is written after the check. `answer.As<TOther>()` carries a failure on as
+  an answer of another type with its error, hint and type (it throws on a success), `answer.Map(f)` makes a success's
+  value another and carries a failure as it is, and `ToolAnswer.Failed(answer, data)` answers a failure whole — the
+  fleet copied the three fields by hand in some thirty places and left the type behind. `ToolAnswer.From(answer)` takes
+  an `Answer` of a `JsonNode` without a mapper. `ToolAnswer.Ok(data, typeInfo, shape)` writes typed data from its
+  generated type straight into the text, with no tree of nodes in between, the structured content read from the same
+  bytes (Snail.MCP.Sandbox answers runs of up to 32 MB). `ToolAnswer.Text(result)` is the envelope a result carries,
+  for an answer that travels outside a tool result — an HTTP door that refuses in a tool's words — and
+  `ToolAnswer.Of(envelope)` answers a stored envelope again by the same rules, a failure text alone and `isError`.
+  `ToolAnswer.Ok(data)` and `Ok(data, shape)` are two overloads beside the typed ones. `ToolAnswer.IsFailure(result)` tells the failure envelope by its top-level `ok`;
   `ToolAnswer.Word(value, WordCase.Lower | WordCase.Camel)` spells an enum value (`inprogress`, `inProgress`);
   `ToolAnswer.Moment(at)` a moment, round-trip and invariant; `ToolAnswer.Wire` are the options and
   `ToolAnswer.ObjectInfo` the generated `JsonObject`, AOT-safe. To adopt: delete the server's `ToolResponse` envelope
   methods, `Answer` record and the `JsonSerializerContext` it kept only for `JsonObject` (`AnswerJson`, `E2EJson`,
   `ConnectorJson`), call `ToolAnswer` instead, pass `ToolAnswer.ObjectInfo` to `Jobs.Start` for a `JsonObject` result,
   and expect `"hint":null` to be gone from the text. A server whose bridge errors carried `data.type` (AfterEffects,
-  Blender) passes `type:` and says `type` instead of `data.type` in its instructions.
+  Blender) passes `type:` and says `type` instead of `data.type` in its instructions. Each server keeps its mappers from
+  domain records to the fields of `data` in one static class of its `Tools`, `AnswerFields`, an overload per record
+  (`AnswerFields.Of(report)`), passed to `ToolAnswer.From` and `Answer.Map`; a name ending in `Data` is S3L0006's.
 - `.ExplainFailures()` on `IMcpServerBuilder`: a tool that throws is answered with the failure envelope — its message, a
   hint, `type` `internal` — and logged once with its trace, instead of the MCP SDK's bare "An error occurred invoking
   …"; and a result whose text is the envelope with `ok` false but no `isError` — a tool that returns the envelope as a
   string — is flagged. It goes first among the call filters wherever it is called; a call its client cancelled stays
   cancelled, and an `McpProtocolException` stays a protocol error. A server with a filter of its own for either
-  (Snail.MCP.Documents' `ExplainFailures`, Snail.MCP.Figma's `FlagFailures`) calls this instead.
-- `JobAnswer.Envelope(report, beside)`: a job in the envelope — the report as the text's data, with the fields of
+  (Snail.MCP.Documents' `ExplainFailures`, Snail.MCP.Figma's `FlagFailures`) calls this instead. A call whose arguments
+  the MCP SDK could not bind — a value of the wrong kind, a word its enum lacks, a required parameter left out — never
+  reached the tool and is answered `type` `arguments`, the parameter named when the tool's input schema shows which and
+  what the tool takes as the hint, and not logged as the server's failure: "internal, try once more" had the model
+  repeat the call as it was. The exception's kind alone proves nothing, since a tool throws the same ones: the call is
+  held against the schema, and else against a trace through the SDK's parameter marshalling; anything else stays
+  `internal`. `.ExplainFailures(options => …)` words a failure nobody foresaw — `FailureOptions.Error` from the tool's
+  name and the exception, `FailureOptions.Hint` — for a server whose failures named the tool (Snail.MCP.Documents).
+- `JobAnswer.Envelope(report, beside, hint)`: a job in the envelope — the report as the text's data, with the fields of
   `beside` added there, and the report alone as the structured content a client of `Snail.Sdk.Mcp.JobClient` reads.
   Replaces `ToolResponse.Job(report)` of Snail.MCP.Security, BuildBridge, AfterEffects and Blender. A job that failed or
-  was cancelled within the wait answers as a failure (`ok` false, type `failed` or `cancelled`, flagged an error) and
-  still carries its report, so a model does not read a failed job as work done.
+  was cancelled within the wait answers as a failure (`ok` false, the report's hint or else `hint`, its type or else
+  `failed` or `cancelled`, flagged an error) and still carries its report, so a model does not read a failed job as work
+  done.
+- Work that ends in an `Answer<T>` ends its job as the answer says: `Jobs.Start(kind, [owner,] work, typeInfo)` with
+  work returning `Task<Answer<T>>` succeeds with the value as the result, and fails with the answer's error as the
+  `Message` and its hint and type as `JobReport.Hint` and `JobReport.Type` — new `init` properties the JSON leaves out
+  while null, so a report reads the same both ways and the job client gets them. BuildBridge ended such a job succeeded
+  with `{"ok":false,…}` as its result, read as done by the resource, the client and the tool (a build over a dropped
+  SSH); E2E and Connector kept the whole envelope as the result and parsed it back. `JobAnswer.Result(report, running,
+  hint)` answers a tool whose answer is its work's: the result itself as the data once the job succeeded, the failure
+  its work answered once it failed — `ok` false and flagged — and the report with `running` beside it while it runs,
+  the report the structured content throughout. A server drops its `Outcome`, `Said`/`Told` and envelope-parsing
+  helpers: `jobs.Start(kind, async (p, t) => (await work(p, t)).Map(AnswerFields.Of), ToolAnswer.ObjectInfo)` and
+  `JobAnswer.Envelope(report)` or `JobAnswer.Result(report, running)`.
 - `Snail.Sdk.Mcp.Testing` reads the envelope: `answer.IsOk()`, `Data()`, `Error()`, `Hint()` and `Report()` (the job's
   report in the structured content), failing with the text when it is not the envelope. A test that parsed the text
   itself (`ReportOf`, its own `Ok`/`Data` readers) uses these. The package now depends on `Snail.Sdk.Mcp.Hosting`.

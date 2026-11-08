@@ -64,6 +64,15 @@ A change that a repository must act on says what to do.
   for `var` and `Task.FromResult`. A failure carries what the work learned before it stopped as `Details`, JSON that
   goes on with it through `As` and `Map` and is answered as the failure's `data` by `ToolAnswer.From` and
   `ToolAnswer.Failed(answer)` (Playwright's `Stopped`, Git's `SequenceRun`), and as the result of a failed job.
+  A layer that holds no JSON mapper hands its details on as they are, `Answer.Failed(…).WithDetails(duplicate)`, and the
+  tool writes them with its own: `ToolAnswer.From<T, TDetails>(answer, data, details)` (and with a `shape`) answers a
+  failure whose details are a `TDetails` with `details(value)` as its `data`, any other with its JSON `Details`;
+  `answer.TryGetDetails<TDetails>(out var value)` reads them back in a test of the layer, and they go on through `As`
+  and `Map`. A `JsonNode` given is the JSON `Details` itself; a tool that maps nothing — `From(answer, data)`,
+  `Failed(answer)`, a failed job — answers the JSON alone. Snail.MCP.Memory passed `duplicateOf`, a mapper, down to
+  `RecordLifecycle.RememberAsync` for this: it drops the parameter, returns
+  `Answer.Failed(Messages.DuplicateFound(…), Messages.DuplicateFoundHint, Refusals.Duplicate).WithDetails(duplicate)`,
+  and `remember` answers `ToolAnswer.From<Remembered, ScoredRecord>(answer, AnswerFields.Of, AnswerFields.Of)`.
   `answer.As<TOther>()` carries a failure on as
   an answer of another type with its error, hint and type (it throws on a success), `answer.Map(f)` makes a success's
   value another and carries a failure as it is, and `ToolAnswer.Failed(answer, data)` answers a failure whole — the
@@ -333,6 +342,12 @@ A change that a repository must act on says what to do.
     follows a link whose target does not exist yet, which every fleet copy took for the end of the path — a write
     through such a link landed outside the root. `SessionAddress.None` is the address of a program, for a benchmark or a
     test that builds `SessionRoots` by hand: Snail.MCP.Documents drops its benchmark's `NoAddress`.
+  - A path outside the roots is refused in words that follow where the roots came from. A session is told, as before,
+    "'x' is outside this session, which works in /copy"; a request on a transport that keeps no sessions, which works
+    in nothing, "'x' is outside this request's root /copy, which its address names" for the roots its `?root=` named,
+    and "'x' is outside this server's root /volume" for the volumes it falls back to. Snail.MCP.Roslyn's stateless
+    endpoint said "outside this request, which works in /copy", and its test was loosened to "is outside this"; it may
+    assert the whole sentence again.
   - `WorkspaceCopy.Of(root, workspaces, isTaskId)` is the common core of the three `SessionCopy`: the copy a root names
     under the workspaces folder and its task, or why it names none — `CopyRefusal.NoRoot` (blank or absent), `Outside`,
     `Malformed` (a `.` or `..` among its names) or `NotATask` — so a server maps the reason to its own words instead of
@@ -342,10 +357,25 @@ A change that a repository must act on says what to do.
     that is a value, read as `T?` — `int?`, a struct of the server's — gives a `WorkspaceCopy<T>` whose `Task` is the
     value itself, where it came out `Nullable<T>` and stayed so after `IsCopy` (Snail.MCP.E2E wrote `.Value` at every
     use).
+  - `copy.ToAnswer(refusal => …)` hands a copy on as an `Answer<WorkspacePlace<TTask>>`: `WorkspacePlace<TTask>(Task,
+    Path)` with both set, or the server's words for the reason — the failure typed by it (`noRoot`, `outside`,
+    `malformed`, `notATask`) unless the server's words name a type — where `WorkspaceCopy<TTask>` keeps `Task` and
+    `Path` nullable for a refusal and Snail.MCP.Security, Connector and E2E each wrote a `CopyPlace` to carry the copy.
+    To adopt, a `SessionCopy.Of` becomes `WorkspaceCopy.Of(root, workspaces, IsTaskId).ToAnswer(refusal => refusal ==
+    CopyRefusal.NoRoot ? Answer.Failed(Messages.NoCopy, Messages.NoCopyHint) : Answer.Failed(Messages.CopyOutside(root
+    ?? string.Empty, workspaces)))` returning `Answer<WorkspacePlace<string>>` (E2E's `WorkspacePlace<TaskEnvironment>`,
+    `copy.Environment` read as `copy.Task`), and `CopyPlace` goes; Security keeps its scan job's name as
+    `$"{ScanJob.Prefix}{place.Task}"`, an extension property over `WorkspacePlace<string>` where it reads better.
   - `JobOwners.TaskOfCopy(services => workspaces, isTaskId)` is the `ownerOf` of `.WithJobs(server, ownerOf)` for a
     server that owns its jobs by task — the task of the copy the session's address names, none for a session at no copy
     — which Snail.MCP.Security, Connector and E2E each wrote over their `SessionCopy`. A server that registers no
     `ISessionAddress` is told so rather than leaving every job to whoever holds its URI.
+  - `JobOwners.TaskOfCopy(services => workspaces, task, ownerOf)` owns the jobs of a server whose task is a type of its
+    own: the task read as `WorkspaceCopy.Of(root, workspaces, task)` reads it — a value among them, handed on as the
+    value — and the owner what `ownerOf` names it, the name its tools start jobs with, where the overload of an id gave
+    the folder's name whatever the server held. Snail.MCP.E2E may write
+    `JobOwners.TaskOfCopy(WorkspacesOf, TaskEnvironment.Of, environment => environment.Value)` and drop
+    `SessionCopy.IsTaskId`, which read the environment once only to throw it away.
 - `WithSessionAddress()` of `Snail.Sdk.Mcp.Http` reads the session's address from the query of each request;
   `WithLocalHttpTransport()` adds it by itself, and a server on the MCP SDK's default transport calls it beside
   `WithHttpTransport()` — before or after `RefuseWhatWasNotGranted()` and `WithSessionRoots()`, alike.
@@ -424,6 +454,16 @@ A change that a repository must act on says what to do.
     `ToolCatalog.Of(typeof(X))` reads one class without a server, for a guard test, and
     `ToolCatalog.Find(entries, task, limit, options)` ranks entries as `find_tool` does, so a server tests its words
     without a host (Git).
+  - `ToolCatalog.Of(services)` is the catalog `find_tool` searches, read from a server's services without a host: the
+    tool collection its registrations build — `find_tool`, `run_tools`, `run_program` and the skill tools among them,
+    with the descriptions the registrations fit — each entry with `DiscoveryOptions.CommandOf`, `ParameterOf` and
+    `Catalog` applied as `find_tool` applies them; and `ToolCatalog.Find(services, task, limit)` is what `find_tool`
+    would name for the task to a session that may call every tool, its options and its limit of one to twenty
+    included. `ToolCatalog.Of(typeof(X), …, commandOf)` names each entry's command too. A catalog of the server's
+    classes lacked the tools the `With…` registrations add and took no `commandOf`, so Snail.MCP.Git's test of its words
+    ranked a list `find_tool` never ranks. To adopt in Git, `FindToolTests.Found` becomes
+    `ToolCatalog.Find(services, task, limit)` over `new ServiceCollection()` with the server's registration built into
+    a provider, and its `Catalog` drops `entry with { Command = … }` for `commandOf:`.
   - `.WithToolSequences(options => …)` adds `run_tools(steps:[{tool, arguments}])`, `[Forwards]`: each step runs through
     `ToolForwarding.CallAsync`, so the grant holds and no forwarder is a step; the run stops at the first step that fails
     and answers its error, hint and type with the steps before it as data; each step's answer is unwrapped from its
@@ -458,6 +498,16 @@ A change that a repository must act on says what to do.
     client's `subscriptions/listen` stream from it. `IdleTimeout` unloads a skill unused that long, unless
     `IsBusy(skill, services)` says it is at work — a farm render with no call of its tools for an hour — and then it
     stays a whole timeout after. Nothing is built by reflection: the skills are read from `McpServerTool.Metadata`.
+  - The names `SkillOptions.SessionOf` gives and the MCP session ids are kept apart inside: a client whose key is named
+    like a session's id — or named empty, like the one set of the clients with neither — no longer shares its skills.
+    They shared one dictionary, so Snail.MCP.Blender wrote `client:` before every name, and Snail.MCP.AfterEffects,
+    which wrote nothing, was kept apart by luck. Blender may drop the prefix from its `SkillsOf`
+    (`$"client:{name}"` → `name`); nothing else changes.
+  - With skills, `find_tool`'s description names a `run_tools` the server registered itself as well: "this server's
+    own run_tools (see its description) runs them without loading", beside `run_program` where there is one. It named
+    `run_tools` only when it was the SDK's (`.WithToolSequences()`, whose steps are tools), so Snail.MCP.Blender's model,
+    whose `run_tools` sends the bridge's commands, never learned that it runs a skill's tools unloaded. Nothing to
+    change in a server.
 
   To adopt, a server deletes its `DiscoveryTools`, `ToolIndex`, `Vocabulary`, `ToolEntry`/`ToolArgument` and their
   guard test of tool classes (Git, FileSystem, Sandbox, CleanUp, Roslyn; Blender's and AfterEffects' `Discovery/ToolIndex`
@@ -545,11 +595,13 @@ A change that a repository must act on says what to do.
 
 ### Fixed
 
-- The API reference names a static extension member by the type it extends — `string? JobOwners.Session(IServiceProvider
-  services)` among the members of `HttpSessions` — where the row showed a bare static method of the class that declares
-  the `extension` block, and a reader looking for `JobOwners.Session` found nothing: the compiler marks nothing on such
-  a method, so the type is read from the block's marker. Nothing to change in a repository; its reference names them on
-  the next build with `-p:SnailReference=true`.
+- The API reference names a static extension member by the type it extends and lists it under that type —
+  `string? JobOwners.Session(IServiceProvider services)` in a section `static class JobOwners` of Snail.Sdk.Mcp.Http's
+  page, which says the class is declared in Snail.Sdk.Mcp.Hosting and the member in `HttpSessions`; under the type's own
+  section when the assembly declares it — where the row showed a bare static method of the class that declares the
+  `extension` block, and then the extended name among the members of `HttpSessions`, so a reader looking under
+  `JobOwners` found nothing: the compiler marks nothing on such a method, so the type is read from the block's marker.
+  Nothing to change in a repository; its reference lists them on the next build with `-p:SnailReference=true`.
 - `JobAnswer.Of(report, said)` flags a job that failed or was cancelled `isError` when `said` did not, as
   `JobAnswer.Envelope` and `JobAnswer.Result` do: a client that never reads the text learned the work was done
   (Snail.MCP.CodeContext).

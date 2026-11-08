@@ -54,6 +54,44 @@ public sealed class JobOwnersTests
         Assert.Contains("RefuseWhatWasNotGranted", refused.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>#125: the overload of an id always gave the folder's name; a server with a task type of its own names the owner itself.</summary>
+    [Fact]
+    public void Owner_OfAServersOwnTask_IsWhatTheServerNamesIt()
+    {
+        var ownerOf = JobOwners.TaskOfCopy(_ => "/workspaces", folder => IsTask(folder) ? new Ticket(folder.ToUpperInvariant()) : null, ticket => ticket.Id);
+        using var copy = Services(new FixedAddress((SessionRoots.Parameter, "/workspaces/task-1/step-3")));
+        using var elsewhere = Services(new FixedAddress((SessionRoots.Parameter, "/etc")));
+
+        Assert.Equal("TASK-1", ownerOf(copy));
+        Assert.Null(ownerOf(elsewhere));
+    }
+
+    /// <summary>A task that is a value reaches the owner as the value itself, not Nullable (Snail.MCP.E2E's TaskEnvironment).</summary>
+    [Fact]
+    public void Owner_OfATaskThatIsAValue_IsNamedFromTheValue()
+    {
+        static Label? LabelOf(string folder) => IsTask(folder) ? new Label($"e2e-{folder}") : null;
+        var ownerOf = JobOwners.TaskOfCopy(_ => "/workspaces", LabelOf, label => label.Value);
+        using var copy = Services(new FixedAddress((SessionRoots.Parameter, "/workspaces/task-1")));
+        using var nobody = Services(new FixedAddress((SessionRoots.Parameter, "/workspaces/Not_A_Task")));
+
+        Assert.Equal("e2e-task-1", ownerOf(copy));
+        Assert.Null(ownerOf(nobody));
+    }
+
+    [Fact]
+    public void Owner_OfAServersOwnTask_WithNoAddressRegistered_IsRefusedSayingWhatToCall()
+    {
+        var ownerOf = JobOwners.TaskOfCopy(_ => "/workspaces", folder => new Ticket(folder), ticket => ticket.Id);
+        using var services = new ServiceCollection().BuildServiceProvider();
+
+        Assert.Throws<InvalidOperationException>(() => ownerOf(services));
+    }
+
+    private sealed record Ticket(string Id);
+
+    private readonly record struct Label(string Value);
+
     private static ServiceProvider Services(ISessionAddress address) => new ServiceCollection().AddSingleton(address).BuildServiceProvider();
 
     private static bool IsTask(string name) =>

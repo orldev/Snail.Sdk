@@ -235,9 +235,30 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
         }
 
         if (!everywhere && !roots.Any(root => RealPath.Of(root) is { } inside && IsUnder(real, inside)))
-            return Reached.No($"'{asked}' is outside this {Subject}, which works in {string.Join(", ", roots)}", type: Reached.Outside);
+            return Reached.No(OutsideRefusal(asked, roots), type: Reached.Outside);
 
         return Kind(asked, real, mustBe);
+    }
+
+    /// <summary>Why a path outside the roots may not be used, in words that follow where the roots came from.</summary>
+    /// <remarks>
+    /// A session works in its roots from one request to the next, so it is told it works in them. A request on a transport
+    /// that keeps no sessions works in nothing: its roots are what its address named (<c>?root=</c>) or, naming none, what
+    /// the server serves, and "'x' is outside this request, which works in …" told a caller of Snail.MCP.Roslyn's stateless
+    /// endpoint about a request that worked somewhere, when it was the address it had sent that named the root.
+    /// </remarks>
+    private string OutsideRefusal(string asked, IReadOnlyList<string> roots)
+    {
+        var listed = string.Join(", ", roots);
+
+        if (Subject == "session")
+            return $"'{asked}' is outside this session, which works in {listed}";
+
+        var named = roots.Count == 1 ? "root" : "roots";
+
+        return Named.Count > 0
+            ? $"'{asked}' is outside this {Subject}'s {named} {listed}, which its address names"
+            : $"'{asked}' is outside this server's {named} {listed}";
     }
 
     /// <summary>The path as the caller should name it again: relative to the first root when it lies under it, whole otherwise.</summary>

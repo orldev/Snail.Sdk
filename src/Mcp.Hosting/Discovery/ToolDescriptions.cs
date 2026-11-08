@@ -11,13 +11,20 @@ internal static class ToolDescriptions
 
     /// <summary>
     /// The description of <c>find_tool</c> with skills, naming the ways the server registered to run a skill's tools
-    /// without loading it: <c>run_tools</c>, <c>run_program</c>, both or neither.
+    /// without loading it: <c>run_tools</c> — the SDK's, whose steps are tools, or the server's own — <c>run_program</c>,
+    /// both or neither.
     /// </summary>
-    public static string FindToolWithSkillsAnd(bool runTools, bool runProgram) => (runTools, runProgram) switch
+    /// <remarks>
+    /// A <c>run_tools</c> of the server's own takes what the server says it takes — Snail.MCP.Blender's takes the commands
+    /// of its bridge — so it is named as the server's and pointed at its description rather than said to run tools.
+    /// </remarks>
+    public static string FindToolWithSkillsAnd(RunToolsKind runTools, bool runProgram) => (runTools, runProgram) switch
     {
-        (true, true) => $"{FindToolWithSkills[..^1]}, and run_tools or run_program runs their tools without loading.",
-        (true, false) => $"{FindToolWithSkills[..^1]}, and run_tools runs their tools without loading.",
-        (false, true) => $"{FindToolWithSkills[..^1]}, and run_program calls their commands without loading.",
+        (RunToolsKind.Sequences, true) => $"{FindToolWithSkills[..^1]}, and run_tools or run_program runs their tools without loading.",
+        (RunToolsKind.Sequences, false) => $"{FindToolWithSkills[..^1]}, and run_tools runs their tools without loading.",
+        (RunToolsKind.Own, true) => $"{FindToolWithSkills[..^1]}, and run_program or this server's own run_tools (see its description) runs them without loading.",
+        (RunToolsKind.Own, false) => $"{FindToolWithSkills[..^1]}, and this server's own run_tools (see its description) runs them without loading.",
+        (RunToolsKind.None, true) => $"{FindToolWithSkills[..^1]}, and run_program calls their commands without loading.",
         _ => FindToolWithSkills,
     };
 
@@ -54,4 +61,14 @@ internal static class ToolDescriptions
 
         return quoted.Count == 0 ? Task : $"{Task[..^1]}: {string.Join(", ", quoted)}.";
     }
+}
+
+/// <summary>Which <c>run_tools</c> a server has, if any: none, the SDK's of <c>WithToolSequences</c>, or one of its own.</summary>
+internal enum RunToolsKind
+{
+    None,
+
+    Sequences,
+
+    Own,
 }

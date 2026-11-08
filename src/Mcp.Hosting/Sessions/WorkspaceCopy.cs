@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Snail.Sdk.Mcp.Hosting.Answers;
 
 namespace Snail.Sdk.Mcp.Hosting.Sessions;
 
@@ -36,7 +37,42 @@ public sealed record WorkspaceCopy<TTask>(TTask? Task, string? Path, CopyRefusal
     /// <summary>Whether the root names a task's copy; <see cref="Task"/> and <see cref="Path"/> are then set.</summary>
     [MemberNotNullWhen(true, nameof(Task), nameof(Path))]
     public bool IsCopy => Refusal == CopyRefusal.None;
+
+    /// <summary>The copy as an answer a server hands on: its place, or the refusal in the server's words.</summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="Task"/> and <see cref="Path"/> are nullable here because a refusal has neither, so a copy handed on past
+    /// the check lost what the check proved: Snail.MCP.Security, Connector and E2E each wrote a <c>CopyPlace</c> of their
+    /// own to carry the copy through an <see cref="Answer{T}"/>. <see cref="WorkspacePlace{TTask}"/> is that place, both
+    /// set.
+    /// </para>
+    /// <para>
+    /// The words stay the server's: <paramref name="refused"/> says each reason in them —
+    /// <c>refusal => refusal == CopyRefusal.NoRoot ? Answer.Failed(Messages.NoCopy, Messages.NoCopyHint) : Answer.Failed(Messages.CopyOutside(root, workspaces))</c>.
+    /// A failure that names no type of its own is typed by the reason, as <see cref="Reached.Type"/> types a path refused —
+    /// <c>noRoot</c>, <c>outside</c>, <c>malformed</c>, <c>notATask</c> — so a program can tell a session that named no copy
+    /// from one that named the wrong one.
+    /// </para>
+    /// </remarks>
+    /// <param name="refused">The server's words for a reason the root names no copy.</param>
+    public Answer<WorkspacePlace<TTask>> ToAnswer(Func<CopyRefusal, AnswerFailure> refused)
+    {
+        ArgumentNullException.ThrowIfNull(refused);
+
+        if (IsCopy)
+            return Answer.Ok(new WorkspacePlace<TTask>(Task, Path));
+
+        var failure = refused(Refusal);
+
+        return failure.Type is null ? failure with { Type = ToolAnswer.Word(Refusal, WordCase.Camel) } : failure;
+    }
 }
+
+/// <summary>A task's working copy under the workspaces folder and the task it belongs to: what a <see cref="WorkspaceCopy{TTask}"/> that is a copy names.</summary>
+/// <typeparam name="TTask">The task as the server holds it: its id, or a type of its own read from the id.</typeparam>
+/// <param name="Task">The task, read from the copy's first folder under the workspaces folder.</param>
+/// <param name="Path">The copy itself — <c>/workspaces/&lt;task&gt;/step-3</c>.</param>
+public sealed record WorkspacePlace<TTask>(TTask Task, string Path);
 
 /// <summary>The task a session's working copy belongs to, read from where the copy lies under the workspaces folder.</summary>
 /// <remarks>

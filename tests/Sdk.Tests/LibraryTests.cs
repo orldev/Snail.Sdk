@@ -100,7 +100,59 @@ public sealed class LibraryTests(SdkFeed sdk)
 
         var page = File.ReadAllText(Path.Combine(folder, "docs", "reference", "Library.md"));
 
-        Assert.Contains("| `Greeting Greeting.Anyone()` | A greeting for nobody in particular. |", page, StringComparison.Ordinal);
+        Assert.Contains("| `Greeting Greeting.Anyone()` | A greeting for nobody in particular. |", Section(page, "### class Greeting"), StringComparison.Ordinal);
+        Assert.DoesNotContain("Anyone", Section(page, "### static class Greetings"), StringComparison.Ordinal);
+    }
+
+    /// <summary>#131: JobOwners.Session, an extension of Snail.Sdk.Mcp.Http to a class of Snail.Sdk.Mcp.Hosting, was listed under HttpSessions, where nobody looking for JobOwners found it.</summary>
+    [Fact]
+    public void Build_WithSnailReference_ListsAStaticExtensionOfAnotherAssemblysType_UnderThatType()
+    {
+        var library = sdk.Project("Snail.Sdk.Library", "Library", string.Empty,
+            ("Greeting.cs", Greeting),
+            ("PublicAPI.Shipped.txt", PublicApi),
+            ("PublicAPI.Unshipped.txt", "#nullable enable\n"));
+        var extras = sdk.Project("Snail.Sdk.Library", "Extras", $"""
+            <ItemGroup>
+              <ProjectReference Include="{Path.Combine(library, "Library.csproj")}" />
+            </ItemGroup>
+            """,
+            ("Greetings.cs", """
+                using Library;
+
+                namespace Extras;
+
+                /// <summary>Greetings made elsewhere.</summary>
+                public static class Greetings
+                {
+                    extension(Greeting)
+                    {
+                        /// <summary>A greeting for nobody in particular.</summary>
+                        public static Greeting Anyone() => new("you");
+                    }
+                }
+                """),
+            ("PublicAPI.Shipped.txt", """
+                #nullable enable
+                Extras.Greetings
+                Extras.Greetings.extension(Library.Greeting!)
+                static Extras.Greetings.extension(Library.Greeting!).Anyone() -> Library.Greeting!
+                static Extras.Greetings.Anyone() -> Library.Greeting!
+
+                """),
+            ("PublicAPI.Unshipped.txt", "#nullable enable\n"));
+
+        var (exitCode, output) = SdkFeed.Dotnet(extras, "build", "-p:SnailReference=true");
+
+        Assert.True(exitCode == 0, output);
+
+        var page = File.ReadAllText(Path.Combine(extras, "docs", "reference", "Extras.md"));
+        var greeting = Section(page, "### class Greeting");
+
+        Assert.Contains("## Library", page, StringComparison.Ordinal);
+        Assert.Contains("Declared in Library; the members below are extensions this assembly adds to it, declared in `Greetings`.", greeting, StringComparison.Ordinal);
+        Assert.Contains("| `Greeting Greeting.Anyone()` | A greeting for nobody in particular. |", greeting, StringComparison.Ordinal);
+        Assert.DoesNotContain("Anyone", Section(page, "### static class Greetings"), StringComparison.Ordinal);
     }
 
     /// <summary>SnailReferenceFolder is the folder of the pages themselves, as on a server: a site with its own layout names it.</summary>
@@ -230,5 +282,18 @@ public sealed class LibraryTests(SdkFeed sdk)
 
         Assert.Equal("2.3.0", version.Trim());
         Assert.Equal("2.4.0", namedVersion.Trim());
+    }
+
+    /// <summary>The section of a page under a heading, up to the next heading of a type or a namespace.</summary>
+    private static string Section(string page, string heading)
+    {
+        var start = page.IndexOf($"{heading}\n", StringComparison.Ordinal);
+
+        Assert.True(start >= 0, $"no section {heading} in:\n{page}");
+
+        var body = page[(start + heading.Length)..];
+        var end = body.IndexOf("\n#", StringComparison.Ordinal);
+
+        return end < 0 ? body : body[..end];
     }
 }

@@ -529,6 +529,61 @@ public sealed class ToolAnswerTests
         Assert.Equal(("No.", "Ask again.", "refused"), (mapped.Error, mapped.Hint, mapped.Type));
     }
 
+    /// <summary>#149: Snail.MCP.Memory passed a JSON mapper down to its domain layer only to put the duplicate record into the failure.</summary>
+    [Fact]
+    public void Failure_WithTypedDetails_IsAnsweredWithThemWrittenByTheTool()
+    {
+        Answer<int> refused = Answer.Failed("Not stored: a near duplicate.", "pass its id as replaceId", "duplicate").WithDetails(new Duplicate("r-1", 0.97));
+
+        var answer = ToolAnswer.From<int, Duplicate>(refused, count => JsonValue.Create(count), duplicate => new JsonObject { ["id"] = duplicate.Id });
+
+        Assert.Equal("""{"ok":false,"error":"Not stored: a near duplicate.","hint":"pass its id as replaceId","type":"duplicate","data":{"id":"r-1"}}""", answer.Text());
+        Assert.True(answer.IsError);
+    }
+
+    /// <summary>A test of the domain layer reads back what it handed on, through As and Map as well.</summary>
+    [Fact]
+    public void TypedDetails_GoOnWithTheFailure_AndAreReadBack()
+    {
+        var refused = Answer.Failed<int>("No.").WithDetails(new Duplicate("r-1", 0.97));
+
+        var carried = refused.As<string>().Map(text => text.Length);
+
+        Assert.Equal("r-1", carried.TryGetDetails<Duplicate>(out var duplicate) ? duplicate.Id : null);
+        Assert.False(carried.TryGetDetails<string>(out _));
+        Assert.Null(carried.Details);
+    }
+
+    /// <summary>Only a tool that maps the details writes them; the success is written as ever, and a failure of other details keeps its JSON.</summary>
+    [Fact]
+    public void From_WithADetailsMapper_WritesASuccess_AndTheJsonDetailsOfAFailureNotOfThatType()
+    {
+        static JsonNode Written(Duplicate duplicate) => new JsonObject { ["id"] = duplicate.Id };
+
+        var success = ToolAnswer.From<int, Duplicate>(Answer.Ok(3), count => JsonValue.Create(count), Written);
+        var json = ToolAnswer.From<int, Duplicate>(Answer.Failed<int>("No.", details: new JsonObject { ["learned"] = 1 }), count => JsonValue.Create(count), Written);
+        var unmapped = ToolAnswer.From(Answer.Failed<int>("No.").WithDetails(new Duplicate("r-1", 0.97)), count => JsonValue.Create(count));
+
+        Assert.Equal("""{"ok":true,"data":3}""", success.Text());
+        Assert.Equal(1, json.Data()!["learned"]!.GetValue<int>());
+        Assert.Equal("""{"ok":false,"error":"No."}""", unmapped.Text());
+    }
+
+    /// <summary>JSON is details already: handed on as a value, it is the failure's Details itself.</summary>
+    [Fact]
+    public void WithDetails_OfJson_IsTheJsonDetails()
+    {
+        var learned = new JsonObject { ["ran"] = 2 };
+
+        var refused = Answer.Failed<int>("No.").WithDetails(learned);
+
+        Assert.Same(learned, refused.Details);
+        Assert.Equal(2, ToolAnswer.Failed(refused).Data()!["ran"]!.GetValue<int>());
+        Assert.Throws<InvalidOperationException>(() => Answer.Ok(1).WithDetails(learned));
+    }
+
+    private sealed record Duplicate(string Id, double Similarity);
+
     /// <summary>The type argument told the compiler nothing it did not know from the return type (Snail.MCP.CleanUp, 28 places).</summary>
     [Theory]
     [InlineData(true)]

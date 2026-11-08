@@ -1,6 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
@@ -14,9 +16,12 @@ namespace Snail.Sdk.Mcp.Hosting.Discovery;
 /// built from the methods' parameters, each with a guard test keeping its list of classes the classes there were.
 /// </para>
 /// <para>
-/// <c>find_tool</c> reads the tools the server registered, which is what a server needs. <see cref="Of(Type, IServiceProvider?, JsonSerializerOptions?)"/>
-/// reads one class without a server — for a guard test, or a catalog of tools the server does not register — and
-/// <see cref="Find(IReadOnlyList{ToolEntry}, string?, int, DiscoveryOptions?)"/> ranks a catalog against a task as <c>find_tool</c> does, for a test of the server's words.
+/// <c>find_tool</c> reads the tools the server registered, which is what a server needs. <see cref="Of(IServiceProvider)"/>
+/// reads the same tools from the server's services without a host — the ones Snail.Sdk adds among them —
+/// <see cref="Of(Type, IServiceProvider?, JsonSerializerOptions?, Func{string, string?}?)"/> one class without a server, for a
+/// guard test or a catalog of tools the server does not register, and
+/// <see cref="Find(IServiceProvider, string?, int)"/> ranks them against a task as <c>find_tool</c> does, for a test of the
+/// server's words.
 /// </para>
 /// </remarks>
 public static class ToolCatalog
@@ -35,14 +40,22 @@ public static class ToolCatalog
     /// <param name="toolType">A class whose methods carry <see cref="McpServerToolAttribute"/>.</param>
     /// <param name="services">The services the server registers, so the parameters they fill stay out of the schema as they do on the wire.</param>
     /// <param name="json">The server's JSON options (<see cref="ToolJson.Options"/>), which a native build needs for any type beyond the primitives.</param>
+    /// <param name="commandOf">What a sequence or a program calls a tool, by the tool's name — <see cref="DiscoveryOptions.CommandOf"/> — so an entry carries the command <c>find_tool</c> answers; none when null.</param>
     /// <remarks>
+    /// <para>
     /// One class at a time, named with <c>typeof</c>: a native build keeps the methods of a type it is told about, and a
     /// list of types tells it nothing about each, so <c>[.. ToolCatalog.Of(typeof(A)), .. ToolCatalog.Of(typeof(B))]</c>.
+    /// </para>
+    /// <para>
+    /// Without <paramref name="commandOf"/> a test set each entry's command itself, <c>entry with { Command = … }</c>, to
+    /// see what <c>find_tool</c> answers (Snail.MCP.Git).
+    /// </para>
     /// </remarks>
     public static IReadOnlyList<ToolEntry> Of(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods)] Type toolType,
         IServiceProvider? services = null,
-        JsonSerializerOptions? json = null)
+        JsonSerializerOptions? json = null,
+        Func<string, string?>? commandOf = null)
     {
         ArgumentNullException.ThrowIfNull(toolType);
 
@@ -50,7 +63,55 @@ public static class ToolCatalog
         var declared = toolType.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance | BindingFlags.DeclaredOnly);
         var tools = declared.Where(method => method.IsDefined(typeof(McpServerToolAttribute), inherit: false));
 
-        return Of([.. tools.Select(method => Built(method, options))], commandOf: null);
+        return Of([.. tools.Select(method => Built(method, options))], commandOf);
+    }
+
+    /// <summary>The catalog <c>find_tool</c> searches, read from a server's services without a host: every tool it registers, the ones Snail.Sdk adds among them.</summary>
+    /// <remarks>
+    /// <para>
+    /// A catalog of the server's classes lacked what the <c>With…</c> registrations add — <c>find_tool</c>, <c>run_tools</c>,
+    /// <c>run_program</c>, the skill tools — and the commands and parameter names <see cref="DiscoveryOptions"/> gives,
+    /// so a test of the server's words ranked a list that was not the one <c>find_tool</c> ranks (Snail.MCP.Git). This
+    /// reads the tool collection the services would hand a host — the descriptions the registrations fit included — with
+    /// <see cref="DiscoveryOptions.CommandOf"/>, <see cref="DiscoveryOptions.ParameterOf"/> and
+    /// <see cref="DiscoveryOptions.Catalog"/> applied as <c>find_tool</c> applies them. No host is built and no tool runs:
+    /// <c>var services = new ServiceCollection(); services.AddMcpServer().WithTools&lt;GitTools&gt;().WithToolDiscovery(…);</c>
+    /// and <c>ToolCatalog.Of(services.BuildServiceProvider())</c>.
+    /// </para>
+    /// <para>
+    /// Every tool, the session's grant aside: <c>find_tool</c> leaves out what a session may not call, which is a fact
+    /// about the session rather than about the catalog.
+    /// </para>
+    /// </remarks>
+    /// <param name="services">The services the server's registrations built: <c>AddMcpServer()</c> and its <c>With…</c> calls.</param>
+    public static IReadOnlyList<ToolEntry> Of(IServiceProvider services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        var tools = services.GetService<IOptions<McpServerOptions>>()?.Value.ToolCollection is { } collection
+            ? collection
+            : services.GetServices<McpServerTool>();
+
+        return Of(tools, services.GetService<DiscoveryOptions>() ?? new DiscoveryOptions());
+    }
+
+    /// <summary>The entries <c>find_tool</c> searches among the tools: the server's own catalog when it set one, the parameters of a command named as the command takes them.</summary>
+    internal static IReadOnlyList<ToolEntry> Of(IEnumerable<McpServerTool> tools, DiscoveryOptions options)
+    {
+        var catalog = options.Catalog ?? Of(tools, options.CommandOf);
+
+        return options.ParameterOf is { } parameterOf ? [.. catalog.Select(entry => Commanded(entry, parameterOf))] : catalog;
+    }
+
+    /// <summary>An entry with a command, its parameters renamed as the command takes them and the ones it does not take dropped.</summary>
+    private static ToolEntry Commanded(ToolEntry entry, Func<string, string, string?> parameterOf)
+    {
+        if (entry.Command is null)
+            return entry;
+
+        var named = entry.Parameters.Select(parameter => (Parameter: parameter, Name: parameterOf(entry.Name, parameter.Name)));
+
+        return entry with { Parameters = [.. named.Where(each => each.Name is not null).Select(each => each.Parameter with { Name = each.Name! })] };
     }
 
     /// <summary>The skill a tool belongs to: the name of the <see cref="SkillAttribute"/> on its class, or null.</summary>
@@ -73,7 +134,7 @@ public static class ToolCatalog
     /// the same on every run.
     /// </para>
     /// </remarks>
-    /// <param name="entries">The catalog: <see cref="Of(IEnumerable{McpServerTool}, Func{string, string?})"/>, <see cref="Of(Type, IServiceProvider?, JsonSerializerOptions?)"/> or the server's own.</param>
+    /// <param name="entries">The catalog: <see cref="Of(IServiceProvider)"/>, <see cref="Of(IEnumerable{McpServerTool}, Func{string, string?})"/>, <see cref="Of(Type, IServiceProvider?, JsonSerializerOptions?, Func{string, string?}?)"/> or the server's own.</param>
     /// <param name="task">The task in words, as a model sends it.</param>
     /// <param name="limit">The most entries answered, one or more.</param>
     /// <param name="options">The server's prefix, noise and meanings, as <c>WithToolDiscovery</c> takes them; none when null.</param>
@@ -86,6 +147,23 @@ public static class ToolCatalog
         var words = options ?? new DiscoveryOptions();
 
         return Find(entries, task, limit, new Vocabulary(words.Noise, words.Prefix), words.Meanings);
+    }
+
+    /// <summary>The tools of a server that <c>find_tool</c> would name for a task, best first: its ranking over <see cref="Of(IServiceProvider)"/>, without a host.</summary>
+    /// <remarks>
+    /// The words are the server's <see cref="DiscoveryOptions"/> as <c>WithToolDiscovery</c> registered them, and the limit is
+    /// held between one and twenty as <c>find_tool</c> holds it, so a test asks exactly what a model asking would be answered.
+    /// </remarks>
+    /// <param name="services">The services the server's registrations built.</param>
+    /// <param name="task">The task in words, as a model sends it.</param>
+    /// <param name="limit">The most entries answered, as <c>find_tool</c>'s <c>limit</c>.</param>
+    public static IReadOnlyList<ToolEntry> Find(IServiceProvider services, string? task, int limit)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        var words = services.GetService<DiscoveryOptions>() ?? new DiscoveryOptions();
+
+        return Find(Of(services), task, Math.Clamp(limit, 1, Discovery.MostTools), new Vocabulary(words.Noise, words.Prefix), words.Meanings);
     }
 
     /// <summary>The entries that answer a task, scored by <paramref name="vocabulary"/>, best first and at most <paramref name="limit"/>.</summary>

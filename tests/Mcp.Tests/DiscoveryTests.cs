@@ -109,6 +109,59 @@ public sealed class ToolCatalogTests
         Assert.Empty(ToolCatalog.Find(entries, "the git", 5, options));
         Assert.Throws<ArgumentOutOfRangeException>(() => ToolCatalog.Find(entries, "push", 0));
     }
+
+    /// <summary>#135: a catalog of a class took no commandOf, so a test set each command by hand to see what find_tool answers (Snail.MCP.Git).</summary>
+    [Fact]
+    public void Catalog_OfAClass_NamesTheCommandOfEachTool()
+    {
+        var entries = ToolCatalog.Of(typeof(FileSample), commandOf: name => name == "read_file" ? "read" : null);
+
+        Assert.Equal("read", entries.Single(entry => entry.Name == "read_file").Command);
+        Assert.Null(entries.Single(entry => entry.Name == "list_files").Command);
+    }
+
+    /// <summary>#135: the server's classes lacked what the With… registrations add; the services hold it all without a host.</summary>
+    [Fact]
+    public void Catalog_OfTheServersServices_HasTheToolsSnailSdkAdds_WithoutAHost()
+    {
+        var services = new ServiceCollection().AddSingleton(new Writes());
+        services.AddMcpServer()
+            .WithToolDiscovery(options =>
+            {
+                options.CommandOf = name => name == "read_file" ? "read" : null;
+                options.ParameterOf = (_, parameter) => parameter == "timeoutSeconds" ? null : parameter;
+            })
+            .WithToolSequences()
+            .WithTools<FileSample>()
+            .WithTools<RenderSample>()
+            .WithSkills(options => options.Prefix = "sample");
+        using var provider = services.BuildServiceProvider();
+
+        var entries = ToolCatalog.Of(provider);
+        var read = entries.Single(entry => entry.Name == "read_file");
+
+        Assert.Subset(entries.Select(entry => entry.Name).ToHashSet(), new HashSet<string>(["find_tool", "run_tools", "sample_skills", "sample_enable_skill", "sample_disable_skill", "read_file", "render_image"]));
+        Assert.Equal("read", read.Command);
+        Assert.Equal(["path"], read.Parameters.Select(parameter => parameter.Name));
+        Assert.Equal("render", entries.Single(entry => entry.Name == "render_image").Skill);
+    }
+
+    /// <summary>The ranking over the services is the one find_tool answers a session that may call every tool.</summary>
+    [Theory]
+    [InlineData("render a picture")]
+    [InlineData("run several tools in one call")]
+    [InlineData("find a tool for a task")]
+    [InlineData("write a whole file")]
+    public async Task Find_OverTheServersServices_IsWhatFindToolAnswers(string task)
+    {
+        await using var stand = await DiscoveryStand.StartAsync(tools: DiscoveryStand.WithProgram);
+
+        var answered = await stand.FindAsync(new() { ["task"] = task, ["limit"] = 20 });
+        var found = ToolCatalog.Find(stand.Host.Services, task, 20);
+
+        Assert.Equal(answered["tools"]!.AsArray().Select(tool => tool!["name"]!.GetValue<string>()), found.Select(entry => entry.Name));
+        Assert.Contains("run_program", ToolCatalog.Of(stand.Host.Services).Select(entry => entry.Name));
+    }
 }
 
 /// <summary>find_tool: which tools answer a task, ranked as the fleet ranks them, as far as the session may call them.</summary>
@@ -412,6 +465,25 @@ public sealed class FindToolTests
     public async Task Description_WithSkills_NamesTheWaysTheServerRegistered(bool runTools, bool runProgram, string said)
     {
         await using var stand = await DiscoveryStand.StartAsync(runTools: runTools, tools: runProgram ? DiscoveryStand.WithProgram : null);
+
+        var description = stand.Listed.Single(tool => tool.Name == "find_tool").Description;
+
+        Assert.EndsWith(said, description, StringComparison.Ordinal);
+    }
+
+    /// <summary>#147: a run_tools of the server's own went unnamed, as if the server had none (Snail.MCP.Blender, whose run_tools takes bridge commands).</summary>
+    [Theory]
+    [InlineData(false, "It searches unloaded skills too: enable: true loads them, and this server's own run_tools (see its description) runs them without loading.")]
+    [InlineData(true, "It searches unloaded skills too: enable: true loads them, and run_program or this server's own run_tools (see its description) runs them without loading.")]
+    public async Task Description_WithSkills_NamesARunToolsOfTheServersOwn(bool runProgram, string said)
+    {
+        await using var stand = await DiscoveryStand.StartAsync(runTools: false, tools: server =>
+        {
+            Action<IMcpServerBuilder> registered = runProgram ? DiscoveryStand.WithProgram : DiscoveryStand.WithSamples;
+
+            registered(server);
+            server.Services.AddSingleton(McpServerTool.Create(() => ToolAnswer.Ok(new JsonObject()), new McpServerToolCreateOptions { Name = "run_tools", Description = "Sends bridge commands in order." }));
+        });
 
         var description = stand.Listed.Single(tool => tool.Name == "find_tool").Description;
 
@@ -835,6 +907,35 @@ public sealed class SkillsTests
         Assert.Contains(titles, tool => tool.Name == "render_image");
         Assert.DoesNotContain(edit, tool => tool.Name == "render_image");
         Assert.DoesNotContain(unkeyed, tool => tool.Name == "render_image");
+    }
+
+    /// <summary>#145: a name SessionOf gave and an MCP session's id shared one dictionary, so Snail.MCP.Blender prefixed its names with "client:".</summary>
+    [Fact]
+    public async Task SessionOf_AName_NeverSharesTheSetOfASessionKeyedAlike()
+    {
+        string? key = null;
+        await using var stand = await DiscoveryStand.StartAsync(skilled: options => options.SessionOf = (_, _) => Volatile.Read(ref key));
+
+        Volatile.Write(ref key, string.Empty);
+        await stand.Client.CallToolAsync("sample_enable_skill", new Dictionary<string, object?> { ["name"] = "render" });
+        var named = await stand.Client.ListToolsAsync();
+        Volatile.Write(ref key, null);
+        var sessionless = await stand.Client.ListToolsAsync();
+
+        Assert.Contains(named, tool => tool.Name == "render_image");
+        Assert.DoesNotContain(sessionless, tool => tool.Name == "render_image");
+    }
+
+    [Fact]
+    public void Sets_OfANameAndOfASessionWithTheSameKey_AreTwo()
+    {
+        var sessions = new SkillSessions("sample", new ManualClock());
+
+        sessions.Keyed("abc", null).TryLoad("render", DateTimeOffset.UnixEpoch);
+
+        Assert.True(sessions.Keyed("abc", "other").IsLoaded("render"));
+        Assert.False(sessions.Keyed(null, "abc").IsLoaded("render"));
+        Assert.False(sessions.Keyed(null, null).IsLoaded("render"));
     }
 
     [Fact]

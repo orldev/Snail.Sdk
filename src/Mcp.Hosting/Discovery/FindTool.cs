@@ -24,23 +24,7 @@ internal sealed class Discovery(DiscoveryOptions options)
     private readonly Vocabulary _vocabulary = new(options.Noise, options.Prefix);
 
     /// <summary>Every tool the server offers, skills loaded or not, the parameters of a command named as the command takes them.</summary>
-    public IReadOnlyList<ToolEntry> Catalog(McpServer server)
-    {
-        var catalog = options.Catalog ?? ToolCatalog.Of(ServerTools.Of(server), options.CommandOf);
-
-        return options.ParameterOf is { } parameterOf ? [.. catalog.Select(entry => Commanded(entry, parameterOf))] : catalog;
-    }
-
-    /// <summary>An entry with a command, its parameters renamed as the command takes them and the ones it does not take dropped.</summary>
-    private static ToolEntry Commanded(ToolEntry entry, Func<string, string, string?> parameterOf)
-    {
-        if (entry.Command is null)
-            return entry;
-
-        var named = entry.Parameters.Select(parameter => (Parameter: parameter, Name: parameterOf(entry.Name, parameter.Name)));
-
-        return entry with { Parameters = [.. named.Where(each => each.Name is not null).Select(each => each.Parameter with { Name = each.Name! })] };
-    }
+    public IReadOnlyList<ToolEntry> Catalog(McpServer server) => ToolCatalog.Of(ServerTools.Of(server), options);
 
     /// <summary>The entries that answer the task, best first and at most <paramref name="limit"/>; empty when none does.</summary>
     public IReadOnlyList<ToolEntry> Find(string? task, IReadOnlyList<ToolEntry> entries, int limit) =>
@@ -133,7 +117,9 @@ internal static class FindTool
     /// <remarks>
     /// Written as "run_tools runs their tools without loading" whatever was registered, it pointed the model of a server
     /// whose own <c>run_tools</c> takes commands, or whose way is <c>run_program</c>, at the wrong tool (Snail.MCP.AfterEffects).
-    /// <c>run_tools</c> is named when it is the SDK's (<c>WithToolSequences</c>), whose steps are tools; <c>run_program</c>
+    /// <c>run_tools</c> is said to run tools when it is the SDK's (<c>WithToolSequences</c>), whose steps are tools, and
+    /// is named as the server's own, pointed at its description, when the server registered one itself — left out, a
+    /// model of Snail.MCP.Blender never learned that its <c>run_tools</c> runs a skill's commands unloaded; <c>run_program</c>
     /// whenever the server has it, since a program calls commands whatever registered it.
     /// </remarks>
     public static void Fit(McpServerOptions server, DiscoveryOptions options, IServiceProvider services)
@@ -146,7 +132,9 @@ internal static class FindTool
 
         if (services.GetService<SkillSessions>() is not null)
         {
-            var runsTools = services.GetService<SequenceOptions>() is not null && tools.TryGetPrimitive(RunTools.Name, out _);
+            var runsTools = !tools.TryGetPrimitive(RunTools.Name, out _) ? RunToolsKind.None
+                : services.GetService<SequenceOptions>() is not null ? RunToolsKind.Sequences
+                : RunToolsKind.Own;
 
             find.ProtocolTool.Description = ToolDescriptions.FindToolWithSkillsAnd(runsTools, tools.TryGetPrimitive(RunProgram, out _));
         }

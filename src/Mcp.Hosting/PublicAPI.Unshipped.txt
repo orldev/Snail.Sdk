@@ -14,6 +14,8 @@ Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Type.get -> string?
 Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Type.init -> void
 Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Value.get -> T?
 Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Value.init -> void
+Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.WithDetails<TDetails>(TDetails details) -> Snail.Sdk.Mcp.Hosting.Answers.Answer<T>!
+Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.TryGetDetails<TDetails>(out TDetails details) -> bool
 Snail.Sdk.Mcp.Hosting.Answers.AnswerShape
 Snail.Sdk.Mcp.Hosting.Answers.AnswerShape.Data = 0 -> Snail.Sdk.Mcp.Hosting.Answers.AnswerShape
 Snail.Sdk.Mcp.Hosting.Answers.AnswerShape.Envelope = 1 -> Snail.Sdk.Mcp.Hosting.Answers.AnswerShape
@@ -34,6 +36,8 @@ static Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.operator ==(Snail.Sdk.Mcp.Hosting
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Failed(string! error, string? hint = null, string? type = null, System.Text.Json.Nodes.JsonNode? data = null) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.From<T>(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>! answer, System.Func<T, System.Text.Json.Nodes.JsonNode!>! data) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.From<T>(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>! answer, System.Func<T, System.Text.Json.Nodes.JsonNode!>! data, Snail.Sdk.Mcp.Hosting.Answers.AnswerShape shape) -> ModelContextProtocol.Protocol.CallToolResult!
+static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.From<T, TDetails>(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>! answer, System.Func<T, System.Text.Json.Nodes.JsonNode!>! data, System.Func<TDetails, System.Text.Json.Nodes.JsonNode!>! details) -> ModelContextProtocol.Protocol.CallToolResult!
+static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.From<T, TDetails>(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>! answer, System.Func<T, System.Text.Json.Nodes.JsonNode!>! data, System.Func<TDetails, System.Text.Json.Nodes.JsonNode!>! details, Snail.Sdk.Mcp.Hosting.Answers.AnswerShape shape) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.From<T>(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>! answer, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T>! type) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.From<T>(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>! answer, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T>! type, Snail.Sdk.Mcp.Hosting.Answers.AnswerShape shape) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.IsFailure(ModelContextProtocol.Protocol.CallToolResult! result) -> bool
@@ -60,6 +64,7 @@ Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Equals(Snail.Sdk.Mcp.Hosting.Answers
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.<Clone>$() -> Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure!
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Deconstruct(out string! Error, out string? Hint, out string? Type) -> void
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Type.get -> string?
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.WithDetails<TDetails>(TDetails details) -> Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure!
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Type.init -> void
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Error.get -> string!
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Error.init -> void
@@ -232,6 +237,7 @@ Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal.NotATask = 4 -> Snail.Sdk.Mcp.Hosting
 Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal.Outside = 2 -> Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal
 Snail.Sdk.Mcp.Hosting.Sessions.JobOwners
 static Snail.Sdk.Mcp.Hosting.Sessions.JobOwners.TaskOfCopy(System.Func<System.IServiceProvider!, string!>! workspaces, System.Func<string!, bool>! isTaskId) -> System.Func<System.IServiceProvider!, string?>!
+static Snail.Sdk.Mcp.Hosting.Sessions.JobOwners.TaskOfCopy<TTask>(System.Func<System.IServiceProvider!, string!>! workspaces, System.Func<string!, TTask?>! task, System.Func<TTask, string!>! ownerOf) -> System.Func<System.IServiceProvider!, string?>!
 Snail.Sdk.Mcp.Hosting.Sessions.PathKind
 Snail.Sdk.Mcp.Hosting.Sessions.PathKind.Any = 0 -> Snail.Sdk.Mcp.Hosting.Sessions.PathKind
 Snail.Sdk.Mcp.Hosting.Sessions.PathKind.File = 1 -> Snail.Sdk.Mcp.Hosting.Sessions.PathKind
@@ -269,6 +275,21 @@ override Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.GetHashCode() -> in
 override Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.ToString() -> string!
 static Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.operator !=(Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>? left, Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>? right) -> bool
 static Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.operator ==(Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>? left, Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>? right) -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.ToAnswer(System.Func<Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal, Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure!>! refused) -> Snail.Sdk.Mcp.Hosting.Answers.Answer<Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>!>!
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.<Clone>$() -> Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>!
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.Deconstruct(out TTask Task, out string! Path) -> void
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.Equals(Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>? other) -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.Path.get -> string!
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.Path.init -> void
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.Task.get -> TTask
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.Task.init -> void
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.WorkspacePlace(TTask Task, string! Path) -> void
+override Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.Equals(object? obj) -> bool
+override Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.GetHashCode() -> int
+override Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.ToString() -> string!
+static Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.operator !=(Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>? left, Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>? right) -> bool
+static Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.operator ==(Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>? left, Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>? right) -> bool
 static Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy.Of(string? root, string! workspaces, System.Func<string!, bool>! isTaskId) -> Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<string!>!
 static Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy.Of<TTask>(string? root, string! workspaces, System.Func<string!, TTask?>! task) -> Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>!
 Snail.Sdk.Mcp.Hosting.Discovery.ArgumentCheckOptions
@@ -362,7 +383,9 @@ static Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryRegistration.WithToolDiscovery(t
 static Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryRegistration.WithToolSequences(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, System.Action<Snail.Sdk.Mcp.Hosting.Discovery.SequenceOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
 static Snail.Sdk.Mcp.Hosting.Discovery.ToolCatalog.Find(System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry!>! entries, string? task, int limit, Snail.Sdk.Mcp.Hosting.Discovery.DiscoveryOptions? options = null) -> System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry!>!
 static Snail.Sdk.Mcp.Hosting.Discovery.ToolCatalog.Of(System.Collections.Generic.IEnumerable<ModelContextProtocol.Server.McpServerTool!>! tools, System.Func<string!, string?>? commandOf) -> System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry!>!
-static Snail.Sdk.Mcp.Hosting.Discovery.ToolCatalog.Of(System.Type! toolType, System.IServiceProvider? services = null, System.Text.Json.JsonSerializerOptions? json = null) -> System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry!>!
+static Snail.Sdk.Mcp.Hosting.Discovery.ToolCatalog.Of(System.Type! toolType, System.IServiceProvider? services = null, System.Text.Json.JsonSerializerOptions? json = null, System.Func<string!, string?>? commandOf = null) -> System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry!>!
+static Snail.Sdk.Mcp.Hosting.Discovery.ToolCatalog.Of(System.IServiceProvider! services) -> System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry!>!
+static Snail.Sdk.Mcp.Hosting.Discovery.ToolCatalog.Find(System.IServiceProvider! services, string? task, int limit) -> System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry!>!
 static Snail.Sdk.Mcp.Hosting.Discovery.ToolCatalog.SkillOf(ModelContextProtocol.Server.McpServerTool! tool) -> string?
 static Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry.operator !=(Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry? left, Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry? right) -> bool
 static Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry.operator ==(Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry? left, Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry? right) -> bool

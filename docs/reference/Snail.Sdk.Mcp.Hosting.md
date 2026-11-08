@@ -188,6 +188,7 @@ A value, or why there is none in words a caller can act on.
 | Member | Summary |
 | --- | --- |
 | `Answer(T? Value, string? Error, string? Hint, string? Type = null)` | A value, or why there is none in words a caller can act on. |
+| `Answer<T> WithDetails<TDetails>(TDetails details)` | The same failure carrying `details` as they are, for the tool to write as the failure's `data`: `ToolAnswer.From(answer, data, details)`. |
 | `Answer<T> op_Implicit(AnswerFailure failure)` |  |
 | `Answer<TOther> As<TOther>()` | The same failure as an answer of another type, its error, hint and type kept: a failure handed on past a layer that answers something else. |
 | `Answer<TOther> Map<TOther>(Func<T, TOther> map)` | The value made into another through `map`, or the same failure with its error, hint, type and details. |
@@ -195,6 +196,7 @@ A value, or why there is none in words a caller can act on.
 | `T? Value { get; init; }` | What was asked for, when it was had. |
 | `bool IsSuccess { get; }` | Whether the value was had; `Error` says why not otherwise. |
 | `bool TryGet(out T value)` | The value, when the answer is a success: `if (!answer.TryGet(out var value)) return ToolAnswer.Failed(answer);`. |
+| `bool TryGetDetails<TDetails>(out TDetails details)` | The details a failure carries as the layer that failed gave them (`WithDetails1`), when they are a `TDetails`. |
 | `string? Error { get; init; }` | Why it was not, in words the model can act on; null on success. |
 | `string? Hint { get; init; }` | What to do about it, when there is something to do. |
 | `string? Type { get; init; }` | The kind of failure, a word a program can branch on, such as `timeout`. |
@@ -206,6 +208,7 @@ A failure not yet of any answer's type: what `Failed` makes, and what becomes th
 | Member | Summary |
 | --- | --- |
 | `Answer<T> As<T>()` | The failure as an answer of `T`, its error, hint, type and details kept: where nothing implies the type — `var`, an argument of a generic method. |
+| `AnswerFailure WithDetails<TDetails>(TDetails details)` | The same failure carrying `details` as they are, for the tool to write as its `data`: `return Answer.Failed("…").WithDetails(duplicate);`. |
 | `AnswerFailure(string Error, string? Hint = null, string? Type = null)` | A failure not yet of any answer's type: what `Failed` makes, and what becomes the `Answer1` expected where it is returned. |
 | `JsonNode? Details { get; init; }` | What the work learned before it stopped, answered as the failure's `data`. |
 | `string Error { get; init; }` | Why there is no value, in words the model can act on. |
@@ -257,6 +260,8 @@ A tool's answer as every Snail server gives it: one text block holding the envel
 | `CallToolResult Failed(string error, string? hint = null, string? type = null, JsonNode? data = null)` | A failed answer: why, what to do, the kind of failure and what there is to report, flagged as an error, as text alone. |
 | `CallToolResult Failed<T>(Answer<T> failed)` | A failed answer as the tool's answer: its error, hint and type, and its details as the data. |
 | `CallToolResult Failed<T>(Answer<T> failed, JsonNode? data)` | A failed answer as the tool's answer, with what there is to report all the same as its data: `data`, or the answer's details when it is null. |
+| `CallToolResult From<T, TDetails>(Answer<T> answer, Func<T, JsonNode> data, Func<TDetails, JsonNode> details)` | An answer as a tool result: its value through `data`, or its failure with the details its layer handed on written through `details`. |
+| `CallToolResult From<T, TDetails>(Answer<T> answer, Func<T, JsonNode> data, Func<TDetails, JsonNode> details, AnswerShape shape)` | An answer as a tool result: its value through `data` with the structured content `shape` names, or its failure with the details its layer handed on written through `details`. |
 | `CallToolResult From<T>(Answer<T> answer)` | An answer whose value is JSON already as a tool result: the value as the data, or its failure with its details as the data. |
 | `CallToolResult From<T>(Answer<T> answer, AnswerShape shape)` | An answer whose value is JSON already as a tool result, with the structured content `shape` names. |
 | `CallToolResult From<T>(Answer<T> answer, Func<T, JsonNode> data)` | An answer as a tool result: its value through `data`, or its failure with its details as the data. |
@@ -390,8 +395,10 @@ Tools as entries discovery searches: read from the tools a server registers, nev
 | Member | Summary |
 | --- | --- |
 | `IReadOnlyList<ToolEntry> Find(IReadOnlyList<ToolEntry> entries, string? task, int limit, DiscoveryOptions? options = null)` | The entries that answer a task, best first and at most `limit`: the ranking of `find_tool`, without a server. |
+| `IReadOnlyList<ToolEntry> Find(IServiceProvider services, string? task, int limit)` | The tools of a server that `find_tool` would name for a task, best first: its ranking over `Of`, without a host. |
 | `IReadOnlyList<ToolEntry> Of(IEnumerable<McpServerTool> tools, Func<string, string?>? commandOf)` | The entries of the tools, in the order given, each with the command `commandOf` names for it. |
-| `IReadOnlyList<ToolEntry> Of(Type toolType, IServiceProvider? services = null, JsonSerializerOptions? json = null)` | The entries of the tools one class declares, built as the MCP SDK builds them and never invoked. |
+| `IReadOnlyList<ToolEntry> Of(IServiceProvider services)` | The catalog `find_tool` searches, read from a server's services without a host: every tool it registers, the ones Snail.Sdk adds among them. |
+| `IReadOnlyList<ToolEntry> Of(Type toolType, IServiceProvider? services = null, JsonSerializerOptions? json = null, Func<string, string?>? commandOf = null)` | The entries of the tools one class declares, built as the MCP SDK builds them and never invoked. |
 | `string? SkillOf(McpServerTool tool)` | The skill a tool belongs to: the name of the `SkillAttribute` on its class, or null. |
 
 ### class ToolEntry
@@ -587,6 +594,8 @@ Whose a job is, named from the session a request is served in: the owners `WithJ
 | Member | Summary |
 | --- | --- |
 | `Func<IServiceProvider, string?> TaskOfCopy(Func<IServiceProvider, string> workspaces, Func<string, bool> isTaskId)` | The owner of a request: the task of the working copy its session's address names, or none when it names no copy. |
+| `Func<IServiceProvider, string?> TaskOfCopy<TTask>(Func<IServiceProvider, string> workspaces, Func<string, TTask?> task, Func<TTask, string> ownerOf)` | The owner of a request: the task of the working copy its session's address names, read as the server reads its task and named by `ownerOf`, or none when it names no copy. |
+| `Func<IServiceProvider, string?> TaskOfCopy<TTask>(Func<IServiceProvider, string> workspaces, Func<string, TTask?> task, Func<TTask, string> ownerOf)` | The owner of a request: the task of the working copy its session's address names, read as a value the server reads and named by `ownerOf`, or none when it names no copy. |
 
 ### enum PathKind
 
@@ -720,8 +729,19 @@ The working copy a root names under the workspaces folder and the task it belong
 
 | Member | Summary |
 | --- | --- |
+| `Answer<WorkspacePlace<TTask>> ToAnswer(Func<CopyRefusal, AnswerFailure> refused)` | The copy as an answer a server hands on: its place, or the refusal in the server's words. |
 | `CopyRefusal Refusal { get; init; }` | Why the root names no copy; `None` when it names one. |
 | `TTask? Task { get; init; }` | The task, read from the copy's first folder under the workspaces folder; set when it is a copy. |
 | `WorkspaceCopy(TTask? Task, string? Path, CopyRefusal Refusal)` | The working copy a root names under the workspaces folder and the task it belongs to, or why it names none. |
 | `bool IsCopy { get; }` | Whether the root names a task's copy; `Task` and `Path` are then set. |
 | `string? Path { get; init; }` | The copy itself — `/workspaces/<task>/step-3` — set when it is a copy. |
+
+### class WorkspacePlace<TTask>
+
+A task's working copy under the workspaces folder and the task it belongs to: what a `WorkspaceCopy1` that is a copy names.
+
+| Member | Summary |
+| --- | --- |
+| `TTask Task { get; init; }` | The task, read from the copy's first folder under the workspaces folder. |
+| `WorkspacePlace(TTask Task, string Path)` | A task's working copy under the workspaces folder and the task it belongs to: what a `WorkspaceCopy1` that is a copy names. |
+| `string Path { get; init; }` | The copy itself — `/workspaces/<task>/step-3`. |

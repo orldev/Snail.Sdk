@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
+using Snail.Sdk.Mcp.Hosting.Answers;
 using Snail.Sdk.Mcp.Hosting.Sessions;
 using Snail.Sdk.Mcp.Testing;
 
@@ -312,6 +313,50 @@ public sealed class SessionRootsTests
         Assert.Equal(new WorkspaceCopy<int>(0, null, CopyRefusal.NotATask), refused);
     }
 
+    /// <summary>#128: Security, Connector and E2E each wrote a CopyPlace to carry the copy through an Answer, its task and path nullable on WorkspaceCopy.</summary>
+    [Fact]
+    public void ToAnswer_OfACopy_IsItsPlace_WithTaskAndPathSet()
+    {
+        var answer = WorkspaceCopy.Of("/workspaces/task-1/step-3", "/workspaces", IsTask).ToAnswer(_ => Answer.Failed("never asked"));
+
+        Assert.True(answer.TryGet(out var place));
+        Assert.Equal(new WorkspacePlace<string>("task-1", "/workspaces/task-1/step-3"), place);
+    }
+
+    /// <summary>The words are the server's, and a failure that names no type of its own is typed by the reason, as a path refused is.</summary>
+    [Theory]
+    [InlineData(null, "no copy", "noRoot")]
+    [InlineData("/etc", "elsewhere", "outside")]
+    [InlineData("/workspaces/task-1/../task-2", "elsewhere", "malformed")]
+    [InlineData("/workspaces/Not_A_Task", "elsewhere", "notATask")]
+    public void ToAnswer_OfNoCopy_IsTheServersWords_TypedByTheReason(string? root, string error, string type)
+    {
+        var answer = WorkspaceCopy.Of(root, "/workspaces", IsTask)
+            .ToAnswer(refusal => refusal == CopyRefusal.NoRoot ? Answer.Failed("no copy", "open the session at a copy") : Answer.Failed("elsewhere"));
+
+        Assert.False(answer.IsSuccess);
+        Assert.Equal((error, type), (answer.Error, answer.Type));
+    }
+
+    [Fact]
+    public void ToAnswer_OfNoCopy_KeepsTheTypeTheServerGave()
+    {
+        var answer = WorkspaceCopy.Of("/etc", "/workspaces", IsTask).ToAnswer(_ => Answer.Failed("elsewhere", type: "notACopy"));
+
+        Assert.Equal("notACopy", answer.Type);
+    }
+
+    /// <summary>A task that is a value is carried as the value, as WorkspaceCopy carries it.</summary>
+    [Fact]
+    public void ToAnswer_OfATaskThatIsAValue_CarriesTheValue()
+    {
+        static int? Number(string folder) => int.TryParse(folder, CultureInfo.InvariantCulture, out var number) ? number : null;
+
+        Answer<WorkspacePlace<int>> answer = WorkspaceCopy.Of("/workspaces/42", "/workspaces", Number).ToAnswer(_ => Answer.Failed("never asked"));
+
+        Assert.Equal(42, answer.Value!.Task);
+    }
+
     /// <summary>Snail.MCP.Documents' benchmark kept a <c>NoAddress</c> of its own to build the roots of a program.</summary>
     [Fact]
     public void Roots_WithNoAddress_AreTheVolumes()
@@ -505,8 +550,26 @@ public sealed class SessionRootsTests
         var unrooted = new SessionRoots(new StatelessAddress(), []).Reach("a.txt");
 
         Assert.StartsWith("'", outside.Refusal, StringComparison.Ordinal);
-        Assert.Contains("is outside this request, which works in", outside.Refusal, StringComparison.Ordinal);
+        Assert.EndsWith($"is outside this request's root {root}, which its address names", outside.Refusal, StringComparison.Ordinal);
         Assert.Equal("this request was given no root, so nothing is reachable", unrooted.Refusal);
+    }
+
+    /// <summary>#139: a request on a stateless transport works in nothing; the roots it is held to are what its address named, or the server's.</summary>
+    [Fact]
+    public void Refusal_OnAStatelessTransport_SaysWhereTheRootsCameFrom()
+    {
+        var first = TestFolder.Create();
+        var second = TestFolder.Create();
+        var elsewhere = Path.Combine(TestFolder.Create(), "a.txt");
+
+        var named = new SessionRoots(new StatelessAddress(("root", first), ("root", second)), []).Reach(elsewhere);
+        var served = new SessionRoots(new StatelessAddress(), [first]).Reach(elsewhere);
+        var session = new SessionRoots(new FixedAddress(("root", first)), []).Reach(elsewhere);
+
+        Assert.Equal($"'{elsewhere}' is outside this request's roots {first}, {second}, which its address names", named.Refusal);
+        Assert.Equal($"'{elsewhere}' is outside this server's root {first}", served.Refusal);
+        Assert.Equal($"'{elsewhere}' is outside this session, which works in {first}", session.Refusal);
+        Assert.Equal(Reached.Outside, named.Type);
     }
 
     [Fact]

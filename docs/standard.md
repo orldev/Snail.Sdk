@@ -357,7 +357,9 @@ And for the server project (no kind):
   that has no value left out, written by `ToolAnswer.Ok(data, shape)`, `ToolAnswer.Failed(error, hint, type, data)` or
   `ToolAnswer.From(answer, data)` from an `Answer<T>` (success is its error being null; `TryGet`, `As<TOther>()`, `Map`
   and `ToolAnswer.Failed(answer)` carry it without copying a field; `Answer.Failed(error, hint, type, details)` needs no
-  type argument, and its `details`, what the work learned before it stopped, are the failure's `data`), typed data through `ToolAnswer.Ok(data, typeInfo)`
+  type argument, and its `details`, what the work learned before it stopped, are the failure's `data` — a layer without
+  the JSON mapper hands them on as they are, `.WithDetails(value)`, and the tool writes them,
+  `ToolAnswer.From<T, TDetails>(answer, data, details)`), typed data through `ToolAnswer.Ok(data, typeInfo)`
   with no tree of nodes (`ToolAnswer.From(answer, typeInfo)` from an `Answer<T>`), the data mapped from domain records
   in the server's `AnswerFields`. Fields a tool's contract keeps beside the data go after it at the top level through
   `ToolAnswer.Ok(data, shape, beside)`, never written by hand; a tool that returns a string returns
@@ -393,10 +395,12 @@ And for the server project (no kind):
   (`SessionAddress.None`): every tool is granted, and the volumes are the roots — or, for a program a desktop client
   installs with no settings, everywhere (`SessionRootsOptions.ReachesEverywhereAsAProgram`). A refused call is type
   `notGranted` whichever layer refuses it — the door, a forwarder, a catalog (`ToolForwarding.Refused`), a program —
-  and a refusal speaks of "this request" where the transport keeps no sessions. Both registrations go before or after
-  the HTTP transport alike; `services.AddSessionRoots(volumes)` registers the roots where there is no MCP builder. The task of a step is the first folder of its copy under the workspaces
-  (`WorkspaceCopy.Of`, which says why a root is no copy), and a server many tasks share owns its jobs by it
-  (`JobOwners.TaskOfCopy`) or by the MCP session (`JobOwners.Session` of `Snail.Sdk.Mcp.Http`).
+  and a refusal speaks of "this request" where the transport keeps no sessions — a path outside the roots as outside
+  the roots its address named, or the server's, since a request works in nothing. Both registrations go before or after
+  the HTTP transport alike — `.RefuseWhatWasNotGranted()` before `.WithLocalHttpTransport()` or after it, the same server; `services.AddSessionRoots(volumes)` registers the roots where there is no MCP builder. The task of a step is the first folder of its copy under the workspaces
+  (`WorkspaceCopy.Of`, which says why a root is no copy, and `copy.ToAnswer(…)` hands the copy on as an
+  `Answer<WorkspacePlace<TTask>>` in the server's words), and a server many tasks share owns its jobs by it
+  (`JobOwners.TaskOfCopy`, a task type of the server's own named by its `ownerOf`) or by the MCP session (`JobOwners.Session` of `Snail.Sdk.Mcp.Http`).
 - A program instead of a call per step, when the server opts in (`Snail.Sdk.Mcp.Programs`, referenced without a
   version): `.WithPrograms<TCommands>(options => options.Global = "<short>")` registers `run_program(code, input,
   timeoutSeconds)`, a JavaScript program on Jint whose global object holds the server's commands — its own catalog
@@ -409,14 +413,15 @@ And for the server project (no kind):
 - The ways in, spelled alike by every server (`Snail.Sdk.Mcp.Hosting.Discovery`): `.WithToolDiscovery()` adds
   `find_tool(task, limit)` — `intent` and `query` taken for `task` — which ranks the tools the server registered against a task in
   words and answers each with its command and parameters, as far as the session may call it — every tool by name when
-  nothing matches — and `ToolCatalog.Find` ranks a catalog the same way for a test without a host; `.WithToolSequences()`
+  nothing matches — and `ToolCatalog.Find` ranks a catalog the same way for a test without a host — `ToolCatalog.Of(services)`
+  and `ToolCatalog.Find(services, task, limit)` the very catalog and answer of `find_tool`, Snail.Sdk's tools included; `.WithToolSequences()`
   adds `run_tools(steps)`, several tools in one call through `ToolForwarding`, stopping at the first that fails or
   throws, inside an output budget, with the hints of the tools it can run; `.WithArgumentCheck()` refuses a call that leaves out a required parameter or sends an unknown one,
   naming the parameter it meant (or its synonym, `ArgumentCheckOptions.Synonyms`); `.WithSkills()` with
   `[Skill(name, description)]` keeps a group of tools out of a session's list until it loads the skill
   (`<short>_skills`, `_enable_skill`, `_disable_skill`), tells the client of the change — a client of the 2026-07-28
   revision on its `subscriptions/listen` stream — and unloads a skill left idle and not busy; `SkillOptions.SessionOf`
-  tells apart the clients that have no MCP session. All read the registered tools, so none needs reflection at run time.
+  tells apart the clients that have no MCP session, its names never taken for a session's id. All read the registered tools, so none needs reflection at run time.
 - `-p:SnailReference=true` writes the tool reference ([Documentation and the site](#documentation-and-the-site)).
 - `dotnet publish -c Release -r <rid> -p:SnailMcpInstall=true` installs the server into
   `~/.s3l-mcp/<name>/<date>-<time>.<commit>/` and points `current` at it ([installing](installing.md)).

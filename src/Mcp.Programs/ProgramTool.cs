@@ -60,7 +60,7 @@ internal sealed class ProgramTool(ProgramOptions options, ProgramRunner runner, 
             return ToolAnswer.Failed($"timeoutSeconds is {timeoutSeconds}, and a program is given 1 to {most} seconds", $"leave it out for the default of {ProgramOptions.Seconds(options.Timeout)}", ProgramFailures.Invalid);
 
         var timeout = timeoutSeconds is { } seconds ? TimeSpan.FromSeconds(seconds) : options.Timeout;
-        var run = await runner.RunAsync(commands, code, input, timeout, tool => ToolForwarding.Refusal(context, tool), cancellationToken).ConfigureAwait(false);
+        var run = await runner.RunAsync(commands, code, input, timeout, tool => ToolForwarding.Refusal(context, tool), context, cancellationToken).ConfigureAwait(false);
         var data = Data(run);
 
         return run.Failure is { } failure ? ToolAnswer.Failed(failure.Error, failure.Hint, failure.Type, data) : ToolAnswer.Ok(data);

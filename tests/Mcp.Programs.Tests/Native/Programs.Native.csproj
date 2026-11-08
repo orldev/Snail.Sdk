@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A native program over ProgramRunner, published by NativeProgramTests and run once per program: the JIT forgives what
+    Native AOT does not, so a defect of the engine's bridge to .NET shows only in a native binary. Jint passes a call
+    whose arguments are all literals its own cache, an object[] reinterpreted as JsValue[]; a host function that read it
+    as IEnumerable<JsValue> ended the whole process under Native AOT (SIGABRT, nothing on stderr), while every test run
+    by the JIT passed. Not in the solution and not compiled into the tests: it is built only by that test, with the
+    native toolchain, into a folder beside the tests' own output.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <SnailProjectKind>Tests</SnailProjectKind>
+    <PublishAot>true</PublishAot>
+    <!-- Jint is not annotated for trimming; a native server that references Snail.Sdk.Mcp.Programs sets the same. -->
+    <IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!--
+    This repository builds on Microsoft.NET.Sdk, not on the Snail.Sdk it makes, so the patched AOT compiler a server gets
+    from Snail.Sdk.targets (SnailRaiseILCompiler: GHSA-p3jp-9v83-76w9 in the band's 10.0.10) is raised here the same way.
+  -->
+  <PropertyGroup Condition="'$(BundledNETCoreAppPackageVersion.StartsWith(`10.0.`))' == 'true' and '$(BundledNETCoreAppPackageVersion)' &lt; '10.0.14'">
+    <SnailILCompilerVersion>10.0.14</SnailILCompilerVersion>
+  </PropertyGroup>
+
+  <Target Name="SnailRaiseILCompiler" BeforeTargets="ProcessFrameworkReferences" Condition="'$(SnailILCompilerVersion)' != ''">
+    <ItemGroup>
+      <KnownILCompilerPack Update="Microsoft.DotNet.ILCompiler" Condition="'%(TargetFramework)' == 'net10.0'" ILCompilerPackVersion="$(SnailILCompilerVersion)" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Mcp.Programs\Mcp.Programs.csproj" />
+  </ItemGroup>
+
+</Project>

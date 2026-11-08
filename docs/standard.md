@@ -382,7 +382,7 @@ And for the server project (no kind):
 - A program instead of a call per step, when the server opts in (`Snail.Sdk.Mcp.Programs`, referenced without a
   version): `.WithPrograms<TCommands>(options => options.Global = "<short>")` registers `run_program(code, input,
   timeoutSeconds)`, a JavaScript program on Jint whose global object holds the server's commands — its own catalog
-  (`IProgramCommands`: the names, the tool each stands for, the call) or its tools (`ToolCommands`). The engine reaches
+  (`IProgramCommands`: the names, the tool each stands for, the call, handed the request of `run_program`) or its tools (`ToolCommands`). The engine reaches
   no type of the host; the session's gate is asked before every command, and a refusal, like a failed command, is an
   exception the program may catch; an unknown command stops it with the nearest names; `log(…)` belongs to the program,
   never to the commands. It is bounded in time, memory (32 MiB), depth (256), statements (a million), commands and the
@@ -546,7 +546,9 @@ every push. Beyond what a test of the code itself asserts:
       A server that exits at start fails the test at once with its exit code and its stderr; one disposed is killed
       with every process it started. `SessionAsync(query)` opens a session on `/mcp`, and
       `HttpGuards.ProblemsAsync(server.Endpoint)` is empty when a request with `Origin` is refused with 403 and one
-      without it is not.
+      without it is not. What needs the server whole but not its process — the door, the grant from the query — runs
+      in the test's own process with `InProcessServer.StartAsync(builder => …)`, or `ServeAsync(app)` over the host the
+      server's program builds, on a port Kestrel chose.
 - **Temporary folders a cleaner can prove are leftovers.** A test takes its temporary folder from
   `TestFolder.Create()` of `Snail.Sdk.Mcp.Testing`, never from `Directory.CreateTempSubdirectory()` or
   `Path.GetTempPath()` with a random name. The folder is made directly in the temporary folder and named

@@ -51,7 +51,7 @@ public sealed partial class ProgramToolTests
         var answer = await stand.RunAsync("try { notes.write({ text: 'x' }); } catch (e) { return e.type + ': ' + e.error; }");
 
         Assert.True(answer.IsOk(), answer.Text());
-        Assert.Equal("refused: 'notes_write' was not granted to this session, which may use notes_read, run_program", answer.Data()!["result"]!.GetValue<string>());
+        Assert.Equal("notGranted: 'notes_write' was not granted to this session, which may use notes_read, run_program", answer.Data()!["result"]!.GetValue<string>());
         Assert.Empty(stand.Notes.Written);
     }
 
@@ -112,6 +112,39 @@ public sealed partial class ProgramToolTests
         Assert.Equal("the program calls notes.<command>({ … }); the commands are read, write", answer.Hint());
     }
 
+    /// <summary>A server that gives its programs longer than the default ceiling means a call may give them as long.</summary>
+    [Fact]
+    public async Task Registration_WithATimeoutPastTheCeiling_RaisesTheCeiling()
+    {
+        await using var stand = await ProgramStand.StartAsync(Everything, server => server.WithPrograms<NoteCommands>(options =>
+        {
+            options.Global = "notes";
+            options.Timeout = TimeSpan.FromMinutes(15);
+        }));
+
+        var options = stand.Host.Services.GetRequiredService<ProgramOptions>();
+        var tools = await stand.Client.ListToolsAsync();
+
+        Assert.Equal(TimeSpan.FromMinutes(15), options.MaxTimeout);
+        Assert.Contains("900 seconds unless timeoutSeconds gives up to 900.", tools.Single(tool => tool.Name == "run_program").Description, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(0, 600)]
+    [InlineData(-5, 600)]
+    [InlineData(120, 0)]
+    [InlineData(120, -1)]
+    public void Registration_WithATimeoutOrCeilingThatCannotBeOne_FailsAtStartup(int timeout, int ceiling)
+    {
+        var services = new ServiceCollection();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => services.AddMcpServer().WithPrograms<NoteCommands>(options =>
+        {
+            options.Timeout = TimeSpan.FromSeconds(timeout);
+            options.MaxTimeout = TimeSpan.FromSeconds(ceiling);
+        }));
+    }
+
     [Theory]
     [InlineData("log")]
     [InlineData("input")]
@@ -157,8 +190,34 @@ public sealed partial class ProgramToolTests
 
         var answer = await stand.RunAsync("try { notes.write({ text: 'x' }); return 'wrote'; } catch (e) { return e.type; }");
 
-        Assert.Equal("refused", answer.Data()!["result"]!.GetValue<string>());
+        Assert.Equal("notGranted", answer.Data()!["result"]!.GetValue<string>());
         Assert.Empty(stand.Notes.Written);
+    }
+
+    /// <summary>A catalog that needs the session, the services of the request or its progress token reads them from the request it is handed.</summary>
+    [Fact]
+    public async Task Command_IsHandedTheRequestOfRunProgram()
+    {
+        await using var stand = await ProgramStand.StartAsync(Everything, server =>
+        {
+            server.Services.AddSingleton<RequestCommands>();
+
+            return server.WithPrograms<RequestCommands>(options => options.Global = "notes");
+        });
+
+        var answer = await stand.RunAsync("return notes.request();");
+
+        Assert.True(answer.IsOk(), answer.Text());
+        Assert.Equal("""{"tool":"run_program","code":"return notes.request();","notes":0}""", answer.Data()!["result"]!.ToJsonString());
+    }
+
+    /// <summary>A catalog written before the request was handed over implements only the call without it, and runs unchanged.</summary>
+    [Fact]
+    public async Task Runner_GivenNoRequest_CallsTheCommandWithoutIt()
+    {
+        var run = await new ProgramRunner(new ProgramOptions { Global = "notes" }).RunAsync(new RequestCommands(), "try { notes.request(); } catch (e) { return e.type; }");
+
+        Assert.Equal("noRequest", run.Result!.GetValue<string>());
     }
 
     [Fact]

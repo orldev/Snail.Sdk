@@ -22,7 +22,12 @@ public sealed partial class ProgramOptions
     /// <summary>How long a program runs when the call names no time; two minutes unless set.</summary>
     public TimeSpan Timeout { get; set; } = TimeSpan.FromMinutes(2);
 
-    /// <summary>The longest a call may give a program; ten minutes unless set.</summary>
+    /// <summary>The longest a call may give a program; ten minutes unless set, and never less than <see cref="Timeout"/>.</summary>
+    /// <remarks>
+    /// A <see cref="Timeout"/> set past it raises it to the same value when the tool is registered: a server that gives
+    /// its programs twenty minutes means a call may have them too, and refusing to start said nothing it did not know.
+    /// A ceiling of zero or less still fails at startup.
+    /// </remarks>
     public TimeSpan MaxTimeout { get; set; } = TimeSpan.FromMinutes(10);
 
     /// <summary>The memory a program may allocate; 32 MiB unless set.</summary>
@@ -62,14 +67,18 @@ public sealed partial class ProgramOptions
     /// <summary>A duration in whole seconds, as the tool takes and states it.</summary>
     internal static int Seconds(TimeSpan duration) => (int)Math.Ceiling(duration.TotalSeconds);
 
-    /// <summary>Throws when a value cannot work: a registration that would fail on every call fails at startup instead.</summary>
+    /// <summary>Throws when a value cannot work, a registration that would fail on every call failing at startup instead; raises <see cref="MaxTimeout"/> to <see cref="Timeout"/>.</summary>
     internal void Check()
     {
         if (!Identifier().IsMatch(Global) || Global is "log" or "input")
             throw new ArgumentException($"'{Global}' cannot name the commands' object: it must be a JavaScript identifier other than log and input", nameof(Global));
 
         ArgumentOutOfRangeException.ThrowIfLessThan(Timeout, TimeSpan.FromSeconds(1), nameof(Timeout));
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(Timeout, MaxTimeout, nameof(Timeout));
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(MaxTimeout, TimeSpan.Zero, nameof(MaxTimeout));
+
+        if (MaxTimeout < Timeout)
+            MaxTimeout = Timeout;
+
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MemoryBytes, nameof(MemoryBytes));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaxCalls, nameof(MaxCalls));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaxRecursion, nameof(MaxRecursion));

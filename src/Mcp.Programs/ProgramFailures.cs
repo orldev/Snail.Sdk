@@ -25,8 +25,9 @@ public static class ProgramFailures
     /// <summary>The program called a command the global object does not have.</summary>
     public const string NoSuchCommand = "noSuchCommand";
 
-    /// <summary>The session may not call the tool the command stands for.</summary>
-    public const string Refused = "refused";
+    /// <summary>The session may not call the tool the command stands for: the fleet's one type of a refusal by the grant.</summary>
+    /// <remarks>The same word as the gate's own refusal of a tool, so a client branches on one type whether a tool or a program's command was refused.</remarks>
+    public const string NotGranted = "notGranted";
 
     /// <summary>The call was malformed: no code, a timeout out of range, a command given something other than one object.</summary>
     public const string Invalid = "invalid";

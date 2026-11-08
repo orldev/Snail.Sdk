@@ -24,6 +24,16 @@ A change that a repository must act on says what to do.
   `await HttpServerProgram.StartAsync("Snail.MCP.<Name>", "SNAIL_<SHORT>_SERVER", environment)` in `InitializeAsync`
   and `await server.DisposeAsync()`, and its browser test with
   `Assert.Empty(await HttpGuards.ProblemsAsync(server.Endpoint))`; `dotnet new s3l-mcp`'s `HttpContractTests` does.
+- `InProcessServer` of `Snail.Sdk.Mcp.Testing`: a server over HTTP in the test's own process, for what needs it whole —
+  the door, the grant from the query, the tools Snail.Sdk adds — without a process per test.
+  `await InProcessServer.StartAsync(builder => …, app => …)` builds it on `McpHttpHost.CreateBuilder` at
+  `127.0.0.1:0` (`app.MapLocalMcp()` when no map is given), and `InProcessServer.ServeAsync(app)` starts a host the
+  server's program built itself on such an endpoint; either reads back the port Kestrel bound, so nothing can take it
+  in between. `Address`, `Endpoint`, `Services` and `SessionAsync(query)` are those of `HttpServerProgram`; disposing
+  it stops and disposes the host. The package now references `Snail.Sdk.Mcp.Http`, and through it the ASP.NET Core
+  shared framework, which a test project always has. Snail.MCP.Git may replace `tests/Support/TestServer.cs` and
+  Snail.MCP.FileSystem `tests/Support/Listening.cs` with
+  `await InProcessServer.ServeAsync(McpServerHost.Listening([], config, new McpEndpoint(McpTransport.Http, new Uri("http://127.0.0.1:0/"), false)))`.
 - One answer envelope for every tool, in `Snail.Sdk.Mcp.Hosting.Answers`. `ToolAnswer.Ok(data, shape)`,
   `ToolAnswer.Failed(error, hint, type, data)` and `ToolAnswer.From(answer, data, shape)` write the text every server
   of the fleet writes by hand — one block of compact JSON with nothing escaped that JSON allows, `{"ok":true,"data":…}`
@@ -231,17 +241,20 @@ A change that a repository must act on says what to do.
   `.WithPrograms<TCommands>(options => options.Global = "git")` beside `AddMcpServer`. A program is JavaScript run on
   Jint 4.17.0 beside the server, whose global object holds the server's commands — `git.status()`,
   `blender.add_primitive({ … })` — so work that decides as it goes costs one call. `TCommands` is an `IProgramCommands`
-  (`Names`, `ToolOf(command)`, `CallAsync`, answering a `ProgramAnswer`), or `ToolCommands`, every tool of the server
+  (`Names`, `ToolOf(command)`, `CallAsync`, answering a `ProgramAnswer`; `CallAsync(command, arguments, context, …)`
+  hands a command the request of `run_program` — its session, services and progress token — and calls the one without
+  it unless a catalog overrides it), or `ToolCommands`, every tool of the server
   but the forwarders, `notes_read` called as `notes.read()`, through `ToolForwarding.CallAsync`. The tool is marked
   `[Forwards]`; before every command the session's gate is asked for the command's tool, and a refusal, like any failed
   command, reaches the program as `{ error, message, hint, type, details }`, which it may catch. A command the server
   does not have stops the program with the names nearest to it (`no command 'stauts'; the nearest: status`) instead of
   "is not a function"; `log(…)` is a global of the program only, so a command named `log` still runs (Snail.MCP.Git's
-  collision). `ProgramOptions` bound a program — `Timeout` 120 s and `MaxTimeout` 600 s, `MemoryBytes` 32 MiB,
-  `MaxRecursion` 256, `MaxStatements` 1 000 000, `MaxCalls` 200, `LogLines` 200 of `LogLineLength` 1000, `ResultBytes`
-  128 KiB — and each stop says which bound in its own words with a `type`: `timeout` (also when the time runs out inside
-  a slow command, which is given up on at the deadline), `programTooLarge`, `tooManyCalls`, `syntax` and `runtime` with
-  the line of the program, `noSuchCommand`, `refused`, `cancelled`, `invalid`. The answer is the envelope:
+  collision). `ProgramOptions` bound a program — `Timeout` 120 s and `MaxTimeout` 600 s (raised to a `Timeout` set past
+  it rather than refused at startup), `MemoryBytes` 32 MiB, `MaxRecursion` 256, `MaxStatements` 1 000 000, `MaxCalls`
+  200, `LogLines` 200 of `LogLineLength` 1000, `ResultBytes` 128 KiB — and each stop says which bound in its own words
+  with a `type`: `timeout` (also when the time runs out inside a slow command, which is given up on at the deadline),
+  `programTooLarge`, `tooManyCalls`, `syntax` and `runtime` with the line of the program, `noSuchCommand`, `notGranted`,
+  `cancelled`, `invalid`. The answer is the envelope:
   `{"result":…,"log":[…],"calls":[{"command","ok","milliseconds"}]}`, a result past the budget left out with
   `isOmitted` and a note, and on a stop the same data beside `error`, `hint` and `type`. `ProgramRunner` runs a program
   without the tool. A server opts in with `<PackageReference Include="Snail.Sdk.Mcp.Programs" />`, no version: the
@@ -251,6 +264,12 @@ A change that a repository must act on says what to do.
   `IProgramCommands` over the catalog (the grant, script and lease checks stay inside `CallAsync` or move to the gate),
   delete `JavaScriptPrograms`, `IProgramRunner`, `ProgramRun`, `ProgramTools`, the program descriptions and the Jint
   reference, and register `.WithPrograms<Catalog>(…)` with the server's own `MaxCalls`.
+  Under Native AOT `log(1)`, `log()`, `const l = log; l()` and `globalThis.log(1)` no longer end the whole server
+  (SIGABRT, nothing on stderr) — a defect of every server that ran its own Jint, Snail.MCP.Git's native binary among
+  them, and not of the JIT: Jint hands a call whose arguments are all literals, or none, its cache of them, an
+  `object[]` reinterpreted as `JsValue[]`, and reading it as an `IEnumerable<JsValue>` failed fast under Native AOT.
+  Every host function the engine is given now gets its arguments copied, by index, into an array of its own; a test
+  publishes a small native program over `ProgramRunner` and runs `log` and the commands in every form of call.
 - The ways into a server that the fleet spells alike, in `Snail.Sdk.Mcp.Hosting.Discovery`, each one line beside
   `AddMcpServer` and each over the tools the server registers, so none keeps a catalog of its own:
   - `.WithToolDiscovery(options => …)` adds `find_tool(task, limit)`, `intent` taken for `task` (Blender's and

@@ -1,4 +1,6 @@
 using System.Text.Json.Nodes;
+using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
 
 namespace Snail.Sdk.Mcp.Programs;
 
@@ -29,4 +31,18 @@ public interface IProgramCommands
     /// <param name="arguments">The object the program passed, empty when it passed none.</param>
     /// <param name="cancellationToken">Ends the command when the program runs out of time or its call is cancelled.</param>
     Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, CancellationToken cancellationToken);
+
+    /// <summary>Runs one command for the request of <c>run_program</c> that sent it, answering with its data or why it failed.</summary>
+    /// <remarks>
+    /// <c>run_program</c> calls this one, with its own request: the session, the services of the request, the client's
+    /// progress token and the grant. A catalog registered once for the server, or one that forwards to a tool of its own,
+    /// overrides it to reach them; the default calls <see cref="CallAsync(string, JsonObject, CancellationToken)"/>, so a
+    /// catalog written before it compiles and runs unchanged. <see cref="ProgramRunner"/> given no request calls that one.
+    /// </remarks>
+    /// <param name="command">One of <see cref="Names"/>.</param>
+    /// <param name="arguments">The object the program passed, empty when it passed none.</param>
+    /// <param name="context">The request of <c>run_program</c> whose program sent the command.</param>
+    /// <param name="cancellationToken">Ends the command when the program runs out of time or its call is cancelled.</param>
+    Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, RequestContext<CallToolRequestParams> context, CancellationToken cancellationToken) =>
+        CallAsync(command, arguments, cancellationToken);
 }

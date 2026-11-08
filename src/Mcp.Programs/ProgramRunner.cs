@@ -8,6 +8,8 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
+using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
 using Snail.Sdk.Mcp.Hosting.Answers;
 
 namespace Snail.Sdk.Mcp.Programs;
@@ -64,6 +66,7 @@ public sealed class ProgramRunner(ProgramOptions options)
     /// <param name="input">What the program reads as <c>input</c>; an empty object when null.</param>
     /// <param name="timeout">How long it may run; <see cref="ProgramOptions.Timeout"/> when null.</param>
     /// <param name="refusal">Why the session may not call a tool, or null when it may, asked with <see cref="IProgramCommands.ToolOf"/> before every command; every command is allowed when null.</param>
+    /// <param name="context">The request of <c>run_program</c>, handed to every command through <see cref="IProgramCommands.CallAsync(string, JsonObject, RequestContext{CallToolRequestParams}, CancellationToken)"/>; when null, the commands are called without it.</param>
     /// <param name="cancellationToken">Ends the program, which then reports <see cref="ProgramFailures.Cancelled"/>.</param>
     public Task<ProgramRun> RunAsync(
         IProgramCommands commands,
@@ -71,6 +74,7 @@ public sealed class ProgramRunner(ProgramOptions options)
         JsonObject? input = null,
         TimeSpan? timeout = null,
         Func<string, string?>? refusal = null,
+        RequestContext<CallToolRequestParams>? context = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(commands);
@@ -81,7 +85,7 @@ public sealed class ProgramRunner(ProgramOptions options)
 
         return Task.Run(() =>
         {
-            using var execution = new Execution(options, commands, refusal, given, cancellationToken);
+            using var execution = new Execution(options, commands, refusal, context, given, cancellationToken);
 
             return execution.Run(code, input);
         });
@@ -93,6 +97,7 @@ public sealed class ProgramRunner(ProgramOptions options)
         private readonly ProgramOptions _options;
         private readonly IProgramCommands _commands;
         private readonly Func<string, string?>? _refusal;
+        private readonly RequestContext<CallToolRequestParams>? _context;
         private readonly TimeSpan _timeout;
         private readonly CancellationToken _caller;
         private readonly CancellationTokenSource _deadline;
@@ -103,11 +108,12 @@ public sealed class ProgramRunner(ProgramOptions options)
         private readonly JsValue _parse;
         private readonly JsValue _stringify;
 
-        public Execution(ProgramOptions options, IProgramCommands commands, Func<string, string?>? refusal, TimeSpan timeout, CancellationToken caller)
+        public Execution(ProgramOptions options, IProgramCommands commands, Func<string, string?>? refusal, RequestContext<CallToolRequestParams>? context, TimeSpan timeout, CancellationToken caller)
         {
             _options = options;
             _commands = commands;
             _refusal = refusal;
+            _context = context;
             _timeout = timeout;
             _caller = caller;
             _deadline = CancellationTokenSource.CreateLinkedTokenSource(caller);
@@ -127,7 +133,7 @@ public sealed class ProgramRunner(ProgramOptions options)
             try
             {
                 _engine.SetValue("input", Parsed(input ?? []));
-                _engine.SetValue("log", new ClrFunction(_engine, "log", (_, written) => Write(written)));
+                _engine.SetValue("log", Host("log", Write));
                 _engine.SetValue(_options.Global, Guarded(Catalog()));
 
                 var answer = _engine.Evaluate($"(() => {{\n{code}\n}})()");
@@ -183,14 +189,14 @@ public sealed class ProgramRunner(ProgramOptions options)
             var catalog = new JsObject(_engine);
 
             foreach (var command in _commands.Names)
-                catalog.FastSetDataProperty(command, new ClrFunction(_engine, command, (_, arguments) => Send(command, arguments)));
+                catalog.FastSetDataProperty(command, Host(command, arguments => Send(command, arguments)));
 
             return catalog;
         }
 
         private ObjectInstance Guarded(JsObject catalog)
         {
-            var missing = new ClrFunction(_engine, "missing", (_, asked) => Missing(asked.Length == 0 ? string.Empty : asked[0].ToString()));
+            var missing = Host("missing", asked => Missing(asked.Length == 0 ? string.Empty : asked[0].ToString()));
 
             return _engine.Evaluate(Guard).Call(JsValue.Undefined, [catalog, missing]).AsObject();
         }
@@ -201,7 +207,40 @@ public sealed class ProgramRunner(ProgramOptions options)
             var nearest = NearestNames.Of(name, _commands.Names, NearestCount);
             var error = nearest.Count == 0 ? $"no command '{name}'" : $"no command '{name}'; the nearest: {string.Join(", ", nearest)}";
 
-            return new ClrFunction(_engine, name, (_, _) => throw new ProgramStopped(new ProgramFailure(ProgramFailures.NoSuchCommand, error, Listed())));
+            return Host(name, _ => throw new ProgramStopped(new ProgramFailure(ProgramFailures.NoSuchCommand, error, Listed())));
+        }
+
+        /// <summary>A function of the host a program calls, handed its arguments in an array of its own.</summary>
+        /// <remarks>
+        /// <para>
+        /// Jint hands a call whose arguments are all literals, or none, its cache of them: an <c>object[]</c> reinterpreted
+        /// as <c>JsValue[]</c> (<c>ExpressionCache.ArgumentListEvaluation</c>, Jint 4.17). Indexing it works; reading it as
+        /// <c>IEnumerable&lt;JsValue&gt;</c> — LINQ, <c>string.Join</c>, a spread — dispatches an interface the array does
+        /// not have, which the JIT forgives and Native AOT answers by failing fast. <c>log(1)</c>, <c>log()</c> and
+        /// <c>globalThis.log(1)</c> ended the whole native server, SIGABRT and nothing on stderr, while
+        /// <c>log.call(null, 1)</c>, which passes a real array, and every test run by the JIT passed — in Snail.MCP.Git's
+        /// native binary first, which ran this code before the package did.
+        /// </para>
+        /// <para>
+        /// The copy is made here, by index, for every function the engine is given, so no host function ever holds the
+        /// engine's array: none can trip on its type, and none can write into the cache of a literal. A span would not do,
+        /// since a span over a <c>JsValue[]</c> that is not one throws.
+        /// </para>
+        /// </remarks>
+        private ClrFunction Host(string name, Func<JsValue[], JsValue> body) =>
+            new(_engine, name, (_, arguments) => body(Owned(arguments)));
+
+        private static JsValue[] Owned(JsValue[] arguments)
+        {
+            if (arguments.Length == 0)
+                return [];
+
+            var owned = new JsValue[arguments.Length];
+
+            for (var i = 0; i < owned.Length; i++)
+                owned[i] = arguments[i];
+
+            return owned;
         }
 
         private string Listed()
@@ -238,7 +277,7 @@ public sealed class ProgramRunner(ProgramOptions options)
             {
                 _calls.Add(new ProgramCall(command, false, 0));
 
-                throw new JavaScriptException(Failure(ProgramAnswer.Failed(refused, "this session was not granted it; carry on without it, or leave it to a session that was", ProgramFailures.Refused)));
+                throw new JavaScriptException(Failure(ProgramAnswer.Failed(refused, "this session was not granted it; carry on without it, or leave it to a session that was", ProgramFailures.NotGranted)));
             }
 
             var started = _running.Elapsed;
@@ -246,7 +285,9 @@ public sealed class ProgramRunner(ProgramOptions options)
 
             try
             {
-                answer = _commands.CallAsync(command, given, _deadline.Token).WaitAsync(_deadline.Token).GetAwaiter().GetResult();
+                var sent = _context is null ? _commands.CallAsync(command, given, _deadline.Token) : _commands.CallAsync(command, given, _context, _deadline.Token);
+
+                answer = sent.WaitAsync(_deadline.Token).GetAwaiter().GetResult();
             }
             catch (OperationCanceledException) when (_deadline.IsCancellationRequested)
             {
@@ -292,7 +333,7 @@ public sealed class ProgramRunner(ProgramOptions options)
         }
 
         /// <summary>What the program threw and did not catch, with the line of the program it stopped on.</summary>
-        /// <remarks>A failed command keeps its own type, so the reply says <c>refused</c> or the server's <c>NotFound</c> rather than only that a program stopped.</remarks>
+        /// <remarks>A failed command keeps its own type, so the reply says <c>notGranted</c> or the server's <c>NotFound</c> rather than only that a program stopped.</remarks>
         private ProgramFailure Thrown(JavaScriptException failure)
         {
             var line = Line(failure.Location.Start.Line);

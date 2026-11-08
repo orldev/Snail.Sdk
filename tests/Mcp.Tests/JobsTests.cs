@@ -263,6 +263,23 @@ public sealed class JobsTests
         Assert.EndsWith("\"message\":\"no scene\",\"type\":\"internal\"}", thrown.ToJson(), StringComparison.Ordinal);
     }
 
+    /// <summary>A tool that took its wait in seconds from the caller handed Task.Delay 68 years for int.MaxValue, and the call failed inside the server.</summary>
+    [Fact]
+    public async Task ForAsync_AWaitLongerThanATimerHolds_WaitsForTheEnd()
+    {
+        var jobs = new Jobs("sample");
+        var job = jobs.Start("echo", async (_, token) =>
+        {
+            await Task.Delay(50, token);
+
+            return new Outcome("done");
+        }, SampleJson.Default.Outcome);
+
+        var report = await job.ForAsync(TimeSpan.FromSeconds(int.MaxValue)).WaitAsync(Patience);
+
+        Assert.Equal(JobState.Succeeded, report.State);
+    }
+
     /// <summary>A job's failure went out as the exception's message whatever words the server set to keep a path or a connection string out of what a model reads.</summary>
     [Fact]
     public async Task Job_ThatThrows_FailsInTheWordsTheServerGivesAFailure()

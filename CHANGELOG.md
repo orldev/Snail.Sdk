@@ -664,6 +664,8 @@ A change that a repository must act on says what to do.
 
 ### Fixed
 
+- `Job.ForAsync(wait)` with a wait longer than a timer holds — about 49 days, `int.MaxValue` seconds from a caller's
+  `wait` among them — waits for the end, where `Task.Delay` refused it and the call failed inside the server.
 - A job whose work threw failed with the exception's message whatever words the server gave a failure: it is read as
   `ExplainFailures` reads a tool that threw now — `FailureOptions.Error`, `Type` and `Refuse<TException>` hold for a job
   as for a tool, so a path or a connection string the server keeps out of its answers stays out of its jobs, and a

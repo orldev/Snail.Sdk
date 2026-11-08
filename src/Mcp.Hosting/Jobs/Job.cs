@@ -44,20 +44,26 @@ public sealed class Job
     /// <summary>The final report: succeeded, failed or cancelled. It never throws.</summary>
     public Task<JobReport> Completion => _ended.Task;
 
+    /// <summary>The longest wait <c>Task.Delay</c> takes, <see cref="uint.MaxValue"/> less one milliseconds: about 49 days.</summary>
+    private static readonly TimeSpan LongestTimer = TimeSpan.FromMilliseconds(uint.MaxValue - 1.0);
+
     /// <summary>Stops the work; the report ends cancelled once the work has stopped.</summary>
     public void Cancel() => _cancelling.Cancel();
 
     /// <summary>The report when the job ends within <paramref name="wait"/>, or the running report with its URI when it does not.</summary>
     /// <remarks>
     /// How a tool answers every client with one call: a client that can wait gets the result, one that cannot gets the
-    /// job to read later. Zero waits not at all. The token ends the wait, not the job.
+    /// job to read later. Zero waits not at all. The token ends the wait, not the job. A wait longer than a timer can
+    /// hold waits for the end: a tool that took <c>wait</c> as seconds from its caller handed <c>Task.Delay</c> 68 years
+    /// for <c>int.MaxValue</c>, which it refused, and the call failed inside the server.
     /// </remarks>
     public async Task<JobReport> ForAsync(TimeSpan wait, CancellationToken cancellationToken = default)
     {
         if (wait <= TimeSpan.Zero || _ended.Task.IsCompleted)
             return Report;
 
-        var ended = await Task.WhenAny(_ended.Task, Task.Delay(wait, cancellationToken)).ConfigureAwait(false);
+        TimeSpan held = wait > LongestTimer ? Timeout.InfiniteTimeSpan : wait;
+        Task ended = await Task.WhenAny(_ended.Task, Task.Delay(held, cancellationToken)).ConfigureAwait(false);
 
         if (ended != _ended.Task)
             cancellationToken.ThrowIfCancellationRequested();

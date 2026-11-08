@@ -27,13 +27,36 @@ namespace Snail.Sdk.Mcp.Hosting.Answers;
 /// <typeparam name="T">What the tool answers.</typeparam>
 /// <param name="IsOk">Whether the call did what was asked: <c>ok</c>.</param>
 /// <param name="Data">What the tool answers, never null on a success; on a failure, what there is to report all the same.</param>
-/// <param name="Error">Why the call did not go through; only on a failure.</param>
-/// <param name="Hint">What to do about it; only on a failure.</param>
-/// <param name="Type">The kind of failure, a word a program can branch on; only on a failure.</param>
 public sealed record Envelope<T>(
-    [property: JsonPropertyName("ok"), JsonPropertyOrder(0), Description("true: the call did what was asked. A refusal is an error result with ok false, error, hint and type in its text alone.")] bool IsOk,
-    [property: JsonPropertyName("data"), JsonPropertyOrder(4), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull), Description("What the tool answers.")] T Data,
-    [property: JsonPropertyName("error"), JsonPropertyOrder(1), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull), Description("Why the call did not go through; present only on a refusal, which is an error result.")] string? Error = null,
-    [property: JsonPropertyName("hint"), JsonPropertyOrder(2), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull), Description("What to do about a refusal; present only on one.")] string? Hint = null,
-    [property: JsonPropertyName("type"), JsonPropertyOrder(3), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull), Description("The kind of refusal, a word a program can branch on; present only on one.")] string? Type = null)
-    where T : notnull;
+    [property: JsonPropertyName("ok"), JsonPropertyOrder(0), Description(EnvelopeWords.Ok)] bool IsOk,
+    [property: JsonPropertyName("data"), JsonPropertyOrder(4), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull), Description(EnvelopeWords.Data)] T Data)
+    where T : notnull
+{
+    /// <summary>Why the call did not go through; only on a failure.</summary>
+    /// <remarks>Not a positional parameter: three strings in a row after the data were three a caller could misorder.</remarks>
+    [JsonPropertyName("error"), JsonPropertyOrder(1), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull), Description(EnvelopeWords.Error)]
+    public string? Error { get; init; }
+
+    /// <summary>What to do about it; only on a failure.</summary>
+    [JsonPropertyName("hint"), JsonPropertyOrder(2), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull), Description(EnvelopeWords.Hint)]
+    public string? Hint { get; init; }
+
+    /// <summary>The kind of failure, a word a program can branch on; only on a failure.</summary>
+    [JsonPropertyName("type"), JsonPropertyOrder(3), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull), Description(EnvelopeWords.Type)]
+    public string? Type { get; init; }
+}
+
+/// <summary>What a model reads of the envelope's published schema: the description of each of its fields.</summary>
+/// <remarks>Kept apart from the code as every description a model reads is, since the words steer what it does with a refusal.</remarks>
+internal static class EnvelopeWords
+{
+    public const string Ok = "true: the call did what was asked. A refusal is an error result with ok false, error, hint and type in its text alone.";
+
+    public const string Data = "What the tool answers.";
+
+    public const string Error = "Why the call did not go through; present only on a refusal, which is an error result.";
+
+    public const string Hint = "What to do about a refusal; present only on one.";
+
+    public const string Type = "The kind of refusal, a word a program can branch on; present only on one.";
+}

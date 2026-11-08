@@ -119,7 +119,7 @@ public static partial class ToolFailures
     private static AnswerFailure FailureOf(RequestContext<CallToolRequestParams> request, Exception failure, FailureOptions words)
     {
         if (failure is ToolRefusalException refusal)
-            return new AnswerFailure(refusal.Error, refusal.Hint, refusal.Type) { Details = refusal.Details };
+            return new AnswerFailure(refusal.Error) { Hint = refusal.Hint, Type = refusal.Type, Details = refusal.Details };
 
         return ArgumentFaults.FaultOf(request, failure) ?? Unforeseen(request, failure, words);
     }
@@ -149,7 +149,7 @@ public static partial class ToolFailures
     internal static AnswerFailure FailureOf(string subject, Exception failure, IServiceProvider? services, string? internalHint)
     {
         if (failure is ToolRefusalException refusal)
-            return new AnswerFailure(refusal.Error, refusal.Hint, refusal.Type) { Details = refusal.Details };
+            return new AnswerFailure(refusal.Error) { Hint = refusal.Hint, Type = refusal.Type, Details = refusal.Details };
 
         FailureOptions words = services?.GetService<IOptions<FailureOptions>>()?.Value ?? new FailureOptions();
 
@@ -174,7 +174,7 @@ public static partial class ToolFailures
                 Refused(logger, subject, type, error);
         }
 
-        return new AnswerFailure(error, HintOf(subject, failure, words, named, isInternal ? internalHint : null), type);
+        return new AnswerFailure(error) { Hint = HintOf(subject, failure, words, named, isInternal ? internalHint : null), Type = type };
     }
 
     private static ILoggerFactory? LoggersOf(IServiceProvider? services) => services?.GetService<ILoggerFactory>();

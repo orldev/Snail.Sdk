@@ -27,7 +27,7 @@ public static class DiscoveryRegistration
         /// <see cref="WithSkills"/>, each tool carries its <c>skill</c> and <c>isLoaded</c>, <c>enable: true</c> loads the
         /// skills of the tools found, and the description names the ways the server registered to run their tools without
         /// loading them — <c>run_tools</c> of <see cref="WithToolSequences"/>, <c>run_program</c>, both or neither. The answer
-        /// is <see cref="Answers.ToolAnswer.Ok(System.Text.Json.Nodes.JsonNode, Answers.AnswerShape)"/>
+        /// is <see cref="Answers.ToolAnswer.Ok(System.Text.Json.Nodes.JsonNode, Answers.AnswerShape, System.Text.Json.Nodes.JsonObject?, string?)"/>
         /// of <c>{task, isMatched, note, tools:[{name, command, description, parameters:[{name, type, isRequired, description, fields}]}]}</c>
         /// in <see cref="DiscoveryOptions.Shape"/>, an object parameter's <c>fields</c> in the same shape two levels down,
         /// the parameters of a tool with a command named and placed as the command takes them

@@ -43,13 +43,13 @@ internal static class ArgumentFaults
         var takes = ArgumentCheck.Takes(name, schema);
 
         if (Missing(schema, arguments) is { Count: > 0 } missing)
-            return new AnswerFailure($"'{name}' needs {string.Join(", ", missing.Select(parameter => $"'{parameter}'"))}, which this call did not send.", takes, ArgumentCheck.Type);
+            return new AnswerFailure($"'{name}' needs {string.Join(", ", missing.Select(parameter => $"'{parameter}'"))}, which this call did not send.") { Hint = takes, Type = ArgumentCheck.Type };
 
         if (Misfit(schema, arguments) is var (parameter, value, property))
-            return new AnswerFailure($"'{name}' cannot take {Shown(value)} for '{parameter}': it takes {Expected(property)}.", $"Send '{parameter}' as {Expected(property)}. {takes}", ArgumentCheck.Type);
+            return new AnswerFailure($"'{name}' cannot take {Shown(value)} for '{parameter}': it takes {Expected(property)}.") { Hint = $"Send '{parameter}' as {Expected(property)}. {takes}", Type = ArgumentCheck.Type };
 
         if (failure.StackTrace?.Contains(Marshalling, StringComparison.Ordinal) == true)
-            return new AnswerFailure($"'{name}' could not read the arguments of this call: {failure.Message}", $"Check the value of each argument against what the tool takes. {takes}", ArgumentCheck.Type);
+            return new AnswerFailure($"'{name}' could not read the arguments of this call: {failure.Message}") { Hint = $"Check the value of each argument against what the tool takes. {takes}", Type = ArgumentCheck.Type };
 
         return null;
     }

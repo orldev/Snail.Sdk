@@ -277,7 +277,7 @@ public sealed class ProgramRunner(ProgramOptions options)
             {
                 _calls.Add(new ProgramCall(command, false, 0));
 
-                throw new JavaScriptException(Failure(new AnswerFailure(refused, Hint(tool), ProgramFailures.NotGranted)));
+                throw new JavaScriptException(Failure(new AnswerFailure(refused) { Hint = Hint(tool), Type = ProgramFailures.NotGranted }));
             }
 
             TimeSpan started = _running.Elapsed;
@@ -287,7 +287,7 @@ public sealed class ProgramRunner(ProgramOptions options)
 
             return answer.TryGet(out JsonNode? data)
                 ? Parsed(data)
-                : throw new JavaScriptException(Failure(new AnswerFailure(answer.Error, answer.Hint, answer.Type) { Details = answer.Details }));
+                : throw new JavaScriptException(Failure(new AnswerFailure(answer.Error) { Hint = answer.Hint, Type = answer.Type, Details = answer.Details }));
         }
 
         /// <summary>The command's answer, a command that threw answered as its failure, and the program stopped when its time ran out.</summary>

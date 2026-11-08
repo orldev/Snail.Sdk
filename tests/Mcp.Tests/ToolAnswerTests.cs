@@ -269,7 +269,7 @@ public sealed class ToolAnswerTests
     {
         var failed = Answer.Failed<int>("Host gone.", "Check ssh.", "unreachable");
 
-        Assert.Equal(new Answer<string>(null, "Host gone.", "Check ssh.", "unreachable"), failed.As<string>());
+        Assert.Equal(new Answer<string>(null, "Host gone.") { Hint = "Check ssh.", Type = "unreachable" }, failed.As<string>());
     }
 
     [Fact]
@@ -887,7 +887,7 @@ public sealed class ToolAnswerTests
     {
         var answer = ToolAnswer.Failed("No such file.", "List the folder.", "missing");
 
-        var typed = JsonSerializer.Serialize(new Envelope<FileRead>(false, null!, "No such file.", "List the folder.", "missing"), EnvelopeJson.Default.EnvelopeFileRead);
+        var typed = JsonSerializer.Serialize(new Envelope<FileRead>(false, null!) { Error = "No such file.", Hint = "List the folder.", Type = "missing" }, EnvelopeJson.Default.EnvelopeFileRead);
 
         Assert.Equal(answer.Text(), typed);
     }

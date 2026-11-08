@@ -64,24 +64,16 @@ public static class ToolAnswer
     /// <summary>The generated type information of a JsonNode, for what a failure learned kept as a job's result.</summary>
     internal static JsonTypeInfo<JsonNode> NodeInfo => Generated.JsonNode;
 
-    /// <summary>A successful answer: the data in the envelope as the text, and the structured content <paramref name="shape"/> names.</summary>
-    /// <remarks>
-    /// The protocol allows only an object as structured content, so with <see cref="AnswerShape.Data"/> data that is an
-    /// array or a value goes as text alone. With <see cref="AnswerShape.Data"/> or <see cref="AnswerShape.Envelope"/> the
-    /// data is in the result twice, in the text and beside it: a size budget counts the text.
-    /// </remarks>
-    public static CallToolResult Ok(JsonNode data, AnswerShape shape)
-    {
-        ArgumentNullException.ThrowIfNull(data);
-
-        return Succeeded(writer => data.WriteTo(writer, Wire), shape, null, null);
-    }
-
     /// <summary>A successful answer: the data in the envelope as the text, and as the structured content when it is an object.</summary>
     public static CallToolResult Ok(JsonNode data) => Ok(data, AnswerShape.Data);
 
-    /// <summary>A successful answer with fields of the tool's own beside its data, at the top level of the envelope after <c>data</c> — <c>{"ok":true,"data":…,"fileKey":"…"}</c> — and what to do next, when the success has something to say: <c>{"ok":true,"hint":"…","data":…}</c>.</summary>
+    /// <summary>A successful answer: the data in the envelope as the text, the structured content <paramref name="shape"/> names, and — when given — fields of the tool's own after <c>data</c> and what to do next.</summary>
     /// <remarks>
+    /// <para>
+    /// The protocol allows only an object as structured content, so with <see cref="AnswerShape.Data"/> data that is an
+    /// array or a value goes as text alone. With <see cref="AnswerShape.Data"/> or <see cref="AnswerShape.Envelope"/> the
+    /// data is in the result twice, in the text and beside it: a size budget counts the text.
+    /// </para>
     /// <para>
     /// For a tool whose contract reads fields beside the data — the file and the node a read came from, where it came
     /// from and what it saved (Snail.MCP.Figma, 17 tools: <c>fileKey</c>, <c>nodeId</c>, <c>source</c>, <c>fileVersion</c>,
@@ -113,20 +105,12 @@ public static class ToolAnswer
         return Succeeded(writer => data.WriteTo(writer, Wire), shape, beside, hint);
     }
 
-    /// <summary>The text of a successful answer, <c>{"ok":true,"data":…}</c>, for a tool that returns a string: no structured content, nothing escaped that JSON does not require.</summary>
+    /// <summary>The text of a successful answer, <c>{"ok":true,"data":…}</c>, for a tool that returns a string: no structured content, nothing escaped that JSON does not require, and — when given — fields of the tool's own after <c>data</c> and what to do next.</summary>
     /// <remarks>
     /// A tool that returns a string is answered by the MCP SDK as one text block, which is what this is; written out as
     /// <c>ToolAnswer.Text(ToolAnswer.Ok(data, AnswerShape.None))</c>, it was long in every one of the 136 tools of
     /// Snail.MCP.Figma that answer so. <c>ExplainFailures</c> flags the string of a failure <c>isError</c>.
     /// </remarks>
-    public static string OkText(JsonNode data)
-    {
-        ArgumentNullException.ThrowIfNull(data);
-
-        return Envelope(true, writer => data.WriteTo(writer, Wire), null, null, null, null);
-    }
-
-    /// <summary>The text of a successful answer with fields of the tool's own after its data, and what to do next, for a tool that returns a string.</summary>
     /// <param name="data">What the tool answers.</param>
     /// <param name="beside">The fields written after <c>data</c>, as <see cref="Ok(JsonNode, AnswerShape, JsonObject?, string?)"/> writes them; none when null.</param>
     /// <param name="hint">What to do next with the answer, the envelope's own field before <c>data</c>; left out when null.</param>
@@ -160,7 +144,7 @@ public static class ToolAnswer
     /// </para>
     /// <para>
     /// The structured content of <see cref="AnswerShape.Data"/> is read from the same bytes the text holds, once, and
-    /// left out when the data is not an object, as with <see cref="Ok(JsonNode, AnswerShape)"/>.
+    /// left out when the data is not an object, as with <see cref="Ok(JsonNode, AnswerShape, JsonObject?, string?)"/>.
     /// </para>
     /// </remarks>
     /// <param name="data">What the tool answers.</param>

@@ -32,10 +32,15 @@ namespace Snail.Sdk.Mcp.Hosting.Answers;
 /// </remarks>
 /// <param name="Value">What was asked for, when it was had.</param>
 /// <param name="Error">Why it was not, in words the model can act on; null on success.</param>
-/// <param name="Hint">What to do about it, when there is something to do.</param>
-/// <param name="Type">The kind of failure, a word a program can branch on, such as <c>timeout</c>.</param>
-public sealed record Answer<T>(T? Value, string? Error, string? Hint, string? Type = null)
+public sealed record Answer<T>(T? Value, string? Error)
 {
+    /// <summary>What to do about the failure, when there is something to do.</summary>
+    /// <remarks>Not a positional parameter: beside <see cref="Error"/> and <see cref="Type"/>, three strings in a row were three a caller could put in each other's place, and the compiler would not have said so.</remarks>
+    public string? Hint { get; init; }
+
+    /// <summary>The kind of failure, a word a program can branch on, such as <c>timeout</c>.</summary>
+    public string? Type { get; init; }
+
     /// <summary>Whether the value was had; <see cref="Error"/> says why not otherwise.</summary>
     [MemberNotNullWhen(false, nameof(Error))]
     public bool IsSuccess => Error is null;
@@ -107,7 +112,7 @@ public sealed record Answer<T>(T? Value, string? Error, string? Hint, string? Ty
     /// <remarks>Copied by hand, the type was the field left behind (Snail.MCP.BuildBridge, 17 places).</remarks>
     /// <exception cref="InvalidOperationException">The answer is a success, which has a value to carry rather than a failure.</exception>
     public Answer<TOther> As<TOther>() =>
-        IsSuccess ? throw new InvalidOperationException(SuccessHasNoFailure) : new(default, Error, Hint, Type) { Details = Details, TypedDetails = TypedDetails };
+        IsSuccess ? throw new InvalidOperationException(SuccessHasNoFailure) : new(default, Error) { Hint = Hint, Type = Type, Details = Details, TypedDetails = TypedDetails };
 
     /// <summary>The value made into another through <paramref name="map"/>, or the same failure with its error, hint, type and details.</summary>
     /// <remarks>How work that answers a domain value ends as the data a tool or a job gives: <c>(await runs.RunAsync(…)).Map(AnswerFields.Of)</c>.</remarks>
@@ -115,7 +120,7 @@ public sealed record Answer<T>(T? Value, string? Error, string? Hint, string? Ty
     {
         ArgumentNullException.ThrowIfNull(map);
 
-        return TryGet(out var value) ? new(map(value), null, null) : As<TOther>();
+        return TryGet(out var value) ? new(map(value), null) : As<TOther>();
     }
 
     /// <summary>The failure as an answer of this type: what lets <c>Answer.Failed("…")</c> be returned where an <c>Answer&lt;T&gt;</c> is expected.</summary>
@@ -134,7 +139,7 @@ public sealed record Answer<T>(T? Value, string? Error, string? Hint, string? Ty
 public static class Answer
 {
     /// <summary>An answer carrying its value.</summary>
-    public static Answer<T> Ok<T>(T value) => new(value, null, null);
+    public static Answer<T> Ok<T>(T value) => new(value, null);
 
     /// <summary>No value, and why, as an answer of a type named here: where nothing else names it — <c>var</c>, <c>Task.FromResult</c>.</summary>
     /// <param name="error">Why there is no value, in words the model can act on.</param>
@@ -145,7 +150,7 @@ public static class Answer
     {
         ArgumentNullException.ThrowIfNull(error);
 
-        return new(default, error, hint, type) { Details = details };
+        return new(default, error) { Hint = hint, Type = type, Details = details };
     }
 
     /// <summary>No value, and why, as an answer of whatever type is expected: <c>return Answer.Failed("…");</c>, <c>ok ? Answer.Ok(value) : Answer.Failed("…")</c>.</summary>
@@ -161,6 +166,6 @@ public static class Answer
     {
         ArgumentNullException.ThrowIfNull(error);
 
-        return new(error, hint, type) { Details = details };
+        return new(error) { Hint = hint, Type = type, Details = details };
     }
 }

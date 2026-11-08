@@ -5,9 +5,9 @@ static Snail.Sdk.Mcp.Hosting.Answers.Answer.Failed<T>(string! error, string? hin
 static Snail.Sdk.Mcp.Hosting.Answers.Answer.Ok<T>(T value) -> Snail.Sdk.Mcp.Hosting.Answers.Answer<T>!
 Snail.Sdk.Mcp.Hosting.Answers.Answer<T>
 Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.<Clone>$() -> Snail.Sdk.Mcp.Hosting.Answers.Answer<T>!
-Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Answer(T? Value, string? Error, string? Hint, string? Type = null) -> void
+Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Answer(T? Value, string? Error) -> void
 Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.As<TOther>() -> Snail.Sdk.Mcp.Hosting.Answers.Answer<TOther>!
-Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Deconstruct(out T? Value, out string? Error, out string? Hint, out string? Type) -> void
+Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Deconstruct(out T? Value, out string? Error) -> void
 Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Details.get -> System.Text.Json.Nodes.JsonNode?
 Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Details.init -> void
 Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Equals(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>? other) -> bool
@@ -32,9 +32,9 @@ static Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.operator !=(Snail.Sdk.Mcp.Hosting
 static Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.operator ==(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>? left, Snail.Sdk.Mcp.Hosting.Answers.Answer<T>? right) -> bool
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.<Clone>$() -> Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure!
-Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.AnswerFailure(string! Error, string? Hint = null, string? Type = null) -> void
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.AnswerFailure(string! Error) -> void
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.As<T>() -> Snail.Sdk.Mcp.Hosting.Answers.Answer<T>!
-Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Deconstruct(out string! Error, out string? Hint, out string? Type) -> void
+Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Deconstruct(out string! Error) -> void
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Details.get -> System.Text.Json.Nodes.JsonNode?
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Details.init -> void
 Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure.Equals(Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure? other) -> bool
@@ -58,8 +58,8 @@ Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>
 Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.<Clone>$() -> Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>!
 Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Data.get -> T
 Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Data.init -> void
-Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Deconstruct(out bool IsOk, out T Data, out string? Error, out string? Hint, out string? Type) -> void
-Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Envelope(bool IsOk, T Data, string? Error = null, string? Hint = null, string? Type = null) -> void
+Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Deconstruct(out bool IsOk, out T Data) -> void
+Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Envelope(bool IsOk, T Data) -> void
 Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Equals(Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>? other) -> bool
 override Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Equals(object? obj) -> bool
 Snail.Sdk.Mcp.Hosting.Answers.Envelope<T>.Error.get -> string?
@@ -103,11 +103,9 @@ static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Moment(System.DateTimeOffset at)
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.ObjectInfo.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<System.Text.Json.Nodes.JsonObject!>!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Of(System.Text.Json.Nodes.JsonObject! envelope, Snail.Sdk.Mcp.Hosting.Answers.AnswerShape shape = Snail.Sdk.Mcp.Hosting.Answers.AnswerShape.Data) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Ok(System.Text.Json.Nodes.JsonNode! data) -> ModelContextProtocol.Protocol.CallToolResult!
-static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Ok(System.Text.Json.Nodes.JsonNode! data, Snail.Sdk.Mcp.Hosting.Answers.AnswerShape shape) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Ok(System.Text.Json.Nodes.JsonNode! data, Snail.Sdk.Mcp.Hosting.Answers.AnswerShape shape, System.Text.Json.Nodes.JsonObject? beside = null, string? hint = null) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Ok<T>(T data, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T>! type) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Ok<T>(T data, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T>! type, Snail.Sdk.Mcp.Hosting.Answers.AnswerShape shape) -> ModelContextProtocol.Protocol.CallToolResult!
-static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.OkText(System.Text.Json.Nodes.JsonNode! data) -> string!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.OkText(System.Text.Json.Nodes.JsonNode! data, System.Text.Json.Nodes.JsonObject? beside = null, string? hint = null) -> string!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Text(ModelContextProtocol.Protocol.CallToolResult! result) -> string!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Wire.get -> System.Text.Json.JsonSerializerOptions!

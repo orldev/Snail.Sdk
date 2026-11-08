@@ -554,11 +554,13 @@ A change that a repository must act on says what to do.
 
 ### Fixed
 
-- The API reference names a static extension member by the type it extends — `string? JobOwners.Session(IServiceProvider
-  services)` among the members of `HttpSessions` — where the row showed a bare static method of the class that declares
-  the `extension` block, and a reader looking for `JobOwners.Session` found nothing: the compiler marks nothing on such
-  a method, so the type is read from the block's marker. Nothing to change in a repository; its reference names them on
-  the next build with `-p:SnailReference=true`.
+- The API reference names a static extension member by the type it extends and lists it under that type —
+  `string? JobOwners.Session(IServiceProvider services)` in a section `static class JobOwners` of Snail.Sdk.Mcp.Http's
+  page, which says the class is declared in Snail.Sdk.Mcp.Hosting and the member in `HttpSessions`; under the type's own
+  section when the assembly declares it — where the row showed a bare static method of the class that declares the
+  `extension` block, and then the extended name among the members of `HttpSessions`, so a reader looking under
+  `JobOwners` found nothing: the compiler marks nothing on such a method, so the type is read from the block's marker.
+  Nothing to change in a repository; its reference lists them on the next build with `-p:SnailReference=true`.
 - `JobAnswer.Of(report, said)` flags a job that failed or was cancelled `isError` when `said` did not, as
   `JobAnswer.Envelope` and `JobAnswer.Result` do: a client that never reads the text learned the work was done
   (Snail.MCP.CodeContext).

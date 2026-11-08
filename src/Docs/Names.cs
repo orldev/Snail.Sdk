@@ -136,9 +136,12 @@ internal static class Names
         return $" = {value}";
     }
 
+    /// <summary>The type a static extension member extends, as a prefix — <c>JobOwners.</c> for <c>JobOwners.Session</c> — or nothing for any other method.</summary>
+    private static string Receiver(MethodInfo method) => Extended(method) is { } extended ? $"{Bare(extended)}." : string.Empty;
+
     /// <summary>
-    /// The type a static extension member extends, as a prefix — <c>JobOwners.</c> for <c>JobOwners.Session</c>, declared in
-    /// <c>extension(JobOwners)</c> of another class — or nothing for any other method.
+    /// The type a static extension member extends — <c>JobOwners</c> for <c>JobOwners.Session</c>, declared in
+    /// <c>extension(JobOwners)</c> of another class — or null for any other method.
     /// </summary>
     /// <remarks>
     /// The compiler writes a static extension member as a plain static method of the class that declares the block, with
@@ -146,10 +149,10 @@ internal static class Names
     /// reader looking for <c>JobOwners.Session</c> did not find it. The type is read from the block's grouping type, whose
     /// marker method takes the extended type as its one parameter.
     /// </remarks>
-    private static string Receiver(MethodInfo method)
+    public static Type? Extended(MethodInfo method)
     {
         if (!method.IsStatic || IsExtension(method) || method.DeclaringType is not { IsAbstract: true, IsSealed: true } owner)
-            return string.Empty;
+            return null;
 
         var parameters = ParameterTypes(method);
 
@@ -159,10 +162,10 @@ internal static class Names
                 .FirstOrDefault(candidate => candidate.Name == method.Name && ParameterTypes(candidate).SequenceEqual(parameters, StringComparer.Ordinal));
 
             if (skeleton is not null && ExtendedBy(group, skeleton) is { } extended)
-                return $"{Bare(extended)}.";
+                return extended;
         }
 
-        return string.Empty;
+        return null;
     }
 
     /// <summary>The type a member of a grouping type extends: the parameter of the marker its attribute names, or of the group's only marker.</summary>

@@ -250,7 +250,12 @@ public static class McpHttpHost
         /// server refuses it (-32022) rather than serving it without a session. Served that way, every window of Claude
         /// Code was one client called claude-code, and no server could learn a window's folder.
         /// </para>
-        /// <para>The session's address is read from each request (<c>WithSessionAddress</c>).</para>
+        /// <para>
+        /// The session's address is read from each request (<c>WithSessionAddress</c>). Called before or after
+        /// <c>RefuseWhatWasNotGranted</c> and <c>WithSessionRoots</c> alike: its address replaces the empty one they register
+        /// wherever it comes, and they add theirs only where there is none, so a server orders its registrations as it reads
+        /// best — Snail.MCP.Security asked which order was the right one.
+        /// </para>
         /// </remarks>
         public IMcpServerBuilder WithLocalHttpTransport() =>
             builder.WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateful).WithSessionAddress();

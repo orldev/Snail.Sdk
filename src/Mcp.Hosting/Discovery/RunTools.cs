@@ -2,6 +2,8 @@ using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using Snail.Sdk.Mcp.Hosting.Answers;
@@ -25,8 +27,13 @@ namespace Snail.Sdk.Mcp.Hosting.Discovery;
 /// A step of a skill the session has not loaded runs without loading it: the step was found by <c>find_tool</c>, and
 /// loading it would change a tool list the client would then read again.
 /// </para>
+/// <para>
+/// A step that throws is a step that failed: the run stops there and answers what the steps before it brought back.
+/// Thrown through, the whole run was one failure of type <c>internal</c> and the answers of the steps that had run were
+/// lost with it (Snail.MCP.Roslyn). Only the client's cancelling the call ends the run with what it throws.
+/// </para>
 /// </remarks>
-internal static class RunTools
+internal static partial class RunTools
 {
     public const string Name = "run_tools";
 
@@ -63,7 +70,35 @@ internal static class RunTools
                 return ToolAnswer.Failed($"step {at + 1} of {steps.Length} ({step.Tool}) failed: {step.Error}", step.Hint, step.Type, run.Report());
         }
 
-        return ToolAnswer.Ok(run.Report());
+        return ToolAnswer.Ok(run.Report(), options.Shape);
+    }
+
+    /// <summary>Says of <c>run_tools</c> what its steps say of themselves, and states its output schema where the server states its own.</summary>
+    /// <remarks>
+    /// <para>
+    /// A run does what its steps do, so its hints are theirs: read-only when every tool that can be a step is, destructive
+    /// when any may be, open-world when any is or does not say. Written as always open-world, a server whose every tool is
+    /// closed (Snail.MCP.FileSystem) had one tool claiming to reach the world. A forwarder is no step and says nothing here;
+    /// a hint the protocol leaves unsaid is taken at its default, destructive and open-world.
+    /// </para>
+    /// <para>
+    /// Read once the server's tools are collected; a tool added to the collection later is not counted.
+    /// </para>
+    /// </remarks>
+    public static void Fit(McpServerOptions server, SequenceOptions options)
+    {
+        if (server.ToolCollection is not { } tools || !tools.TryGetPrimitive(Name, out var run))
+            return;
+
+        var steps = tools.Where(tool => !ToolForwarding.IsForwarder(tool)).Select(tool => tool.ProtocolTool.Annotations).ToList();
+        var annotations = run.ProtocolTool.Annotations ??= new ToolAnnotations();
+
+        annotations.ReadOnlyHint = steps.TrueForAll(step => step?.ReadOnlyHint == true);
+        annotations.DestructiveHint = steps.Exists(step => step?.ReadOnlyHint != true && step?.DestructiveHint != false);
+        annotations.OpenWorldHint = steps.Exists(step => step?.OpenWorldHint != false);
+
+        if (OutputSchemas.AreStated(tools))
+            run.ProtocolTool.OutputSchema = OutputSchemas.OfRunTools(options.Shape);
     }
 
     /// <summary>One step, run or refused.</summary>
@@ -80,12 +115,56 @@ internal static class RunTools
         if (services.GetService<ArgumentCheck.Checked>() is not null && ArgumentCheck.Refusal(named, schema, step.Arguments?.Select(argument => argument.Key)) is { } wrong)
             return Step.Failed(named, wrong, ArgumentCheck.Takes(named, schema), ArgumentCheck.Type);
 
-        var result = await ToolForwarding.CallAsync(context, tool, step.Arguments, cancellationToken).ConfigureAwait(false);
+        CallToolResult result;
+
+        try
+        {
+            result = await ToolForwarding.CallAsync(context, tool, step.Arguments, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception failure) when (!(failure is OperationCanceledException && cancellationToken.IsCancellationRequested))
+        {
+            result = Thrown(context, tool, step.Arguments, failure);
+        }
 
         Touch(context, tool);
 
         return Step.Of(named, result);
     }
+
+    /// <summary>The answer of a step that threw, as <c>ExplainFailures</c> answers a direct call that throws.</summary>
+    /// <remarks>
+    /// The one place a step's exception becomes an answer, so a kind of exception the server throws as a refusal is read
+    /// here as the filter reads it. Arguments the MCP SDK could not bind are the call's fault, type <c>arguments</c>, and
+    /// are not logged; anything else is logged with its trace and answered in the words of <see cref="FailureOptions"/>,
+    /// type <c>internal</c>.
+    /// </remarks>
+    private static CallToolResult Thrown(RequestContext<CallToolRequestParams> context, McpServerTool tool, JsonObject? arguments, Exception failure)
+    {
+        var name = tool.ProtocolTool.Name;
+        var services = SessionRegistration.ServicesOf(context);
+
+        if (ArgumentFaults.AnswerTo(Called(context, tool, arguments), failure) is { } refused)
+            return refused;
+
+        if (services?.GetService<ILoggerFactory>() is { } loggers)
+            Failed(loggers.CreateLogger(typeof(RunTools)), failure, name);
+
+        var words = services?.GetService<IOptions<FailureOptions>>()?.Value ?? new FailureOptions();
+
+        return ToolAnswer.Failed(words.Error?.Invoke(name, failure) ?? failure.Message, words.Hint, ToolFailures.Internal);
+    }
+
+    /// <summary>The request a step stands for: its tool and its arguments as the protocol carries them.</summary>
+    private static RequestContext<CallToolRequestParams> Called(RequestContext<CallToolRequestParams> context, McpServerTool tool, JsonObject? arguments)
+    {
+        var given = arguments?.ToDictionary(argument => argument.Key, argument => JsonElement.Parse(argument.Value?.ToJsonString() ?? "null"), StringComparer.Ordinal);
+        var parameters = new CallToolRequestParams { Name = tool.ProtocolTool.Name, Arguments = given };
+
+        return new RequestContext<CallToolRequestParams>(context.Server, context.JsonRpcRequest, parameters) { MatchedPrimitive = tool, Services = context.Services };
+    }
+
+    [LoggerMessage(EventId = 2, Level = LogLevel.Error, Message = "{Tool} failed inside the server as a step of run_tools")]
+    private static partial void Failed(ILogger logger, Exception failure, string tool);
 
     private static string NoSuchTool(RequestContext<CallToolRequestParams> context, string named)
     {
@@ -162,6 +241,9 @@ internal static class RunTools
 
                 if (step.Hint is not null)
                     described["hint"] = step.Hint;
+
+                if (step.Type is not null)
+                    described["type"] = step.Type;
 
                 _steps.Add((JsonNode)described);
 

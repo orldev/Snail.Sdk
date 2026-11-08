@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
@@ -17,28 +18,48 @@ internal sealed class Discovery(DiscoveryOptions options)
     /// <summary>The most tools one answer names, as the description of <c>limit</c> says.</summary>
     public const int MostTools = 20;
 
+    /// <summary>The longest description a listing of every tool gives one, in characters.</summary>
+    private const int LongestSummary = 160;
+
     private readonly Vocabulary _vocabulary = new(options.Noise, options.Prefix);
 
     /// <summary>Every tool the server offers, skills loaded or not.</summary>
     public IReadOnlyList<ToolEntry> Catalog(McpServer server) => options.Catalog ?? ToolCatalog.Of(ServerTools.Of(server), options.CommandOf);
 
     /// <summary>The entries that answer the task, best first and at most <paramref name="limit"/>; empty when none does.</summary>
-    public IReadOnlyList<ToolEntry> Find(string? task, IReadOnlyList<ToolEntry> entries, int limit)
+    public IReadOnlyList<ToolEntry> Find(string? task, IReadOnlyList<ToolEntry> entries, int limit) =>
+        ToolCatalog.Find(entries, task, Math.Clamp(limit, 1, MostTools), _vocabulary, options.Meanings);
+
+    /// <summary>The entries as a listing of every tool shows them: the server's own, named by its prefix, first, the rest in their order after.</summary>
+    /// <remarks>In the order of registration, <c>find_tool</c> and <c>run_tools</c> opened the list of Snail.MCP.CleanUp before any tool of its own.</remarks>
+    public IReadOnlyList<ToolEntry> Listed(IReadOnlyList<ToolEntry> entries)
     {
-        var asked = _vocabulary.Asked(task);
+        if (string.IsNullOrEmpty(options.Prefix))
+            return entries;
 
-        if (asked.Count == 0)
-            return [];
+        return [.. entries.OrderBy(entry => entry.Name.StartsWith(options.Prefix, StringComparison.OrdinalIgnoreCase) ? 0 : 1)];
+    }
 
-        var answering = entries
-            .Select(entry => (Entry: entry, Score: _vocabulary.Score(asked, entry.Name, options.Meanings.TryGetValue(entry.Name, out var meant) ? meant : null, entry.Description)))
-            .Where(scored => scored.Score > 0);
-        var best = answering
-            .OrderByDescending(scored => scored.Score)
-            .ThenBy(scored => scored.Entry.Name, StringComparer.Ordinal)
-            .Take(Math.Clamp(limit, 1, MostTools));
+    /// <summary>The first sentence of a description, cut at a word when longer than a line.</summary>
+    public static string Summary(string description)
+    {
+        var text = description.AsSpan().Trim();
+        var lineEnd = text.IndexOfAny('\r', '\n');
 
-        return [.. best.Select(scored => scored.Entry)];
+        if (lineEnd >= 0)
+            text = text[..lineEnd];
+
+        var sentenceEnd = text.IndexOf(". ", StringComparison.Ordinal);
+
+        if (sentenceEnd >= 0)
+            text = text[..(sentenceEnd + 1)];
+
+        if (text.Length <= LongestSummary)
+            return text.ToString();
+
+        var cut = text[..LongestSummary].LastIndexOf(' ');
+
+        return $"{text[..(cut > 0 ? cut : LongestSummary)].TrimEnd(" ,;:")}…";
     }
 }
 
@@ -46,8 +67,13 @@ internal sealed class Discovery(DiscoveryOptions options)
 /// <remarks>
 /// <para>
 /// The answer is the fleet's: <c>{task, isMatched, note, tools:[{name, command, description, parameters}]}</c>, and with
-/// skills on, <c>skill</c> and <c>isLoaded</c> beside each tool. Nothing matched answers every tool, so a model that
-/// asked in words the server does not use still sees what there is.
+/// skills on, <c>skill</c> and <c>isLoaded</c> beside each tool. Nothing matched answers every tool by its name and the
+/// first sentence of its description, so a model that asked in words the server does not use still sees what there is.
+/// </para>
+/// <para>
+/// Only by name: an empty task answered with every tool's parameters weighed 70 357 characters in Snail.MCP.Roslyn, a
+/// window's worth for a call that found nothing. The note says to ask again in words; the answer to that carries the
+/// parameters.
 /// </para>
 /// <para>
 /// A tool the session may not call (<see cref="IToolGate"/>) is not named: telling a model to call a tool the door will
@@ -66,10 +92,22 @@ internal static class FindTool
     public static McpServerTool Create(IServiceProvider services)
     {
         var options = new McpServerToolCreateOptions { Services = services, SerializerOptions = DiscoveryWire.Tools };
-
-        return services.GetService<SkillSessions>() is null
+        var examples = services.GetRequiredService<DiscoveryOptions>().Examples;
+        var tool = services.GetService<SkillSessions>() is null
             ? McpServerTool.Create(Find, options)
             : McpServerTool.Create(FindAndEnableAsync, options);
+
+        if (examples.Count > 0)
+            tool.ProtocolTool.InputSchema = Described(tool.ProtocolTool.InputSchema, "task", ToolDescriptions.TaskWith(examples));
+
+        return tool;
+    }
+
+    /// <summary>States the output schema of <c>find_tool</c> where the server states output schemas of its own.</summary>
+    public static void Fit(McpServerOptions server, DiscoveryOptions options)
+    {
+        if (server.ToolCollection is { } tools && tools.TryGetPrimitive(Name, out var find) && OutputSchemas.AreStated(tools))
+            find.ProtocolTool.OutputSchema = OutputSchemas.OfFindTool(options.Shape);
     }
 
     [McpServerTool(Name = Name, ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
@@ -79,7 +117,7 @@ internal static class FindTool
         [Description(ToolDescriptions.Task)] string? task = null,
         [Description(ToolDescriptions.Limit)] int limit = Discovery.DefaultLimit,
         [Description(ToolDescriptions.Intent)] string? intent = null) =>
-        ToolAnswer.Ok(Answer(context, Asked(task, intent), limit, null, []));
+        Answered(context, Answer(context, Asked(task, intent), limit, null, []));
 
     [McpServerTool(Name = Name, ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description(ToolDescriptions.FindToolWithSkills)]
@@ -102,7 +140,21 @@ internal static class FindTool
         if (enabled.Count > 0)
             await SkillTools.ToldAsync(context.Server, cancellationToken).ConfigureAwait(false);
 
-        return ToolAnswer.Ok(Answer(context, asked, limit, loaded, enabled));
+        return Answered(context, Answer(context, asked, limit, loaded, enabled));
+    }
+
+    private static CallToolResult Answered(RequestContext<CallToolRequestParams> context, JsonObject answer) =>
+        ToolAnswer.Ok(answer, SessionRegistration.ServicesOf(context)!.GetRequiredService<DiscoveryOptions>().Shape);
+
+    /// <summary>An input schema with the description of one property replaced.</summary>
+    private static JsonElement Described(JsonElement schema, string property, string description)
+    {
+        var rewritten = JsonNode.Parse(schema.GetRawText())!;
+
+        if (rewritten["properties"]?[property] is JsonObject described)
+            described["description"] = description;
+
+        return JsonElement.Parse(rewritten.ToJsonString());
     }
 
     private static string? Asked(string? task, string? intent) => string.IsNullOrWhiteSpace(task) ? intent : task;
@@ -135,9 +187,16 @@ internal static class FindTool
         var answer = new JsonObject { ["task"] = task, ["isMatched"] = found.Count > 0 };
 
         if (found.Count == 0)
-            answer["note"] = string.IsNullOrWhiteSpace(task) ? "no task was given; these are all of the server's tools" : "nothing in this server's words matches; these are all of its tools";
+        {
+            answer["note"] = string.IsNullOrWhiteSpace(task)
+                ? "no task was given; these are the server's tools by name: ask again with a task to see what each takes"
+                : "nothing in this server's words matches; these are its tools by name: ask again in their words to see what each takes";
+            answer["tools"] = new JsonArray([.. discovery.Listed(visible).Select(entry => Listed(entry, loaded))]);
 
-        answer["tools"] = new JsonArray([.. (found.Count > 0 ? found : visible).Select(entry => Described(entry, loaded))]);
+            return answer;
+        }
+
+        answer["tools"] = new JsonArray([.. found.Select(entry => Described(entry, loaded))]);
 
         if (loaded is not null && enabled.Count > 0)
             answer["enabledSkills"] = new JsonArray([.. enabled.Select(skill => JsonValue.Create(skill))]);
@@ -155,9 +214,19 @@ internal static class FindTool
         described["description"] = entry.Description;
         described["parameters"] = new JsonArray([.. entry.Parameters.Select(Described)]);
 
-        if (loaded is null)
-            return described;
+        return loaded is null ? described : Skilled(described, entry, loaded);
+    }
 
+    /// <summary>A tool as a listing of every tool names it: its name and the first sentence of its description, and its skill.</summary>
+    private static JsonNode Listed(ToolEntry entry, LoadedSkills? loaded)
+    {
+        var listed = new JsonObject { ["name"] = entry.Name, ["description"] = Discovery.Summary(entry.Description) };
+
+        return loaded is null ? listed : Skilled(listed, entry, loaded);
+    }
+
+    private static JsonObject Skilled(JsonObject described, ToolEntry entry, LoadedSkills loaded)
+    {
         if (entry.Skill is not null)
             described["skill"] = entry.Skill;
 

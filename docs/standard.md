@@ -390,9 +390,10 @@ And for the server project (no kind):
   `IlcTreatWarningsAsErrors` false: the native compiler reports Jint, which is not annotated for trimming.
 - The ways in, spelled alike by every server (`Snail.Sdk.Mcp.Hosting.Discovery`): `.WithToolDiscovery()` adds
   `find_tool(task, limit)` — `intent` taken for `task` — which ranks the tools the server registered against a task in
-  words and answers each with its command and parameters, as far as the session may call it; `.WithToolSequences()`
-  adds `run_tools(steps)`, several tools in one call through `ToolForwarding`, stopping at the first that fails, inside
-  an output budget; `.WithArgumentCheck()` refuses a call that leaves out a required parameter or sends an unknown one,
+  words and answers each with its command and parameters, as far as the session may call it — every tool by name when
+  nothing matches — and `ToolCatalog.Find` ranks a catalog the same way for a test without a host; `.WithToolSequences()`
+  adds `run_tools(steps)`, several tools in one call through `ToolForwarding`, stopping at the first that fails or
+  throws, inside an output budget, with the hints of the tools it can run; `.WithArgumentCheck()` refuses a call that leaves out a required parameter or sends an unknown one,
   naming the parameter it meant; `.WithSkills()` with `[Skill(name, description)]` keeps a group of tools out of a
   session's list until it loads the skill (`<short>_skills`, `_enable_skill`, `_disable_skill`), tells the client of
   the change, and unloads a skill left idle. All read the registered tools, so none needs reflection at run time.

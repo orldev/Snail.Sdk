@@ -46,11 +46,11 @@ public sealed class FailureOptions
     /// <summary>Whether a failure is answered as plain text, <c>error — hint</c>, flagged <c>isError</c>, rather than as the envelope, <c>{"ok":false,"error":…}</c>; false by default.</summary>
     /// <remarks>
     /// <para>
-    /// For a server whose answers are text, not data: its successes are words a command or a hook reads as they are, and a
-    /// failure in JSON among them is a second form for the same reader (Snail.MCP.Memory, whose answers the mem0 commands
-    /// and hooks read; Snail.MCP.Plans, whose answers are markdown). Such a server keeps text, and its failures — what it
-    /// threw, arguments the MCP SDK could not bind, a <see cref="ToolRefusalException"/>, a step of <c>run_tools</c> that
-    /// threw — say the same things in words: the error, then the hint after a dash when there is one.
+    /// For a server outside the fleet whose answers are text, not data — every server of the fleet answers in the
+    /// envelope: its successes are words a command, a hook or a person reads as they are, and a failure in JSON among them
+    /// is a second form for the same reader. Such a server keeps text, and its failures — what it threw, arguments the MCP
+    /// SDK could not bind, a <see cref="ToolRefusalException"/>, a step of <c>run_tools</c> that threw — say the same
+    /// things in words: the error, then the hint after a dash when there is one.
     /// </para>
     /// <para>
     /// The type is not written, and neither are the details of a refusal: plain text has no field to keep them in. The type
@@ -68,8 +68,7 @@ public sealed class FailureOptions
     /// The exception's message stays the error, worded by <see cref="Error"/> when it is set; null from
     /// <paramref name="hint"/>, or no <paramref name="hint"/>, answers with no hint. What no refusal names keeps
     /// <see cref="Type"/> and <see cref="Hint"/>, the default hint of an <c>internal</c> failure with it: setting both
-    /// functions for a few exceptions of its own lost that hint for the rest, and Snail.MCP.Obsidian kept the default by
-    /// hand to give it back.
+    /// functions for a few exceptions of its own lost that hint for the rest, and a server had to give it back by hand.
     /// </para>
     /// <para>
     /// The first refusal an exception is answers it, in the order they were named, so a type derived from another is named

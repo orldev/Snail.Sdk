@@ -41,13 +41,14 @@ Where a server answers: over stdio, or over HTTP at an address, on loopback or o
 
 ### class McpEndpointOptions
 
-How `McpEndpoint` reads a server's settings: the section it also looks in, and how far beyond loopback the server may listen.
+How `McpEndpoint` reads a server's settings: the section it also looks in, how far beyond loopback the server may listen, and the name its refusals spell the variables by.
 
 | Member | Summary |
 | --- | --- |
 | `McpEndpointOptions()` |  |
 | `McpReach Reach { get; init; }` | How far beyond loopback the server may listen; `Unrestricted`, as the reads without options read, unless the server narrows it. |
 | `string? FallbackSection { get; init; }` | The section a key is looked for in when the root of the settings does not hold it, such as `Snail`; the root alone when null. |
+| `string? Server { get; init; }` | The server's short name, as `ServerSettings` takes it — `figma` — which a refusal spells the variables by: `SNAIL_MCP_FIGMA_URL (or Url in the settings file)`; null takes it from the entry assembly. |
 
 ### static class McpHost
 
@@ -147,6 +148,16 @@ A server's settings: its settings file, then its `SNAIL_MCP_<NAME>_` variables, 
 | `string PrefixOf(string name)` | The prefix of the server's variables: `SNAIL_MCP_<NAME>_`. |
 | `string? FileOf(string name)` | The settings file the server reads, or `null` when it has none. |
 | `string? NameOf(Assembly? server)` | The server's short name, from the command Snail.Sdk.Mcp writes into its assembly; `null` for a program built otherwise. |
+
+### class StartRefusedException
+
+A start refused for what the operator set — a setting that cannot mean anything, an endpoint beyond the server's reach, a secret's file that holds something else — in one sentence that names it.
+
+| Member | Summary |
+| --- | --- |
+| `StartRefusedException()` | A start refused, with no word on why. |
+| `StartRefusedException(string message)` | A start refused, in a sentence that names what the operator set and what it can be. |
+| `StartRefusedException(string message, Exception? innerException)` | A start refused, with the failure that showed it. |
 
 ### static class ToolJson
 
@@ -253,7 +264,7 @@ A tool's answer as every Snail server gives it: one text block holding the envel
 | `CallToolResult Of(JsonObject envelope, AnswerShape shape = 0)` | The tool result a stored envelope stands for: a success with its data, or a failure with its error, hint, type and data, flagged as an error. |
 | `CallToolResult Ok(JsonNode data)` | A successful answer: the data in the envelope as the text, and as the structured content when it is an object. |
 | `CallToolResult Ok(JsonNode data, AnswerShape shape)` | A successful answer: the data in the envelope as the text, and the structured content `shape` names. |
-| `CallToolResult Ok(JsonNode data, AnswerShape shape, JsonObject beside)` | A successful answer with fields of the tool's own beside its data, at the top level of the envelope after `data`: `{"ok":true,"data":…,"fileKey":"…"}`. |
+| `CallToolResult Ok(JsonNode data, AnswerShape shape, JsonObject? beside = null, string? hint = null)` | A successful answer with fields of the tool's own beside its data, at the top level of the envelope after `data` — `{"ok":true,"data":…,"fileKey":"…"}` — and what to do next, when the success has something to say: `{"ok":true,"hint":"…","data":…}`. |
 | `CallToolResult Ok<T>(T data, JsonTypeInfo<T> type)` | A successful answer of typed data, written from its generated type straight into the text, with the data as the structured content when it is an object. |
 | `CallToolResult Ok<T>(T data, JsonTypeInfo<T> type, AnswerShape shape)` | A successful answer of typed data, written from its generated type straight into the text: no tree of nodes is built first. |
 | `CallToolResult WithImage(this CallToolResult result, ReadOnlyMemory<byte> bytes, string mimeType)` | The answer with a picture after its text, in an image block of its own: `ToolAnswer.Ok(data, AnswerShape.None).WithImage(png, "image/png")`. |
@@ -263,7 +274,7 @@ A tool's answer as every Snail server gives it: one text block holding the envel
 | `string FailedText(string error, string? hint = null, string? type = null, JsonNode? data = null)` | The text of a failed answer, `{"ok":false,"error":…}`, for a tool that returns a string; `ExplainFailures` flags it `isError` on its way out. |
 | `string Moment(DateTimeOffset at)` | A moment as the answer spells it: round-trip ISO 8601 with its offset, the same on every machine. |
 | `string OkText(JsonNode data)` | The text of a successful answer, `{"ok":true,"data":…}`, for a tool that returns a string: no structured content, nothing escaped that JSON does not require. |
-| `string OkText(JsonNode data, JsonObject beside)` | The text of a successful answer with fields of the tool's own after its data, for a tool that returns a string. |
+| `string OkText(JsonNode data, JsonObject? beside = null, string? hint = null)` | The text of a successful answer with fields of the tool's own after its data, and what to do next, for a tool that returns a string. |
 | `string Text(CallToolResult result)` | The envelope a result carries: the text of its first block, which is where every answer of `ToolAnswer` writes it. |
 | `string Word<TEnum>(TEnum value, WordCase casing = 0)` | An enum value as the answer spells it, in the casing the server chose. |
 
@@ -285,7 +296,7 @@ A call refused for the caller's own mistake, thrown from deep inside a tool: `Ex
 | `JsonNode? Details { get; init; }` | What the work learned before it was refused, answered as the failure's `data`. |
 | `ToolRefusalException()` | A refusal and why, with no hint and no kind. |
 | `ToolRefusalException(string error, Exception? innerException)` | A refusal and why, with the failure that showed it, which the answer does not quote. |
-| `ToolRefusalException(string error, string? hint = null, string? type = null)` | A refusal and why, in words the model can act on, with what to do about it and its kind. |
+| `ToolRefusalException(string error, string? hint = null, string? type = null, Exception? innerException = null)` | A refusal and why, in words the model can act on, with what to do about it, its kind, and the failure that showed it, which the answer does not quote. |
 | `string Error { get; }` | Why the call was refused: the error of the answer. |
 | `string? Hint { get; }` | What to do about it, when there is something to do. |
 | `string? Type { get; }` | The kind of refusal, a word a program can branch on; left out of the answer when null. |
@@ -427,9 +438,19 @@ A job as the answer of a tool that speaks in words of its own: its text, with th
 
 | Member | Summary |
 | --- | --- |
-| `CallToolResult Envelope(JobReport report, JsonObject? beside = null, string? hint = null)` | The job as the envelope every answer is: the report as the data of the text, and as the structured content. |
+| `CallToolResult Envelope(JobReport report, JsonObject? beside = null, string? hint = null, JobAnswerOptions? options = null)` | The job as the envelope every answer is: the report as the data of the text, and as the structured content. |
 | `CallToolResult Of(JobReport report, Func<JobReport, CallToolResult> said)` | The tool result `said` makes of the report, with the report itself as its structured content. |
-| `CallToolResult Result(JobReport report, JsonObject? running = null, string? hint = null)` | The job as the answer its tool gives when the tool's answer is the work's result: once it succeeded, the result itself as the data; once it failed, the failure its work answered; while it runs, the report with `running` beside it. The report is the structured content throughout. |
+| `CallToolResult Result(JobReport report, JsonObject? running = null, string? hint = null, JobAnswerOptions? options = null)` | The job as the answer its tool gives when the tool's answer is the work's result: once it succeeded, the result itself as the data; once it failed, the failure its work answered; while it runs, the report with `running` beside it. The report is the structured content throughout. |
+
+### class JobAnswerOptions
+
+The words `JobAnswer` answers a job that failed or was cancelled with, where they are the server's own: the hint chosen for the report, and the error of a cancellation.
+
+| Member | Summary |
+| --- | --- |
+| `Func<JobReport, string?>? Hint { get; init; }` | What to do about a job that failed or was cancelled, chosen for its report — start it again, read its log; null, or null from it, answers with no hint. |
+| `JobAnswerOptions()` |  |
+| `string? Cancelled { get; init; }` | The error of a cancelled job, in the server's words; null says "The job was cancelled before it ended." |
 
 ### struct JobProgress
 
@@ -663,7 +684,7 @@ The words `SessionRoots` refuses in where they are the server's own, and what a 
 | --- | --- |
 | `SessionRootsOptions()` |  |
 | `bool ReachesEverywhereAsAProgram { get; set; }` | Whether a server started as a program, with no volume configured, reaches every path its process can; false unless set. |
-| `string? RootsSetting { get; set; }` | The setting that configures the server's roots — `SNAIL_MCP_DOCUMENTS_ROOTS` — named in the hint to a session that has none. |
+| `string? RootsSetting { get; set; }` | The setting that configures the server's roots — `SNAIL_MCP_DOCUMENTS_ROOTS__0` — named in the hint to a session that has none: "set …". |
 
 ### static class ToolForwarding
 
@@ -688,6 +709,7 @@ The task a session's working copy belongs to, read from where the copy lies unde
 | Member | Summary |
 | --- | --- |
 | `WorkspaceCopy<TTask> Of<TTask>(string? root, string workspaces, Func<string, TTask?> task)` | The copy `root` names strictly under `workspaces` with its task as the server reads it, or why it names none. |
+| `WorkspaceCopy<TTask> Of<TTask>(string? root, string workspaces, Func<string, TTask?> task)` | The copy `root` names strictly under `workspaces` with its task as a value the server reads, or why it names none. |
 | `WorkspaceCopy<string> Of(string? root, string workspaces, Func<string, bool> isTaskId)` | The copy `root` names strictly under `workspaces` with its task's id as the task, or why it names none. |
 
 ### class WorkspaceCopy<TTask>

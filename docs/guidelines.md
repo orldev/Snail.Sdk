@@ -143,8 +143,8 @@ strictly as code.
   `ToolAnswer.From` or `ToolAnswer.Failed(answer)`, never field by field — and `.ExplainFailures()` answers what nobody
   foresaw. The one exception is a caller's mistake found where no answer can carry it, thrown as
   `ToolRefusalException(error, hint, type)` and answered in its words. A picture is `result.WithImage(bytes, mime)`. No server writes the envelope itself, nor keeps a `JsonSerializerContext` only for a
-  `JsonObject` (`ToolAnswer.ObjectInfo`). The envelope is for a server that answers data: one whose answers are text a
-  command or a hook reads as it is (Snail.MCP.Memory, Snail.MCP.Plans) keeps text, its failures too —
+  `JsonObject` (`ToolAnswer.ObjectInfo`). Every server of the fleet answers in the envelope; a server outside it whose
+  answers are text a command or a hook reads as it is may keep text, its failures too —
   `.ExplainFailures(options => options.AnswersText = true)`, `error — hint` flagged `isError`.
 - **The fields of `data` are mapped in `AnswerFields`.** A server's mappers from its domain records to the JSON of an
   answer live in one static class of `Tools` named `AnswerFields`, an overload per record — `AnswerFields.Of(report)` —

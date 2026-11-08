@@ -121,12 +121,12 @@ A change that a repository must act on says what to do.
   (`options.Refuse<NotLoadedException>("notLoaded", e => "call load_solution first")`, the first refusal an exception
   is answering it, its hint null for none; or `Type = (_, e) => …`): only a failure left `internal` is logged with its
   trace. The default hint — "failed inside, try once more" — is an `internal` failure's alone: a failure the server
-  named otherwise gets none unless `Hint` words one, and naming a few exceptions no longer loses it for the rest
-  (Snail.MCP.Obsidian kept it by hand). A fixed hint is `Hint = (_, _) => "…"`; `Hint = null` answers none
-  (Snail.MCP.Roslyn). A server whose answers are text — Snail.MCP.Memory, read by the mem0 commands and hooks;
-  Snail.MCP.Plans, markdown — keeps its failures text: `options.AnswersText = true` answers what was thrown, arguments
-  that did not bind, a `ToolRefusalException` and a thrown step of `run_tools` as `error — hint`, flagged `isError`, no
-  JSON (its type still decides what is logged).
+  named otherwise gets none unless `Hint` words one, and naming a few exceptions no longer loses it for the rest,
+  where a server that named some had to give it back by hand. A fixed hint is `Hint = (_, _) => "…"`; `Hint = null`
+  answers none (Snail.MCP.Roslyn). Every server of the fleet answers in the envelope; `options.AnswersText = true` is for
+  a server outside it whose answers are text a command, a hook or a person reads as it is, and answers what was thrown,
+  arguments that did not bind, a `ToolRefusalException` and a thrown step of `run_tools` as `error — hint`, flagged
+  `isError`, no JSON (its type still decides what is logged).
 - `JobAnswer.Envelope(report, beside, hint)`: a job in the envelope — the report as the text's data, with the fields of
   `beside` added there, and the report alone as the structured content a client of `Snail.Sdk.Mcp.JobClient` reads.
   Replaces `ToolResponse.Job(report)` of Snail.MCP.Security, BuildBridge, AfterEffects and Blender. A job that failed or
@@ -358,7 +358,7 @@ A change that a repository must act on says what to do.
   `ToolCommands`, every tool of the server
   but the forwarders, `notes_read` called as `notes.read()`, through `ToolForwarding.CallAsync`. The tool is marked
   `[Forwards]`; before every command the session's gate is asked for the command's tool — or, where `ToolOf` answers
-  null because the command stands for none (most of Snail.MCP.AfterEffects' 129), for the command's own name, which a
+  null because the command stands for none (two of Snail.MCP.AfterEffects' 129), for the command's own name, which a
   scope gate judges as a command and the default gate grants as a tool; null never passes the gate — and a refusal,
   like any failed command, reaches the program as `{ error, message, hint, type, details }`, which it may catch, as
   the description of `run_program` now says in full. A command the server
@@ -504,6 +504,11 @@ A change that a repository must act on says what to do.
 
 ### Fixed
 
+- The API reference names a static extension member by the type it extends — `string? JobOwners.Session(IServiceProvider
+  services)` among the members of `HttpSessions` — where the row showed a bare static method of the class that declares
+  the `extension` block, and a reader looking for `JobOwners.Session` found nothing: the compiler marks nothing on such
+  a method, so the type is read from the block's marker. Nothing to change in a repository; its reference names them on
+  the next build with `-p:SnailReference=true`.
 - `JobAnswer.Of(report, said)` flags a job that failed or was cancelled `isError` when `said` did not, as
   `JobAnswer.Envelope` and `JobAnswer.Result` do: a client that never reads the text learned the work was done
   (Snail.MCP.CodeContext).

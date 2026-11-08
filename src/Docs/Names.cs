@@ -75,7 +75,7 @@ internal static class Names
     public static string Signature(MemberInfo member) => member switch
     {
         ConstructorInfo constructor => $"{Bare(constructor.DeclaringType!)}({Parameters(constructor)})",
-        MethodInfo method => $"{Of(method.ReturnType, Annotations.Of(method.ReturnParameter.CustomAttributes, method))} {method.Name}{TypeParameters(method)}({Parameters(method)})",
+        MethodInfo method => $"{Of(method.ReturnType, Annotations.Of(method.ReturnParameter.CustomAttributes, method))} {Receiver(method)}{method.Name}{TypeParameters(method)}({Parameters(method)})",
         PropertyInfo property => $"{Of(property.PropertyType, Annotations.Of(property.CustomAttributes, property))} {property.Name} {{ {Accessors(property)} }}",
         FieldInfo field => $"{(field.IsLiteral ? "const " : field.IsStatic ? "static " : string.Empty)}{Of(field.FieldType, Annotations.Of(field.CustomAttributes, field))} {field.Name}",
         EventInfo @event => $"event {Of(@event.EventHandlerType!)} {@event.Name}",
@@ -135,6 +135,54 @@ internal static class Names
 
         return $" = {value}";
     }
+
+    /// <summary>
+    /// The type a static extension member extends, as a prefix — <c>JobOwners.</c> for <c>JobOwners.Session</c>, declared in
+    /// <c>extension(JobOwners)</c> of another class — or nothing for any other method.
+    /// </summary>
+    /// <remarks>
+    /// The compiler writes a static extension member as a plain static method of the class that declares the block, with
+    /// nothing on it that names the type it extends: the row said <c>Session(IServiceProvider)</c> under that class, and a
+    /// reader looking for <c>JobOwners.Session</c> did not find it. The type is read from the block's grouping type, whose
+    /// marker method takes the extended type as its one parameter.
+    /// </remarks>
+    private static string Receiver(MethodInfo method)
+    {
+        if (!method.IsStatic || IsExtension(method) || method.DeclaringType is not { IsAbstract: true, IsSealed: true } owner)
+            return string.Empty;
+
+        var parameters = ParameterTypes(method);
+
+        foreach (var group in owner.GetNestedTypes(BindingFlags.NonPublic | BindingFlags.Public).Where(nested => nested.Name.StartsWith("<G>$", StringComparison.Ordinal)))
+        {
+            var skeleton = group.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.DeclaredOnly)
+                .FirstOrDefault(candidate => candidate.Name == method.Name && ParameterTypes(candidate).SequenceEqual(parameters, StringComparer.Ordinal));
+
+            if (skeleton is not null && ExtendedBy(group, skeleton) is { } extended)
+                return $"{Bare(extended)}.";
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>The type a member of a grouping type extends: the parameter of the marker its attribute names, or of the group's only marker.</summary>
+    private static Type? ExtendedBy(Type group, MethodInfo skeleton)
+    {
+        var markerName = skeleton.CustomAttributes
+            .FirstOrDefault(attribute => attribute.AttributeType.FullName == "System.Runtime.CompilerServices.ExtensionMarkerAttribute")?
+            .ConstructorArguments.FirstOrDefault().Value as string;
+
+        var markers = group.GetNestedTypes(BindingFlags.NonPublic | BindingFlags.Public)
+            .Where(nested => markerName is null || nested.Name == markerName)
+            .Select(nested => nested.GetMethod("<Extension>$", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
+            .Where(marker => marker is { } found && found.GetParameters().Length == 1)
+            .ToList();
+
+        return markers.Count == 1 ? markers[0]!.GetParameters()[0].ParameterType : null;
+    }
+
+    private static IEnumerable<string> ParameterTypes(MethodInfo method) =>
+        method.GetParameters().Select(parameter => parameter.ParameterType.FullName ?? parameter.ParameterType.Name);
 
     private static bool IsExtension(MethodBase method) =>
         method.CustomAttributes.Any(attribute => attribute.AttributeType.FullName == "System.Runtime.CompilerServices.ExtensionAttribute");

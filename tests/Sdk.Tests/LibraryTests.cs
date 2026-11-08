@@ -66,6 +66,43 @@ public sealed class LibraryTests(SdkFeed sdk)
         Assert.Contains("| `string Text()` | The greeting. |", page, StringComparison.Ordinal);
     }
 
+    /// <summary>#131: a static extension member is compiled as a plain static method of the class that declares the block, so its row names the type it extends.</summary>
+    [Fact]
+    public void Build_WithSnailReference_NamesAStaticExtensionMemberByTheTypeItExtends()
+    {
+        var folder = sdk.Project("Snail.Sdk.Library", "Library", string.Empty,
+            ("Greeting.cs", Greeting),
+            ("Greetings.cs", """
+                namespace Library;
+
+                /// <summary>Greetings made elsewhere.</summary>
+                public static class Greetings
+                {
+                    extension(Greeting)
+                    {
+                        /// <summary>A greeting for nobody in particular.</summary>
+                        public static Greeting Anyone() => new("you");
+                    }
+                }
+                """),
+            ("PublicAPI.Shipped.txt", PublicApi + """
+                Library.Greetings
+                Library.Greetings.extension(Library.Greeting!)
+                static Library.Greetings.extension(Library.Greeting!).Anyone() -> Library.Greeting!
+                static Library.Greetings.Anyone() -> Library.Greeting!
+
+                """),
+            ("PublicAPI.Unshipped.txt", "#nullable enable\n"));
+
+        var (exitCode, output) = SdkFeed.Dotnet(folder, "build", "-p:SnailReference=true");
+
+        Assert.True(exitCode == 0, output);
+
+        var page = File.ReadAllText(Path.Combine(folder, "docs", "reference", "Library.md"));
+
+        Assert.Contains("| `Greeting Greeting.Anyone()` | A greeting for nobody in particular. |", page, StringComparison.Ordinal);
+    }
+
     /// <summary>SnailReferenceFolder is the folder of the pages themselves, as on a server: a site with its own layout names it.</summary>
     [Fact]
     public void Build_WithSnailReferenceFolder_WritesThePagesThere()

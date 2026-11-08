@@ -25,8 +25,8 @@ public interface IProgramCommands
 
     /// <summary>The tool a command stands for, under whose name the session's gate grants it: <c>status</c> is <c>git_status</c>; null when it stands for none.</summary>
     /// <remarks>
-    /// Asked before every command the program sends. Not every command has a tool: Snail.MCP.AfterEffects has 129 bridge
-    /// commands and a tool for few of them. Null says so, and the gate (<c>IToolGate</c>) is asked the command's own name
+    /// Asked before every command the program sends. Not every command has a tool: two of Snail.MCP.AfterEffects' 129
+    /// bridge commands have none. Null says so, and the gate (<c>IToolGate</c>) is asked the command's own name
     /// instead — the one question for both, so a gate that grants by scope judges the name as a command, and the default
     /// gate grants it as it grants a tool: a session whose address names tools sends the command only when it is named too.
     /// A catalog never escapes the gate by answering null.

@@ -369,12 +369,11 @@ And for the server project (no kind):
   its error, hint and type each from the exception, and `options.Refuse<TException>(type, hint)` makes a server's own
   exception for a caller's mistake a refusal, the default hint — "try once more" — left to `internal` failures alone. A job
   answered in the envelope is `JobAnswer.Envelope(report, beside, hint)`.
-  The envelope is the rule for a server that answers data. A server whose answers are text — words a command, a hook
-  or a person reads as they are: Snail.MCP.Memory, whose answers the mem0 commands and hooks read; Snail.MCP.Plans,
-  markdown — keeps text, its successes and its failures alike: `.ExplainFailures(options => options.AnswersText = true)`
-  answers what was thrown, arguments that did not bind and a `ToolRefusalException` as plain text, `error — hint`,
-  flagged `isError`, never JSON among the words. It states no output schema, and a check of the envelope does not
-  apply to it.
+  Every server of the fleet answers in the envelope. A server outside the fleet whose answers are text — words a
+  command, a hook or a person reads as they are — may keep text, its successes and its failures alike:
+  `.ExplainFailures(options => options.AnswersText = true)` answers what was thrown, arguments that did not bind and a
+  `ToolRefusalException` as plain text, `error — hint`, flagged `isError`, never JSON among the words. It states no
+  output schema, and a check of the envelope does not apply to it.
 - What a session's address grants it (`Snail.Sdk.Mcp.Hosting.Sessions`): a server many roles reach is opened at
   `…/mcp?root=/workspaces/<task>&tool=<name>&tool=…`, a URL the platform writes and the model never can.
   `.RefuseWhatWasNotGranted()` refuses and hides a tool the address did not name (`SessionGrant`, or the server's own

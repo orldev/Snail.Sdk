@@ -99,7 +99,7 @@ What a test reads from a tool's answer.
 | `bool IsOk(this CallToolResult answer)` | Whether the envelope says the call went through. |
 | `string Text(this CallToolResult answer)` | The text of a tool's answer: the text block it opens with, which holds the envelope in every Snail server, the pictures after it left aside. |
 | `string? Error(this CallToolResult answer)` | Why the call did not go through; null on success. |
-| `string? Hint(this CallToolResult answer)` | What the failure says to do about it; null when it says nothing. |
+| `string? Hint(this CallToolResult answer)` | What the answer says to do: a failure's hint, or the next step a success names (`ToolAnswer.Ok(data, shape, hint: …)`); null when it says nothing. |
 | `string? Type(this CallToolResult answer)` | The kind of failure, the word a program branches on — `internal`, `arguments`, a server's own; null when it names none. |
 
 ### static class ToolGuards

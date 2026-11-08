@@ -366,14 +366,18 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
     private IRootsDisk Disk => options?.Disk ?? IRootsDisk.Machine;
 
     /// <summary>Whether the disk has a folder at the root, its links followed; null when the disk throws on the root or on a link on its way.</summary>
-    /// <remarks>One question of the disk per root, so a disk that changes its mind between the door and a call is asked once at the door.</remarks>
+    /// <remarks>
+    /// The disk is asked of the path its links lead to, as <see cref="IRootsDisk.IsFolder"/> takes it: asked of the root as
+    /// named, a disk of a server's own that follows no link itself answered a root behind a link absent, and the session
+    /// was turned away. A root whose links lead on past <see cref="RealPath.MostLinks"/> is no folder.
+    /// </remarks>
     private bool? FolderAt(string root)
     {
         try
         {
-            _ = RealPath.Walk(root, RealPath.MostLinks, Disk);
+            string? real = RealPath.Walk(root, RealPath.MostLinks, Disk);
 
-            return Disk.IsFolder(root);
+            return real is not null && Disk.IsFolder(real);
         }
         catch (Exception failed) when (failed is IOException or UnauthorizedAccessException)
         {

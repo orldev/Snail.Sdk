@@ -59,6 +59,10 @@ public static class ServerProgram
     /// <see cref="NoSettingsFile"/> as its settings file.
     /// </summary>
     /// <exception cref="TimeoutException">The server did not answer <c>initialize</c> within <see cref="Patience"/>.</exception>
+    /// <exception cref="ServerExitedException">
+    /// The server exited before it answered <c>initialize</c>: its exit code and the tail of its stderr, where the MCP SDK
+    /// threw its closed transport, an <see cref="IOException"/> whose exit code was a number in its message.
+    /// </exception>
     public static Task<McpClient> StartAsync(
         string assemblyName,
         string overrideVariable,
@@ -86,6 +90,12 @@ public static class ServerProgram
         catch (TimeoutException silent)
         {
             throw new TimeoutException($"{command} {string.Join(' ', arguments)} did not answer initialize within {patience.TotalSeconds:0} s", silent);
+        }
+        catch (ClientTransportClosedException closed) when (closed.Details is StdioClientCompletionDetails { ExitCode: { } exitCode } details)
+        {
+            var stderr = string.Join('\n', details.StandardErrorTail ?? []);
+
+            throw new ServerExitedException($"{command} {string.Join(' ', arguments)}".TrimEnd(), exitCode, stderr, "initialize", closed);
         }
     }
 

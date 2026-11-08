@@ -17,8 +17,9 @@ namespace Snail.Sdk.Mcp.Testing;
 /// a native build gets wrong, and only the process shows the refusal of a browser that the host it builds keeps.
 /// </para>
 /// <para>
-/// A server that exits before it is ready fails the start at once with its exit code and what it wrote on stderr, rather
-/// than after the patience; a server disposed is killed with every process it started, and waited for.
+/// A server that exits before it is ready fails the start at once with a <see cref="ServerExitedException"/> — its exit
+/// code and what it wrote on stderr — rather than after the patience; a server disposed is killed with every process it
+/// started, and waited for.
 /// </para>
 /// </remarks>
 public sealed class HttpServerProgram : IAsyncDisposable
@@ -91,7 +92,8 @@ public sealed class HttpServerProgram : IAsyncDisposable
     /// when its MCP endpoint answers at all.
     /// </param>
     /// <param name="cancellationToken">Stops the wait; the server is killed.</param>
-    /// <exception cref="InvalidOperationException">The server exited before it was ready, or it maps no readiness path.</exception>
+    /// <exception cref="ServerExitedException">The server exited before it was ready: its exit code and its stderr.</exception>
+    /// <exception cref="InvalidOperationException">The server maps no readiness path.</exception>
     /// <exception cref="TimeoutException">The server was not ready within two minutes.</exception>
     public static Task<HttpServerProgram> StartAsync(
         string assemblyName,
@@ -219,11 +221,11 @@ public sealed class HttpServerProgram : IAsyncDisposable
         }
     }
 
-    private async Task<InvalidOperationException> ExitedAsync(Uri probe, CancellationToken cancellationToken)
+    private async Task<ServerExitedException> ExitedAsync(Uri probe, CancellationToken cancellationToken)
     {
         await _process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
 
-        return new InvalidOperationException($"{_program} exited with {_process.ExitCode} before it answered GET {probe.AbsolutePath}{Said()}");
+        return new ServerExitedException(_program, _process.ExitCode, Log, $"GET {probe.AbsolutePath}");
     }
 
     private static async Task<HttpStatusCode?> StatusAsync(HttpClient http, Uri probe, CancellationToken cancellationToken)

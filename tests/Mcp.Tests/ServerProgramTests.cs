@@ -83,6 +83,20 @@ public sealed class ServerProgramTests
         }
     }
 
+    /// <summary>A server that exits before it answers initialize fails the start with its exit code and its stderr as values, where the MCP SDK threw a closed transport that held them in its message.</summary>
+    [Fact]
+    public async Task StartAsync_OfAServerThatExitsAtStart_GivesItsExitCodeAndStderr()
+    {
+        var environment = new Dictionary<string, string?> { ["SNAIL_MCP_PROBE_FAIL"] = "the probe was told not to start" };
+
+        var failure = await Assert.ThrowsAsync<ServerExitedException>(() => ServerProgram.StartAsync("Snail.MCP.Probe", "SNAIL_PROBE_SERVER", environment));
+
+        Assert.Equal(3, failure.ExitCode);
+        Assert.Equal("the probe was told not to start", failure.Stderr);
+        Assert.Contains("exited with 3 before it answered initialize", failure.Message, StringComparison.Ordinal);
+        Assert.IsType<ModelContextProtocol.Client.ClientTransportClosedException>(failure.InnerException);
+    }
+
     [Fact]
     public void Text_OfAnAnswerOfOneTextBlock_IsThatText_OfAnyOtherAnswerFails()
     {

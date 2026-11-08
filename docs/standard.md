@@ -558,7 +558,8 @@ every push. Beyond what a test of the code itself asserts:
       port alone when its name ends in `_PORT` — and `SNAIL_MCP_<SHORT>_TRANSPORT=Http` unless the test names it, with
       the same home and no settings file, and hands it back once
       `GET /healthz` answers with success (`readiness: null` for a server that maps none waits for its MCP endpoint).
-      A server that exits at start fails the test at once with its exit code and its stderr; one disposed is killed
+      A server that exits at start fails the test at once with a `ServerExitedException` — its `ExitCode` and its
+      `Stderr`, asserted as values, as `ServerProgram.StartAsync` throws it over stdio; one disposed is killed
       with every process it started. `SessionAsync(query)` opens a session on `/mcp`, and
       `HttpGuards.ProblemsAsync(server.Endpoint)` is empty when a request with `Origin` is refused with 403 and one
       without it is not. What needs the server whole but not its process — the door, the grant from the query — runs

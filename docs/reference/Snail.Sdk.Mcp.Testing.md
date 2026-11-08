@@ -66,6 +66,16 @@ Ports a test hands to the servers and stand-ins it starts.
 | --- | --- |
 | `int Free()` | A loopback TCP port nothing listens on at this moment. |
 
+### class ServerExitedException
+
+A server under test that exited before it answered: its exit code and what it wrote on stderr, as values a test asserts on.
+
+| Member | Summary |
+| --- | --- |
+| `int ExitCode { get; }` | The code the process exited with: 1 for a start refused for what the operator set. |
+| `string Program { get; }` | The command line the server was started with. |
+| `string Stderr { get; }` | What the process wrote on stderr before it exited, one line after another; empty when it wrote nothing. |
+
 ### static class ServerProgram
 
 A server under test, started as a program the way a client starts it.

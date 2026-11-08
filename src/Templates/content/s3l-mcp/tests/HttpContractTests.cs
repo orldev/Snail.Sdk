@@ -98,10 +98,10 @@ public sealed class HttpContractTests : IAsyncLifetime
             ["DOTNET_RUNNING_IN_CONTAINER"] = null,
         };
 
-        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() => HttpServerProgram.StartAsync(Assembly, Variable, environment));
+        var refused = await Assert.ThrowsAsync<ServerExitedException>(() => HttpServerProgram.StartAsync(Assembly, Variable, environment));
 
-        Assert.Contains(" exited with 1 before ", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("SNAIL_MCP_TMPLSHORT_LISTENS_ON_EVERY_INTERFACE", refused.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("   at ", refused.Message, StringComparison.Ordinal);
+        Assert.Equal(1, refused.ExitCode);
+        Assert.StartsWith("SNAIL_MCP_TMPLSHORT_LISTENS_ON_EVERY_INTERFACE", refused.Stderr, StringComparison.Ordinal);
+        Assert.DoesNotContain('\n', refused.Stderr);
     }
 }

@@ -470,6 +470,16 @@ A change that a repository must act on says what to do.
   `discovery.md`, after the rest; naming a tool the server does not register is S3LD0002. A host that cannot be built
   is warning S3LD0004, and the reference keeps the classes' tools. To adopt, a server that dropped a family of these
   tools names them again in `docs/tools.json` and builds the reference.
+- `ServerExitedException` of `Snail.Sdk.Mcp.Testing`: a server under test that exited before it answered, with its
+  `ExitCode`, its `Stderr` and the `Program` it was started as. `HttpServerProgram.StartAsync` throws it where it threw
+  a plain `InvalidOperationException`, and `ServerProgram.StartAsync` where the MCP SDK's `ClientTransportClosedException`
+  carried the exit code in its message alone (that exception is its `InnerException`); the message is the one it was.
+  The contract tests of a start refused in one line parsed it — `" exited with 1 before "`, no `"   at "` in it
+  (Snail.MCP.AfterEffects, Blender, CodeContext, Figma, Playwright, Roslyn). It stays an `InvalidOperationException`, so
+  a `catch` keeps catching it, but xUnit's `Assert.ThrowsAsync<InvalidOperationException>` asks for the type exactly:
+  such a test asserts `var refused = await Assert.ThrowsAsync<ServerExitedException>(…)`, then
+  `Assert.Equal(1, refused.ExitCode)` and the variable in `refused.Stderr`, as `dotnet new s3l-mcp`'s
+  `HttpContractTests` does.
 
 ### Changed
 

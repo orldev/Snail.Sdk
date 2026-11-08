@@ -41,3 +41,7 @@ Snail.Sdk.Mcp.Testing.InProcessServer.SessionAsync(string? query = null, ModelCo
 static Snail.Sdk.Mcp.Testing.InProcessServer.ServeAsync(Microsoft.AspNetCore.Builder.WebApplication! app, string! path = "/mcp", System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Testing.InProcessServer!>!
 static Snail.Sdk.Mcp.Testing.HttpGuards.AuthorizedProblemsAsync(System.Uri! endpoint, System.Net.Http.Headers.AuthenticationHeaderValue! authorization, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>!>!
 static Snail.Sdk.Mcp.Testing.InProcessServer.StartAsync(System.Action<Microsoft.AspNetCore.Builder.WebApplicationBuilder!>! configure, System.Action<Microsoft.AspNetCore.Builder.WebApplication!>? map = null, string! path = "/mcp", int port = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Testing.InProcessServer!>!
+Snail.Sdk.Mcp.Testing.ServerExitedException
+Snail.Sdk.Mcp.Testing.ServerExitedException.ExitCode.get -> int
+Snail.Sdk.Mcp.Testing.ServerExitedException.Program.get -> string!
+Snail.Sdk.Mcp.Testing.ServerExitedException.Stderr.get -> string!

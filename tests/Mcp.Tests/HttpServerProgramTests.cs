@@ -72,10 +72,10 @@ public sealed class HttpServerProgramTests
     {
         var environment = new Dictionary<string, string?> { ["SNAIL_MCP_PROBE_TRANSPORT"] = "Stdio" };
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => HttpServerProgram.StartAsync(Assembly, Variable, environment));
+        var failure = await Assert.ThrowsAsync<ServerExitedException>(() => HttpServerProgram.StartAsync(Assembly, Variable, environment));
 
-        Assert.Contains("exited with 4", failure.Message, StringComparison.Ordinal);
-        Assert.Contains("told to answer over stdio", failure.Message, StringComparison.Ordinal);
+        Assert.Equal(4, failure.ExitCode);
+        Assert.Contains("told to answer over stdio", failure.Stderr, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -84,11 +84,25 @@ public sealed class HttpServerProgramTests
         var watch = Stopwatch.StartNew();
         var environment = new Dictionary<string, string?> { ["SNAIL_MCP_PROBE_FAIL"] = "the probe was told not to start" };
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => HttpServerProgram.StartAsync(Assembly, Variable, environment));
+        var failure = await Assert.ThrowsAsync<ServerExitedException>(() => HttpServerProgram.StartAsync(Assembly, Variable, environment));
 
-        Assert.Contains("exited with 3", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("exited with 3 before it answered GET /healthz", failure.Message, StringComparison.Ordinal);
         Assert.Contains("the probe was told not to start", failure.Message, StringComparison.Ordinal);
         Assert.True(watch.Elapsed < Short, $"failed after {watch.Elapsed}");
+    }
+
+    /// <summary>The exit code and the stderr are values a test asserts on, not words it parses out of the message; the type is still an InvalidOperationException a catch of that catches.</summary>
+    [Fact]
+    public async Task StartAsync_OfAServerThatExitsAtStart_GivesItsExitCodeAndStderr()
+    {
+        var environment = new Dictionary<string, string?> { ["SNAIL_MCP_PROBE_FAIL"] = "the probe was told not to start" };
+
+        var failure = await Assert.ThrowsAsync<ServerExitedException>(() => HttpServerProgram.StartAsync(Assembly, Variable, environment));
+
+        Assert.Equal(3, failure.ExitCode);
+        Assert.Equal("the probe was told not to start", failure.Stderr);
+        Assert.Contains(Assembly, failure.Program, StringComparison.Ordinal);
+        Assert.IsAssignableFrom<InvalidOperationException>(failure);
     }
 
     /// <summary>A readiness path the server does not map is a mistake of the test, said at once rather than after the patience.</summary>

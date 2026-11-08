@@ -101,15 +101,21 @@ public static partial class HttpSessions
             ArgumentNullException.ThrowIfNull(volumes);
             ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-            app.Use((context, next) => DoorAsync(app, volumes, path, context, next));
+            PathString door = new(path.TrimEnd('/'));
+
+            app.Use((context, next) => DoorAsync(app, volumes, door, context, next));
 
             return app;
         }
     }
 
-    private static async Task DoorAsync(WebApplication app, Func<IServiceProvider, IReadOnlyList<string>> volumes, string path, HttpContext context, RequestDelegate next)
+    /// <remarks>
+    /// The path is compared as routing compares it, ignoring case: compared ordinally, <c>POST /MCP?root=/</c> passed the
+    /// door and reached <c>MapMcp</c>, which answers <c>/MCP</c> as it answers <c>/mcp</c>.
+    /// </remarks>
+    private static async Task DoorAsync(WebApplication app, Func<IServiceProvider, IReadOnlyList<string>> volumes, PathString path, HttpContext context, RequestDelegate next)
     {
-        if (!context.Request.Path.StartsWithSegments(path, StringComparison.Ordinal))
+        if (!context.Request.Path.StartsWithSegments(path, StringComparison.OrdinalIgnoreCase))
         {
             await next(context).ConfigureAwait(false);
             return;
@@ -125,7 +131,7 @@ public static partial class HttpSessions
         var options = app.Services.GetService<SessionRootsOptions>();
         var roots = new SessionRoots(new RequestAddress(context.Request), configured, options);
 
-        if (Refusal(roots, configured, path, options, SubjectOf(context.RequestServices)) is not { } refusal)
+        if (Refusal(roots, configured, path.Value ?? string.Empty, options, SubjectOf(context.RequestServices)) is not { } refusal)
         {
             await next(context).ConfigureAwait(false);
             return;

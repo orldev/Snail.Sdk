@@ -120,6 +120,19 @@ public sealed class HttpSessionsTests
         Assert.Equal($"this server serves the working copies under {volume}, and {elsewhere} is not one of them", said);
     }
 
+    /// <summary>Routing answers <c>/MCP</c> as it answers <c>/mcp</c>, and a door that compared the path ordinally let it past.</summary>
+    [Fact]
+    public async Task Door_ForTheEndpointSpelledInCapitals_TurnsAwayASessionWhoseRootIsOutsideTheVolumes()
+    {
+        var volume = TestFolder.Create();
+        var elsewhere = TestFolder.Create();
+        await using var app = await StartAsync(builder => builder.WithLocalHttpTransport(), _ => [volume]);
+
+        var (status, _) = await PostAsync(app, $"?root={elsewhere}", origin: null, path: "/MCP");
+
+        Assert.Equal(HttpStatusCode.BadRequest, status);
+    }
+
     [Fact]
     public async Task Door_TurnsAwayASessionWithNoRoot_WhereNoVolumeIsConfigured()
     {
@@ -292,10 +305,10 @@ public sealed class HttpSessionsTests
     private static Task<McpClient> ConnectAsync(WebApplication app, string query) =>
         McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions { Endpoint = Endpoint(app, query) }));
 
-    private static async Task<(HttpStatusCode Status, string Said)> PostAsync(WebApplication app, string query, string? origin)
+    private static async Task<(HttpStatusCode Status, string Said)> PostAsync(WebApplication app, string query, string? origin, string path = McpHttpHost.DefaultPath)
     {
         using var http = new HttpClient();
-        using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint(app, query))
+        using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint(app, query, path))
         {
             Content = new StringContent("""{"jsonrpc":"2.0","id":1,"method":"ping"}""", System.Text.Encoding.UTF8, "application/json"),
         };
@@ -308,7 +321,7 @@ public sealed class HttpSessionsTests
         return (response.StatusCode, await response.Content.ReadAsStringAsync());
     }
 
-    private static Uri Endpoint(WebApplication app, string query) => new($"{app.Urls.First().TrimEnd('/')}{McpHttpHost.DefaultPath}{query}");
+    private static Uri Endpoint(WebApplication app, string query, string path = McpHttpHost.DefaultPath) => new($"{app.Urls.First().TrimEnd('/')}{path}{query}");
 
     private static int FreePort()
     {

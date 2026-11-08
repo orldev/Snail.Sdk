@@ -109,6 +109,59 @@ public sealed class ToolCatalogTests
         Assert.Empty(ToolCatalog.Find(entries, "the git", 5, options));
         Assert.Throws<ArgumentOutOfRangeException>(() => ToolCatalog.Find(entries, "push", 0));
     }
+
+    /// <summary>#135: a catalog of a class took no commandOf, so a test set each command by hand to see what find_tool answers (Snail.MCP.Git).</summary>
+    [Fact]
+    public void Catalog_OfAClass_NamesTheCommandOfEachTool()
+    {
+        var entries = ToolCatalog.Of(typeof(FileSample), commandOf: name => name == "read_file" ? "read" : null);
+
+        Assert.Equal("read", entries.Single(entry => entry.Name == "read_file").Command);
+        Assert.Null(entries.Single(entry => entry.Name == "list_files").Command);
+    }
+
+    /// <summary>#135: the server's classes lacked what the With… registrations add; the services hold it all without a host.</summary>
+    [Fact]
+    public void Catalog_OfTheServersServices_HasTheToolsSnailSdkAdds_WithoutAHost()
+    {
+        var services = new ServiceCollection().AddSingleton(new Writes());
+        services.AddMcpServer()
+            .WithToolDiscovery(options =>
+            {
+                options.CommandOf = name => name == "read_file" ? "read" : null;
+                options.ParameterOf = (_, parameter) => parameter == "timeoutSeconds" ? null : parameter;
+            })
+            .WithToolSequences()
+            .WithTools<FileSample>()
+            .WithTools<RenderSample>()
+            .WithSkills(options => options.Prefix = "sample");
+        using var provider = services.BuildServiceProvider();
+
+        var entries = ToolCatalog.Of(provider);
+        var read = entries.Single(entry => entry.Name == "read_file");
+
+        Assert.Subset(entries.Select(entry => entry.Name).ToHashSet(), new HashSet<string>(["find_tool", "run_tools", "sample_skills", "sample_enable_skill", "sample_disable_skill", "read_file", "render_image"]));
+        Assert.Equal("read", read.Command);
+        Assert.Equal(["path"], read.Parameters.Select(parameter => parameter.Name));
+        Assert.Equal("render", entries.Single(entry => entry.Name == "render_image").Skill);
+    }
+
+    /// <summary>The ranking over the services is the one find_tool answers a session that may call every tool.</summary>
+    [Theory]
+    [InlineData("render a picture")]
+    [InlineData("run several tools in one call")]
+    [InlineData("find a tool for a task")]
+    [InlineData("write a whole file")]
+    public async Task Find_OverTheServersServices_IsWhatFindToolAnswers(string task)
+    {
+        await using var stand = await DiscoveryStand.StartAsync(tools: DiscoveryStand.WithProgram);
+
+        var answered = await stand.FindAsync(new() { ["task"] = task, ["limit"] = 20 });
+        var found = ToolCatalog.Find(stand.Host.Services, task, 20);
+
+        Assert.Equal(answered["tools"]!.AsArray().Select(tool => tool!["name"]!.GetValue<string>()), found.Select(entry => entry.Name));
+        Assert.Contains("run_program", ToolCatalog.Of(stand.Host.Services).Select(entry => entry.Name));
+    }
 }
 
 /// <summary>find_tool: which tools answer a task, ranked as the fleet ranks them, as far as the session may call them.</summary>

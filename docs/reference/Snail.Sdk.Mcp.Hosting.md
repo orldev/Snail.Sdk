@@ -388,8 +388,10 @@ Tools as entries discovery searches: read from the tools a server registers, nev
 | Member | Summary |
 | --- | --- |
 | `IReadOnlyList<ToolEntry> Find(IReadOnlyList<ToolEntry> entries, string? task, int limit, DiscoveryOptions? options = null)` | The entries that answer a task, best first and at most `limit`: the ranking of `find_tool`, without a server. |
+| `IReadOnlyList<ToolEntry> Find(IServiceProvider services, string? task, int limit)` | The tools of a server that `find_tool` would name for a task, best first: its ranking over `Of`, without a host. |
 | `IReadOnlyList<ToolEntry> Of(IEnumerable<McpServerTool> tools, Func<string, string?>? commandOf)` | The entries of the tools, in the order given, each with the command `commandOf` names for it. |
-| `IReadOnlyList<ToolEntry> Of(Type toolType, IServiceProvider? services = null, JsonSerializerOptions? json = null)` | The entries of the tools one class declares, built as the MCP SDK builds them and never invoked. |
+| `IReadOnlyList<ToolEntry> Of(IServiceProvider services)` | The catalog `find_tool` searches, read from a server's services without a host: every tool it registers, the ones Snail.Sdk adds among them. |
+| `IReadOnlyList<ToolEntry> Of(Type toolType, IServiceProvider? services = null, JsonSerializerOptions? json = null, Func<string, string?>? commandOf = null)` | The entries of the tools one class declares, built as the MCP SDK builds them and never invoked. |
 | `string? SkillOf(McpServerTool tool)` | The skill a tool belongs to: the name of the `SkillAttribute` on its class, or null. |
 
 ### class ToolEntry

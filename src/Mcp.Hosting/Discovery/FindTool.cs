@@ -24,23 +24,7 @@ internal sealed class Discovery(DiscoveryOptions options)
     private readonly Vocabulary _vocabulary = new(options.Noise, options.Prefix);
 
     /// <summary>Every tool the server offers, skills loaded or not, the parameters of a command named as the command takes them.</summary>
-    public IReadOnlyList<ToolEntry> Catalog(McpServer server)
-    {
-        var catalog = options.Catalog ?? ToolCatalog.Of(ServerTools.Of(server), options.CommandOf);
-
-        return options.ParameterOf is { } parameterOf ? [.. catalog.Select(entry => Commanded(entry, parameterOf))] : catalog;
-    }
-
-    /// <summary>An entry with a command, its parameters renamed as the command takes them and the ones it does not take dropped.</summary>
-    private static ToolEntry Commanded(ToolEntry entry, Func<string, string, string?> parameterOf)
-    {
-        if (entry.Command is null)
-            return entry;
-
-        var named = entry.Parameters.Select(parameter => (Parameter: parameter, Name: parameterOf(entry.Name, parameter.Name)));
-
-        return entry with { Parameters = [.. named.Where(each => each.Name is not null).Select(each => each.Parameter with { Name = each.Name! })] };
-    }
+    public IReadOnlyList<ToolEntry> Catalog(McpServer server) => ToolCatalog.Of(ServerTools.Of(server), options);
 
     /// <summary>The entries that answer the task, best first and at most <paramref name="limit"/>; empty when none does.</summary>
     public IReadOnlyList<ToolEntry> Find(string? task, IReadOnlyList<ToolEntry> entries, int limit) =>

@@ -419,6 +419,16 @@ A change that a repository must act on says what to do.
     `ToolCatalog.Of(typeof(X))` reads one class without a server, for a guard test, and
     `ToolCatalog.Find(entries, task, limit, options)` ranks entries as `find_tool` does, so a server tests its words
     without a host (Git).
+  - `ToolCatalog.Of(services)` is the catalog `find_tool` searches, read from a server's services without a host: the
+    tool collection its registrations build — `find_tool`, `run_tools`, `run_program` and the skill tools among them,
+    with the descriptions the registrations fit — each entry with `DiscoveryOptions.CommandOf`, `ParameterOf` and
+    `Catalog` applied as `find_tool` applies them; and `ToolCatalog.Find(services, task, limit)` is what `find_tool`
+    would name for the task to a session that may call every tool, its options and its limit of one to twenty
+    included. `ToolCatalog.Of(typeof(X), …, commandOf)` names each entry's command too. A catalog of the server's
+    classes lacked the tools the `With…` registrations add and took no `commandOf`, so Snail.MCP.Git's test of its words
+    ranked a list `find_tool` never ranks. To adopt in Git, `FindToolTests.Found` becomes
+    `ToolCatalog.Find(services, task, limit)` over `new ServiceCollection()` with the server's registration built into
+    a provider, and its `Catalog` drops `entry with { Command = … }` for `commandOf:`.
   - `.WithToolSequences(options => …)` adds `run_tools(steps:[{tool, arguments}])`, `[Forwards]`: each step runs through
     `ToolForwarding.CallAsync`, so the grant holds and no forwarder is a step; the run stops at the first step that fails
     and answers its error, hint and type with the steps before it as data; each step's answer is unwrapped from its

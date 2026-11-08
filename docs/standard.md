@@ -403,7 +403,8 @@ And for the server project (no kind):
 - The ways in, spelled alike by every server (`Snail.Sdk.Mcp.Hosting.Discovery`): `.WithToolDiscovery()` adds
   `find_tool(task, limit)` — `intent` and `query` taken for `task` — which ranks the tools the server registered against a task in
   words and answers each with its command and parameters, as far as the session may call it — every tool by name when
-  nothing matches — and `ToolCatalog.Find` ranks a catalog the same way for a test without a host; `.WithToolSequences()`
+  nothing matches — and `ToolCatalog.Find` ranks a catalog the same way for a test without a host — `ToolCatalog.Of(services)`
+  and `ToolCatalog.Find(services, task, limit)` the very catalog and answer of `find_tool`, Snail.Sdk's tools included; `.WithToolSequences()`
   adds `run_tools(steps)`, several tools in one call through `ToolForwarding`, stopping at the first that fails or
   throws, inside an output budget, with the hints of the tools it can run; `.WithArgumentCheck()` refuses a call that leaves out a required parameter or sends an unknown one,
   naming the parameter it meant (or its synonym, `ArgumentCheckOptions.Synonyms`); `.WithSkills()` with

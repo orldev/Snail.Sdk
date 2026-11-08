@@ -194,6 +194,8 @@ Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Absent.get -> System.Collections.Gen
 Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.All.get -> System.Collections.Generic.IReadOnlyList<string!>!
 Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.IsAbsent.get -> bool
 Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.IsOutside.get -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.IsUnreadable.get -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Unreadable.get -> System.Collections.Generic.IReadOnlyList<string!>!
 Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Named.get -> System.Collections.Generic.IReadOnlyList<string!>!
 Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Outside.get -> System.Collections.Generic.IReadOnlyList<string!>!
 Snail.Sdk.Mcp.Hosting.Sessions.SessionRoots.Relative(string! path) -> string!

@@ -383,10 +383,14 @@ A change that a repository must act on says what to do.
     fault could be injected where `CopyReader`, `CopyWriter` and `CopyWalker` reach a path (#57). What the disk throws
     while a path is reached — an `IOException`, an `UnauthorizedAccessException` — is a refusal of its own kind,
     `Reached.Unreadable` (`unreadable`), in the disk's words with a hint, never an exception out of `Reach` that
-    `ExplainFailures` would answer as `internal`, "try once more"; a root the disk cannot answer for is among
-    `Absent`, and a folder gone between the door and the call is `absent`. `unfollowable` is a loop of links alone now.
-    `RealPath.Of(path, maxLinks, disk)` follows links on the disk given. On the machine's disk nothing changes: it
-    answers as before (`File.Exists`, `Directory.Exists`, `FileInfo.LinkTarget`). Snail.MCP.FileSystem plugs its
+    `ExplainFailures` would answer as `internal`, "try once more"; a folder gone between the door and the call is
+    `absent`. `unfollowable` is a loop of links alone now. A root the disk cannot answer for is among
+    `SessionRoots.Unreadable` (`IsUnreadable`) — neither `Absent` nor `Outside`, which told a session this machine had
+    no such copy, or that it had named the wrong one when the root's links could not be read — and the door turns
+    the session away with "this server may not read /copy: the disk refused it or did not answer …".
+    `RealPath.Of(path, maxLinks, disk)` follows links on the disk given. On the machine's disk a path the system may
+    not look at — a file in a folder this process may not enter — is `unreadable` too, where `File.Exists` had made it
+    `absent`, "there is no file", about a file that is there; a name under a file is still `absent`. Snail.MCP.FileSystem plugs its
     own disk in with `.WithSessionRoots(volumes, options => options.Disk = …)`: its `LocalDisk` already has `IsFile`
     and `IsFolder` of the same meaning, so it implements `IRootsDisk` beside `IWorkingCopy` with `LinkTarget(path) =>
     new FileInfo(path).LinkTarget`, or an adapter over its `IWorkingCopy` does, and `FailingDisk` fails `Reach` too

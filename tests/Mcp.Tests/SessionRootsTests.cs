@@ -632,15 +632,82 @@ public sealed class SessionRootsTests
         Assert.Equal(Reached.Absent, reached.Type);
     }
 
+    /// <summary>A root the disk cannot answer for is neither missing nor outside: the door says the server may not read it.</summary>
     [Fact]
-    public void Roots_ThatTheDiskCannotAnswerFor_AreAbsent()
+    public void Roots_ThatTheDiskCannotAnswerFor_AreUnreadable_NotAbsent()
     {
         var root = TestFolder.Create();
         var disk = new FailingDisk { IsFolder = _ => throw new IOException("stale handle") };
 
         var roots = new SessionRoots(new FixedAddress(("root", root)), [], new SessionRootsOptions { Disk = disk });
 
-        Assert.Equal([root], roots.Absent);
+        Assert.Equal([root], roots.Unreadable);
+        Assert.True(roots.IsUnreadable);
+        Assert.Empty(roots.Absent);
+    }
+
+    /// <summary>A root whose links cannot be read was taken for one outside the volumes, and the session was told it named the wrong copy.</summary>
+    [Fact]
+    public void Roots_WhoseLinksCannotBeRead_AreUnreadable_NotOutside()
+    {
+        var volume = TestFolder.Create();
+        var root = Directory.CreateDirectory(Path.Combine(volume, "task-1")).FullName;
+        var disk = new FailingDisk { LinkTarget = _ => throw new IOException("the share did not answer") };
+
+        var roots = new SessionRoots(new FixedAddress(("root", root)), [volume], new SessionRootsOptions { Disk = disk });
+
+        Assert.Equal([root], roots.Unreadable);
+        Assert.Empty(roots.Outside);
+        Assert.Empty(roots.Absent);
+        Assert.Empty(roots.All);
+    }
+
+    [Fact]
+    public void Roots_TheDiskAnswersFor_AreNotUnreadable()
+    {
+        var root = TestFolder.Create();
+
+        var roots = new SessionRoots(new FixedAddress(("root", root), ("root", Path.Combine(root, "missing"))), []);
+
+        Assert.Empty(roots.Unreadable);
+        Assert.False(roots.IsUnreadable);
+    }
+
+    /// <summary>
+    /// On the machine's disk, a file in a folder this process may not enter is not missing: <c>File.Exists</c> answered false
+    /// for it, and the model was told "there is no file" about a file that is there. A process that may enter any folder
+    /// (root) reaches it.
+    /// </summary>
+    [Fact]
+    public void Reach_OnTheMachinesDisk_OfAFileInAFolderItMayNotEnter_IsUnreadable()
+    {
+        var root = TestFolder.Create();
+        var locked = Directory.CreateDirectory(Path.Combine(root, "locked")).FullName;
+        File.WriteAllText(Path.Combine(locked, "a.txt"), "a");
+        File.SetUnixFileMode(locked, UnixFileMode.None);
+
+        try
+        {
+            var reached = new SessionRoots(new FixedAddress(("root", root)), []).Reach("locked/a.txt", PathKind.File);
+
+            Assert.Equal(Environment.IsPrivilegedProcess ? null : Reached.Unreadable, reached.Type);
+        }
+        finally
+        {
+            File.SetUnixFileMode(locked, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
+    /// <summary>A name under a file is missing, as before: nothing can be under a file, so it is no question of permission.</summary>
+    [Fact]
+    public void Reach_OnTheMachinesDisk_OfANameUnderAFile_IsAbsent()
+    {
+        var root = TestFolder.Create();
+        File.WriteAllText(Path.Combine(root, "a.txt"), "a");
+
+        var reached = new SessionRoots(new FixedAddress(("root", root)), []).Reach("a.txt/inner", PathKind.File);
+
+        Assert.Equal(Reached.Absent, reached.Type);
     }
 
     /// <summary>The links of a path are read on the server's disk too: a link it knows of is followed, one the machine has is not asked about.</summary>

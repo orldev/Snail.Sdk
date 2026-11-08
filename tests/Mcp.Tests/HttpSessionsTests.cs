@@ -80,6 +80,33 @@ public sealed class HttpSessionsTests
         Assert.Equal($"this machine has no {volume}/task-elsewhere: the session named a working copy that is not on the host this server runs on", said);
     }
 
+    /// <summary>A copy in a folder the server may not enter is there: the session is told the server may not read it, not that this machine lacks it. Root enters every folder, so the test has nothing to show it.</summary>
+    [Fact]
+    public async Task Door_TurnsAwayASessionWhoseRootTheServerMayNotRead_InThoseWords()
+    {
+        if (Environment.IsPrivilegedProcess)
+            return;
+
+        var volume = TestFolder.Create();
+        var locked = Directory.CreateDirectory(Path.Combine(volume, "locked")).FullName;
+        var copy = Directory.CreateDirectory(Path.Combine(locked, "task-1")).FullName;
+        File.SetUnixFileMode(locked, UnixFileMode.None);
+
+        try
+        {
+            await using var app = await StartAsync(builder => builder.WithLocalHttpTransport(), _ => [volume]);
+
+            var (status, said) = await PostAsync(app, $"?root={copy}", origin: null);
+
+            Assert.Equal(HttpStatusCode.BadRequest, status);
+            Assert.StartsWith($"this server may not read {copy}:", said, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.SetUnixFileMode(locked, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
     [Fact]
     public async Task Door_TurnsAwayASessionWhoseRootIsOutsideTheVolumes()
     {

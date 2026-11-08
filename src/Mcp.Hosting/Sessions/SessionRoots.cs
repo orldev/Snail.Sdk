@@ -183,7 +183,7 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
         {
             var configured = Paths(volumes);
 
-            return configured.Count == 0 ? [] : [.. Named.Where(root => !IsInside(root, configured))];
+            return configured.Count == 0 ? [] : [.. Named.Where(root => FolderAt(root) is not null && !IsInside(root, configured))];
         }
     }
 
@@ -191,15 +191,25 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
     /// <remarks>
     /// A root missing here means the copy is on another host: discovery handed the worker of one machine the server of
     /// another, and every answer would be about the wrong files — a wrong answer wearing the shape of a right one. A root
-    /// the disk cannot even answer for — it threw — is as good as missing: nothing in it could be served.
+    /// the disk cannot answer for is among <see cref="Unreadable"/> instead.
     /// </remarks>
-    public IReadOnlyList<string> Absent => [.. Named.Where(root => !IsFolder(root))];
+    public IReadOnlyList<string> Absent => [.. Named.Where(root => FolderAt(root) is false)];
+
+    /// <summary>Of the roots the address named, the ones the disk could not answer for: it threw — a folder this server may not enter, a share that timed out.</summary>
+    /// <remarks>
+    /// Such a root may well be there, so it is neither missing nor outside: taken for missing, the session was told this
+    /// machine had no such copy; taken for outside, when its links could not be read, that it had named the wrong one.
+    /// </remarks>
+    public IReadOnlyList<string> Unreadable => [.. Named.Where(root => FolderAt(root) is null)];
 
     /// <summary>Whether the address named a root outside every volume.</summary>
     public bool IsOutside => Outside.Count > 0;
 
     /// <summary>Whether the address named a root this machine does not have.</summary>
     public bool IsAbsent => Absent.Count > 0;
+
+    /// <summary>Whether the address named a root the disk could not answer for.</summary>
+    public bool IsUnreadable => Unreadable.Count > 0;
 
     /// <summary>Whether this session reaches every path its process can: a program with no volume, at a server that set <see cref="SessionRootsOptions.ReachesEverywhereAsAProgram"/>.</summary>
     /// <remarks><see cref="All"/> is empty then, since no root confines it, and a relative path is reached from the working folder.</remarks>
@@ -355,16 +365,19 @@ public sealed class SessionRoots(ISessionAddress address, IReadOnlyList<string> 
     /// <summary>The disk paths are reached on: the server's, or the machine's.</summary>
     private IRootsDisk Disk => options?.Disk ?? IRootsDisk.Machine;
 
-    /// <summary>Whether the disk has a folder at the path; a disk that throws has none there to serve.</summary>
-    private bool IsFolder(string path)
+    /// <summary>Whether the disk has a folder at the root, its links followed; null when the disk throws on the root or on a link on its way.</summary>
+    /// <remarks>One question of the disk per root, so a disk that changes its mind between the door and a call is asked once at the door.</remarks>
+    private bool? FolderAt(string root)
     {
         try
         {
-            return Disk.IsFolder(path);
+            _ = RealPath.Walk(root, RealPath.MostLinks, Disk);
+
+            return Disk.IsFolder(root);
         }
         catch (Exception failed) when (failed is IOException or UnauthorizedAccessException)
         {
-            return false;
+            return null;
         }
     }
 

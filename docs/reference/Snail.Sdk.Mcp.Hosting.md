@@ -694,10 +694,12 @@ The folders this session works in, read from the address it was opened at, and w
 | `IReadOnlyList<string> All { get; }` | The roots this session works in: the ones it named inside the volumes, or the volumes when it named none. |
 | `IReadOnlyList<string> Named { get; }` | The roots the address named, as full paths, each once. |
 | `IReadOnlyList<string> Outside { get; }` | Of the roots the address named, the ones outside every volume; none when no volume was configured. |
+| `IReadOnlyList<string> Unreadable { get; }` | Of the roots the address named, the ones the disk could not answer for: it threw — a folder this server may not enter, a share that timed out. |
 | `Reached Reach(string? path, PathKind mustBe = 0)` | The path as the session may use it — absolute, or relative to the first root, every link followed — or why it may not. |
 | `SessionRoots(ISessionAddress address, IReadOnlyList<string> volumes, SessionRootsOptions? options = null)` | The folders this session works in, read from the address it was opened at, and whether a path lies in them. |
 | `bool IsAbsent { get; }` | Whether the address named a root this machine does not have. |
 | `bool IsOutside { get; }` | Whether the address named a root outside every volume. |
+| `bool IsUnreadable { get; }` | Whether the address named a root the disk could not answer for. |
 | `bool ReachesEverywhere { get; }` | Whether this session reaches every path its process can: a program with no volume, at a server that set `ReachesEverywhereAsAProgram`. |
 | `const string Parameter` | What the address calls a root it hands over; repeated for more than one. |
 | `string Relative(string path)` | The path as the caller should name it again: relative to the first root when it lies under it, whole otherwise. |

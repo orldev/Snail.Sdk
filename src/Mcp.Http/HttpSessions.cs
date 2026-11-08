@@ -151,6 +151,9 @@ public static partial class HttpSessions
             return $"this {subject} named no root and this server is configured with none, so it can serve nothing: name the copy in the address, {path}?{SessionRoots.Parameter}=/path/to/the/copy{orSet}";
         }
 
+        if (roots.Unreadable is { Count: > 0 } unreadable)
+            return $"this server may not read {string.Join(", ", unreadable)}: the disk refused it or did not answer — a folder this server may not enter, a share that timed out; ask whoever runs the server";
+
         if (roots.Absent is { Count: > 0 } absent)
             return $"this machine has no {string.Join(", ", absent)}: the {subject} named a working copy that is not on the host this server runs on";
 

@@ -112,6 +112,39 @@ public sealed partial class ProgramToolTests
         Assert.Equal("the program calls notes.<command>({ … }); the commands are read, write", answer.Hint());
     }
 
+    /// <summary>A server that gives its programs longer than the default ceiling means a call may give them as long.</summary>
+    [Fact]
+    public async Task Registration_WithATimeoutPastTheCeiling_RaisesTheCeiling()
+    {
+        await using var stand = await ProgramStand.StartAsync(Everything, server => server.WithPrograms<NoteCommands>(options =>
+        {
+            options.Global = "notes";
+            options.Timeout = TimeSpan.FromMinutes(15);
+        }));
+
+        var options = stand.Host.Services.GetRequiredService<ProgramOptions>();
+        var tools = await stand.Client.ListToolsAsync();
+
+        Assert.Equal(TimeSpan.FromMinutes(15), options.MaxTimeout);
+        Assert.Contains("900 seconds unless timeoutSeconds gives up to 900.", tools.Single(tool => tool.Name == "run_program").Description, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(0, 600)]
+    [InlineData(-5, 600)]
+    [InlineData(120, 0)]
+    [InlineData(120, -1)]
+    public void Registration_WithATimeoutOrCeilingThatCannotBeOne_FailsAtStartup(int timeout, int ceiling)
+    {
+        var services = new ServiceCollection();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => services.AddMcpServer().WithPrograms<NoteCommands>(options =>
+        {
+            options.Timeout = TimeSpan.FromSeconds(timeout);
+            options.MaxTimeout = TimeSpan.FromSeconds(ceiling);
+        }));
+    }
+
     [Theory]
     [InlineData("log")]
     [InlineData("input")]

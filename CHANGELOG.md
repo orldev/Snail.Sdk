@@ -182,11 +182,12 @@ A change that a repository must act on says what to do.
   command, reaches the program as `{ error, message, hint, type, details }`, which it may catch. A command the server
   does not have stops the program with the names nearest to it (`no command 'stauts'; the nearest: status`) instead of
   "is not a function"; `log(…)` is a global of the program only, so a command named `log` still runs (Snail.MCP.Git's
-  collision). `ProgramOptions` bound a program — `Timeout` 120 s and `MaxTimeout` 600 s, `MemoryBytes` 32 MiB,
-  `MaxRecursion` 256, `MaxStatements` 1 000 000, `MaxCalls` 200, `LogLines` 200 of `LogLineLength` 1000, `ResultBytes`
-  128 KiB — and each stop says which bound in its own words with a `type`: `timeout` (also when the time runs out inside
-  a slow command, which is given up on at the deadline), `programTooLarge`, `tooManyCalls`, `syntax` and `runtime` with
-  the line of the program, `noSuchCommand`, `refused`, `cancelled`, `invalid`. The answer is the envelope:
+  collision). `ProgramOptions` bound a program — `Timeout` 120 s and `MaxTimeout` 600 s (raised to a `Timeout` set past
+  it rather than refused at startup), `MemoryBytes` 32 MiB, `MaxRecursion` 256, `MaxStatements` 1 000 000, `MaxCalls`
+  200, `LogLines` 200 of `LogLineLength` 1000, `ResultBytes` 128 KiB — and each stop says which bound in its own words
+  with a `type`: `timeout` (also when the time runs out inside a slow command, which is given up on at the deadline),
+  `programTooLarge`, `tooManyCalls`, `syntax` and `runtime` with the line of the program, `noSuchCommand`, `refused`,
+  `cancelled`, `invalid`. The answer is the envelope:
   `{"result":…,"log":[…],"calls":[{"command","ok","milliseconds"}]}`, a result past the budget left out with
   `isOmitted` and a note, and on a stop the same data beside `error`, `hint` and `type`. `ProgramRunner` runs a program
   without the tool. A server opts in with `<PackageReference Include="Snail.Sdk.Mcp.Programs" />`, no version: the

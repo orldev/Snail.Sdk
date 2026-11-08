@@ -25,8 +25,9 @@ public static class ProgramRegistration
         /// exception it may catch. The tool is destructive and open-world, since a program reaches whatever its commands reach.
         /// </para>
         /// <para>
-        /// The options are checked here, so a name that cannot be a JavaScript identifier or a timeout past its ceiling fails at
-        /// startup rather than on every call. Called twice, it registers once.
+        /// The options are checked here, so a name that cannot be a JavaScript identifier, a timeout under a second or a ceiling
+        /// of zero fails at startup rather than on every call; a timeout past its ceiling raises the ceiling to it. Called
+        /// twice, it registers once.
         /// </para>
         /// </remarks>
         public IMcpServerBuilder WithPrograms<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TCommands>(Action<ProgramOptions>? configure = null)

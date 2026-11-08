@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using ModelContextProtocol.AspNetCore;
 using Snail.Sdk.Mcp.Hosting.Sessions;
 
 namespace Snail.Sdk.Mcp.Http;
@@ -10,6 +12,9 @@ namespace Snail.Sdk.Mcp.Http;
 /// <summary>The address a session was opened at, read from the request being served, and the sessions turned away at the door.</summary>
 public static partial class HttpSessions
 {
+    /// <summary>The header Streamable HTTP carries a session's id in, from the response to <c>initialize</c> on.</summary>
+    public const string SessionHeader = "Mcp-Session-Id";
+
     extension(IMcpServerBuilder builder)
     {
         /// <summary>The session's address — <c>?root=</c>, <c>?tool=</c> — read from the query of the request being served.</summary>
@@ -17,7 +22,8 @@ public static partial class HttpSessions
         /// <c>WithLocalHttpTransport</c> registers it by itself; a server on the MCP SDK's default transport, which keeps no
         /// sessions, calls this beside <c>WithHttpTransport</c>. Every request of a session is posted to the same URL, so the
         /// query of the current one answers about the session; outside a request — a job that outlived its call — it
-        /// answers nothing.
+        /// answers nothing. Called before or after <c>RefuseWhatWasNotGranted</c> and <c>WithSessionRoots</c> alike: it
+        /// replaces the address they register, and they add theirs only where there is none.
         /// </remarks>
         public IMcpServerBuilder WithSessionAddress()
         {
@@ -26,6 +32,40 @@ public static partial class HttpSessions
             builder.Services.AddSingleton<ISessionAddress>(provider => new HttpSessionAddress(provider.GetRequiredService<IHttpContextAccessor>()));
 
             return builder;
+        }
+    }
+
+    extension(JobOwners)
+    {
+        /// <summary>The owner of a request: the MCP session it belongs to, or none outside a session.</summary>
+        /// <remarks>
+        /// <para>
+        /// For a server that holds no task of a caller — Snail.MCP.Sandbox — where the session is the one identity it has,
+        /// and the session that started a run is the one that awaits it: <c>.WithJobs("&lt;short&gt;", JobOwners.Session)</c>,
+        /// and a tool starts its job with <c>JobOwners.Session(services)</c>. Each server read the session's header itself,
+        /// since the MCP SDK keeps its name internal.
+        /// </para>
+        /// <para>
+        /// Read from the <see cref="SessionHeader"/> of the request being served, which the MCP SDK checks against a
+        /// session it opened before any handler runs, so a client cannot claim another's. A transport that keeps no
+        /// sessions (<c>HttpServerSessionMode.Stateless</c>) leaves the header unchecked, so there it names nobody, as it
+        /// does over stdio: such jobs belong to whoever holds their URI. It needs the request: <c>WithLocalHttpTransport</c>
+        /// or <c>WithSessionAddress</c> registers what reads it, and without either it is refused with that said rather
+        /// than leave every job to whoever holds its URI.
+        /// </para>
+        /// </remarks>
+        /// <param name="services">The services the request is served with.</param>
+        public static string? Session(IServiceProvider services)
+        {
+            ArgumentNullException.ThrowIfNull(services);
+
+            var requests = services.GetService<IHttpContextAccessor>()
+                ?? throw new InvalidOperationException("JobOwners.Session reads the request being served, and no IHttpContextAccessor is registered: call WithLocalHttpTransport or WithSessionAddress.");
+
+            if (services.GetService<IOptions<HttpServerTransportOptions>>()?.Value.SessionMode == HttpServerSessionMode.Stateless)
+                return null;
+
+            return requests.HttpContext?.Request.Headers[SessionHeader] is { Count: > 0 } session && !string.IsNullOrWhiteSpace(session) ? session.ToString() : null;
         }
     }
 
@@ -75,9 +115,10 @@ public static partial class HttpSessions
         }
 
         var configured = volumes(app.Services);
-        var roots = new SessionRoots(new RequestAddress(context.Request), configured);
+        var options = app.Services.GetService<SessionRootsOptions>();
+        var roots = new SessionRoots(new RequestAddress(context.Request), configured, options);
 
-        if (Refusal(roots, configured, path) is not { } refusal)
+        if (Refusal(roots, configured, path, options) is not { } refusal)
         {
             await next(context).ConfigureAwait(false);
             return;
@@ -92,12 +133,16 @@ public static partial class HttpSessions
     }
 
     /// <summary>Why the session may not be opened, in the fleet's words, or null when it may.</summary>
-    internal static string? Refusal(SessionRoots roots, IReadOnlyList<string> volumes, string path)
+    internal static string? Refusal(SessionRoots roots, IReadOnlyList<string> volumes, string path, SessionRootsOptions? options = null)
     {
         IReadOnlyList<string> configured = [.. volumes.Where(volume => !string.IsNullOrWhiteSpace(volume))];
 
         if (roots.Named.Count == 0 && configured.Count == 0)
-            return $"this session named no root and this server is configured with none, so it can serve nothing: open the session at {path}?{SessionRoots.Parameter}=/path/to/the/copy";
+        {
+            string orSet = options?.RootsSetting is { Length: > 0 } setting ? $", or set {setting}" : string.Empty;
+
+            return $"this session named no root and this server is configured with none, so it can serve nothing: open the session at {path}?{SessionRoots.Parameter}=/path/to/the/copy{orSet}";
+        }
 
         if (roots.Absent is { Count: > 0 } absent)
             return $"this machine has no {string.Join(", ", absent)}: the session named a working copy that is not on the host this server runs on";

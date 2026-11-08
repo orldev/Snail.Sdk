@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Snail.MCP.Probe;
@@ -22,10 +23,24 @@ if (endpoint.Transport is McpTransport.Stdio)
     return 4;
 }
 
+var limits = new ProbeLimits();
+
+try
+{
+    ServerSettings.Bind("probe", settings, read => read.Bind(limits));
+}
+catch (StartRefusedException refused)
+{
+    await Console.Error.WriteLineAsync(refused.Message);
+
+    return 1;
+}
+
 var builder = McpHttpHost.CreateBuilder(args, endpoint);
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMcpServer().WithLocalHttpTransport().WithTools<ProbeTools>();
+builder.Services.AddOptions<ProbeOptions>().Bind(settings).ValidateOnStart();
 
 if (string.Equals(settings["TokenRequired"], "true", StringComparison.OrdinalIgnoreCase))
 {

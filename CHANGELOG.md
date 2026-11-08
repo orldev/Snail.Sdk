@@ -237,6 +237,29 @@ A change that a repository must act on says what to do.
   file)`, for a server's own refusal: Snail.MCP.CleanUp, Git and FileSystem throw `invalid configuration: …` from
   `ServerConfigExtensions.Validate` as a bare `InvalidOperationException` — a crash — and throw
   `new StartRefusedException(…)` instead, each fault naming its setting.
+- A setting of the wrong type is a `StartRefusedException` in one line too, naming the variable and what it holds:
+  `SNAIL_MCP_BLENDER_BRIDGE__PORT (or Bridge:Port in the settings file) is 'abc'; it is not a number (Int32).` The
+  configuration binder threw an `InvalidOperationException`, "Failed to convert configuration value 'abc' at
+  'Bridge:Port' to type 'System.Int32'.", which the refusal of the start did not cover: Snail.MCP.Blender crashed with a
+  trace and exit code 134 (0.5.0-local.6). Two places bind. Options a host binds as it starts — `ValidateOnStart()`, a
+  hosted service reading them — are refused by every host the SDK builds (`AddStartRefusal()`), the variable named by the
+  server the entry assembly carries, the key alone in a program that names none (`Bridge:Port is 'abc'; …`), and the
+  host's error line with the trace left out; nothing to change. Settings a server binds before any host exists — Blender's
+  `ServerConfigExtensions.Peek`, which crashed first, and the `Read` of Git, FileSystem, CleanUp and Documents — go
+  through `ServerSettings.Bind(name, settings, bind)`, the server's own calls to `Bind` written in `bind`:
+  `ServerSettings.Bind(Server, configuration, settings => { settings.GetSection(ServerConfig.SectionName).Bind(config); settings.Bind(config); });`.
+  The binding stays in the server's code because the binding source generator of a native server replaces the calls
+  where they are written; bound inside the SDK, they would bind by reflection, which Native AOT cannot. The failure is
+  known by its shape, never by its type alone: an `InvalidOperationException` caused by a `FormatException`,
+  `ArgumentException`, `OverflowException` or `NotSupportedException`, whose message is one the binder writes whole —
+  the reflection binder's and the .NET 10 generator's (the same text), the .NET 8 generator's without the value (read
+  from the settings at the path then), and the reflection binder's under `UseSystemResourceKeys`
+  (`Error_FailedBinding, abc, Bridge:Port, System.Int32`). Any other `InvalidOperationException` is thrown as it was.
+  A value out of range says so, `… is '99999999999'; it is out of the range of Int32.`; an enum, `… is not a valid
+  McpTransport.`
+- Failures said together in one refusal are joined as each is written: after a sentence — ending with `.`, `!` or `?` —
+  a space, after a bare fragment `; `. Snail.MCP.BuildBridge, whose validation writes a sentence per setting, read
+  `… a number of seconds above zero.; SNAIL_MCP_BUILDBRIDGE_…`.
 - `McpHttpHost.MapHealth(path = "/healthz", check = null)`: 200 with no body, for a container's healthcheck, which
   the servers in images mapped by hand; with `check` — asked with the request's services and its cancellation — the
   `HealthAnswer(isHealthy, body)` it gives: 200 or 503, and its `JsonNode` body as `application/json`; 503 with no body

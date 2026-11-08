@@ -60,6 +60,45 @@ public static class ServerSettings
         return $"{McpEndpoint.VariableOf(name, key)} (or {key} in the settings file)";
     }
 
+    /// <summary>Binds the server's settings as <paramref name="bind"/> does, and refuses a value its property's type cannot hold as a <see cref="StartRefusedException"/> that names the variable.</summary>
+    /// <param name="name">The server's short name, such as blender, which names the variable.</param>
+    /// <param name="settings">The settings, handed to <paramref name="bind"/> and read for a value the binder's message leaves out.</param>
+    /// <param name="bind">The server's own binding, its calls to <c>Bind</c> written in it: <c>settings =&gt; { settings.GetSection("Snail").Bind(config); settings.Bind(config); }</c>.</param>
+    /// <remarks>
+    /// <para>
+    /// A server reads its settings before any host exists — to choose its transport, or to fix limits a tool is registered
+    /// with — and the binder throws a bare <see cref="InvalidOperationException"/> for a value it cannot convert, an
+    /// unhandled crash with a trace and exit code 134: <c>SNAIL_MCP_BLENDER_BRIDGE__PORT=abc</c> stopped Snail.MCP.Blender
+    /// in <c>ServerConfigExtensions.Peek</c> (0.5.0-local.6), as it would Git, FileSystem, CleanUp and Documents, which
+    /// bind theirs alike. Here it is the refusal a program says in one line with exit code 1:
+    /// <c>SNAIL_MCP_BLENDER_BRIDGE__PORT (or Bridge:Port in the settings file) is 'abc'; it is not a number (Int32).</c>
+    /// Any other failure of <paramref name="bind"/> is thrown as it was.
+    /// </para>
+    /// <para>
+    /// The binding stays in the server's code rather than here, because a native server's calls to <c>Bind</c> are
+    /// replaced by the binding source generator where they are written; a call inside the SDK would bind by reflection,
+    /// which Native AOT cannot. Options a host binds as it starts need nothing: its start refuses the same way
+    /// (<c>AddStartRefusal()</c>).
+    /// </para>
+    /// </remarks>
+    /// <exception cref="StartRefusedException">A setting holds a value its property's type cannot hold.</exception>
+    /// <exception cref="ArgumentException">The name is empty or blank.</exception>
+    public static void Bind(string name, IConfiguration settings, Action<IConfiguration> bind)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(bind);
+
+        try
+        {
+            bind(settings);
+        }
+        catch (InvalidOperationException failure) when (BindingRefusal.Of(failure, name, settings) is { } refused)
+        {
+            throw refused;
+        }
+    }
+
     /// <summary>The variable that names the settings file outright: <c>SNAIL_MCP_&lt;NAME&gt;_CONFIG</c>.</summary>
     public static string FileVariableOf(string name) => $"{PrefixOf(name)}CONFIG";
 

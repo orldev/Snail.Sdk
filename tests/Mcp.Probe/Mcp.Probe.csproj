@@ -5,7 +5,8 @@
     own tests start it. Named as a server is, so the address and settings variables it reads are derived as a server's
     are: SNAIL_MCP_PROBE_URL (or SNAIL_MCP_PROBE_PORT), SNAIL_MCP_PROBE_CONFIG. It is a server of both transports, which
     answers over stdio unless SNAIL_MCP_PROBE_TRANSPORT or a port says HTTP; told stdio, it exits with 4. Told
-    SNAIL_MCP_PROBE_TOKEN_REQUIRED=true, it validates its token at the start and says a refusal in one line with exit 1.
+    SNAIL_MCP_PROBE_TOKEN_REQUIRED=true, it validates its token at the start and says a refusal in one line with exit 1;
+    SNAIL_MCP_PROBE_RETRIES that is no number is refused before the host, SNAIL_MCP_PROBE_DELAY that is no time span as it starts.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>

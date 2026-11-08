@@ -319,7 +319,10 @@ And for the server project (no kind):
   `StartRefusedException` naming the variable (`ServerSettings.NameOfSetting(name, key)`, the phrase `McpEndpoint`
   refuses by), and options that fail their validation at the start — `ValidateOnStart()`, an `IValidateOptions<T>`,
   a hosted service reading them as it starts — are made one by every host the SDK builds (`AddStartRefusal()`), the
-  host's own error line with the trace left out; `Program.cs` writes it to stderr and exits with 1.
+  host's own error line with the trace left out; `Program.cs` writes it to stderr and exits with 1. A value its
+  property's type cannot hold is one too, naming the variable — `… (or Bridge:Port in the settings file) is 'abc'; it is
+  not a number (Int32).` — out of the host's start, and out of settings bound before a host through
+  `ServerSettings.Bind(name, settings, bind)`, which keeps the server's own calls to `Bind` for the source generator.
 - Threads ready for a server that does much blocking work at once: `AddReadyThreads(workers)` raises the thread pool's
   minimum as the host starts — Snail.MCP.CleanUp's census held every worker, and a call that came in meanwhile waited
   7 to 8 seconds for a thread, until the minimum was 64.

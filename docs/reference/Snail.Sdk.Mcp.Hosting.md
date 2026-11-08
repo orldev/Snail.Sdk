@@ -63,7 +63,7 @@ The host a stdio MCP server runs in.
 | `IServiceCollection AddIdleShutdown(this IServiceCollection services, TimeSpan after, Func<IServiceProvider, bool>? isBusy = null)` | Stops a stdio server that has heard no MCP message for `after`, unless `isBusy` says it is busy. |
 | `IServiceCollection AddIdleTrim(this IServiceCollection services)` | Compacts the heap once the server has heard no MCP message for five minutes; both hosts call it already. |
 | `IServiceCollection AddReadyThreads(this IServiceCollection services, int workers)` | Lets the thread pool grow at once to `workers` worker threads when the host starts, rather than one or two a second. |
-| `IServiceCollection AddStartRefusal(this IServiceCollection services)` | Makes the host's start say options that failed their validation as a `StartRefusedException` in one line; both hosts call it already. |
+| `IServiceCollection AddStartRefusal(this IServiceCollection services)` | Makes the host's start say options that failed their validation, or a setting of the wrong type, as a `StartRefusedException` in one line; both hosts call it already. |
 
 ### enum McpReach
 
@@ -150,6 +150,7 @@ A server's settings: its settings file, then its `SNAIL_MCP_<NAME>_` variables, 
 | `string PrefixOf(string name)` | The prefix of the server's variables: `SNAIL_MCP_<NAME>_`. |
 | `string? FileOf(string name)` | The settings file the server reads, or `null` when it has none. |
 | `string? NameOf(Assembly? server)` | The server's short name, from the command Snail.Sdk.Mcp writes into its assembly; `null` for a program built otherwise. |
+| `void Bind(string name, IConfiguration settings, Action<IConfiguration> bind)` | Binds the server's settings as `bind` does, and refuses a value its property's type cannot hold as a `StartRefusedException` that names the variable. |
 
 ### class StartRefusedException
 

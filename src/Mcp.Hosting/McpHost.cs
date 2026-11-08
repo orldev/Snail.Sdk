@@ -158,7 +158,7 @@ public static class McpHost
             return services;
         }
 
-        /// <summary>Makes the host's start say options that failed their validation as a <see cref="StartRefusedException"/> in one line; both hosts call it already.</summary>
+        /// <summary>Makes the host's start say options that failed their validation, or a setting of the wrong type, as a <see cref="StartRefusedException"/> in one line; both hosts call it already.</summary>
         /// <remarks>
         /// <para>
         /// A server that validates its options at the start — <c>ValidateOnStart()</c> (Snail.MCP.BuildBridge), a token
@@ -169,6 +169,12 @@ public static class McpHost
         /// line, the validation's exception as its cause, so a program that catches the refusal — the program of
         /// <c>dotnet new s3l-mcp</c> — says it in one line and exits with 1. Several failing at once are said one after
         /// another; any other failure of the start is thrown as it was.
+        /// </para>
+        /// <para>
+        /// Options bound from a value their property's type cannot hold fail the same start before any validation, with the
+        /// binder's <c>InvalidOperationException</c> — <c>SNAIL_MCP_BLENDER_BRIDGE__PORT=abc</c> crashed Snail.MCP.Blender —
+        /// and are refused alike, naming the variable of the server the entry assembly carries and what it holds:
+        /// <c>SNAIL_MCP_BLENDER_BRIDGE__PORT (or Bridge:Port in the settings file) is 'abc'; it is not a number (Int32).</c>
         /// </para>
         /// <para>
         /// The generic host logs a failed start as an error, with the trace, before it throws; the stderr logger of these

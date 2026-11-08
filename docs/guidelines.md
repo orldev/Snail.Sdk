@@ -179,7 +179,9 @@ strictly as code.
   its settings throws one too, naming the variable — `ServerSettings.NameOfSetting("git", "TimeoutSeconds")` is
   `SNAIL_MCP_GIT_TIMEOUT_SECONDS (or TimeoutSeconds in the settings file)` — never a bare `InvalidOperationException`;
   options validated at the start (`ValidateOnStart()`, `IValidateOptions<T>`) need nothing more, since the SDK's hosts
-  turn their failures into the refusal (`AddStartRefusal()`), and their messages name the variable as well.
+  turn their failures into the refusal (`AddStartRefusal()`), and their messages name the variable as well. A value of
+  the wrong type is refused alike — by the host's start for options it binds, and for settings bound before any host by
+  `ServerSettings.Bind(name, settings, settings => …)`, the server's own calls to `Bind` written in it, never bare.
 
 ### Guard tests
 

@@ -1,8 +1,15 @@
+using System.Reflection;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 namespace Snail.Sdk.Mcp.Hosting;
 
-/// <summary>The host the builder made, whose start says options that failed their validation as a <see cref="StartRefusedException"/>.</summary>
+/// <summary>The host the builder made, whose start says options that failed their validation, or a setting the binder could not convert, as a <see cref="StartRefusedException"/>.</summary>
+/// <remarks>
+/// A setting is named by the variable of the server the entry assembly carries, as <see cref="McpEndpoint"/> names its
+/// own, and by its key alone in a program that names no server — a host built under the test runner.
+/// </remarks>
 /// <param name="host">The host the builder made.</param>
 internal sealed class RefusingHost(IHost host) : IHost, IAsyncDisposable
 {
@@ -16,7 +23,7 @@ internal sealed class RefusingHost(IHost host) : IHost, IAsyncDisposable
         {
             await host.StartAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception failure) when (StartRefusal.Of(failure) is { } refused)
+        catch (Exception failure) when (StartRefusal.Of(failure, ServerSettings.NameOf(Assembly.GetEntryAssembly()), host.Services.GetService<IConfiguration>()) is { } refused)
         {
             throw refused;
         }

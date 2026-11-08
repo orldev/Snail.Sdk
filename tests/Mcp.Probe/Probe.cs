@@ -35,4 +35,14 @@ internal sealed class ProbeOptions
 {
     /// <summary>The token, from SNAIL_MCP_PROBE_TOKEN.</summary>
     public string? Token { get; set; }
+
+    /// <summary>A wait, from SNAIL_MCP_PROBE_DELAY, bound as the host starts: a value that is no time span refuses the start.</summary>
+    public TimeSpan Delay { get; set; }
+}
+
+/// <summary>What the probe binds before any host exists, as a server reads its settings to choose its transport.</summary>
+internal sealed class ProbeLimits
+{
+    /// <summary>A count, from SNAIL_MCP_PROBE_RETRIES: a value that is no number refuses the start before the host is built.</summary>
+    public int Retries { get; set; }
 }

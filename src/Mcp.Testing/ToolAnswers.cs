@@ -8,8 +8,9 @@ namespace Snail.Sdk.Mcp.Testing;
 /// <summary>What a test reads from a tool's answer.</summary>
 /// <remarks>
 /// Every Snail server answers with one text block holding the envelope of <c>ToolAnswer</c> in Snail.Sdk.Mcp.Hosting,
-/// <c>{"ok":true,"data":…}</c> or <c>{"ok":false,"error":…,"hint":…}</c>; these read its fields, so a test of the fleet
-/// no longer parses the text itself. A text that is not the envelope fails the test with the text in the message.
+/// <c>{"ok":true,"data":…}</c> or <c>{"ok":false,"error":…,"hint":…,"type":…,"data":…}</c>, a field without a value left
+/// out; these read its fields, so a test of the fleet no longer parses the text itself. A text that is not the envelope
+/// fails the test with the text in the message.
 /// </remarks>
 public static class ToolAnswers
 {

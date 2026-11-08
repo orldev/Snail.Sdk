@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -30,24 +31,51 @@ public static partial class ToolFailures
         /// successes until one filter flagged them all.
         /// </para>
         /// <para>
+        /// A call whose arguments the MCP SDK could not bind never reached the tool, and is the call's fault rather than
+        /// the server's: it is answered with the type <c>arguments</c>, the parameter named when the tool's input schema
+        /// shows which — left out, or given a value of the wrong kind — and what the tool takes as the hint, and is not
+        /// logged as a failure of the server. "Try once more" had the model repeat the call as it was.
+        /// </para>
+        /// <para>
         /// The filter goes first, whenever it is called, so it sees what every other filter answers or throws. A call
         /// cancelled by its client stays cancelled, and an <see cref="McpProtocolException"/> stays the protocol error a tool
         /// threw it to be. Called twice, it registers once.
         /// </para>
         /// </remarks>
-        public IMcpServerBuilder ExplainFailures()
+        public IMcpServerBuilder ExplainFailures() => Register(builder, null);
+
+        /// <summary>
+        /// Answers a tool that threw with the failure envelope, in the words <paramref name="configure"/> gives a failure
+        /// nobody foresaw: its error and its hint, the type staying <c>internal</c>.
+        /// </summary>
+        /// <remarks>
+        /// As <c>ExplainFailures()</c>, for a server whose failures named the tool or pointed at its own log
+        /// (Snail.MCP.Documents' "read_file failed: …"). Called again, the filter stays one and each
+        /// <paramref name="configure"/> applies in turn.
+        /// </remarks>
+        public IMcpServerBuilder ExplainFailures(Action<FailureOptions> configure)
         {
-            if (builder.Services.Any(service => service.ServiceType == typeof(Explained)))
-                return builder;
+            ArgumentNullException.ThrowIfNull(configure);
 
-            builder.Services.AddSingleton(new Explained());
-            builder.Services.AddOptions<McpServerOptions>().PostConfigure(options => options.Filters.Request.CallToolFilters.Insert(0, Explaining));
-
-            return builder;
+            return Register(builder, configure);
         }
     }
 
-    private static McpRequestHandler<CallToolRequestParams, CallToolResult> Explaining(McpRequestHandler<CallToolRequestParams, CallToolResult> next) =>
+    private static IMcpServerBuilder Register(IMcpServerBuilder builder, Action<FailureOptions>? configure)
+    {
+        if (configure is not null)
+            builder.Services.Configure(configure);
+
+        if (builder.Services.Any(service => service.ServiceType == typeof(Explained)))
+            return builder;
+
+        builder.Services.AddSingleton(new Explained());
+        builder.Services.AddOptions<McpServerOptions>().PostConfigure<IOptions<FailureOptions>>((options, failures) => options.Filters.Request.CallToolFilters.Insert(0, next => Explaining(next, failures.Value)));
+
+        return builder;
+    }
+
+    private static McpRequestHandler<CallToolRequestParams, CallToolResult> Explaining(McpRequestHandler<CallToolRequestParams, CallToolResult> next, FailureOptions words) =>
         async (request, cancellationToken) =>
         {
             CallToolResult answer;
@@ -58,12 +86,16 @@ public static partial class ToolFailures
             }
             catch (Exception failure) when (IsUnforeseen(failure, cancellationToken))
             {
+                if (ArgumentFaults.AnswerTo(request, failure) is { } refused)
+                    return refused;
+
+                var tool = request.Params?.Name ?? "a tool";
                 var loggers = request.Services?.GetService<ILoggerFactory>() ?? request.Server.Services?.GetService<ILoggerFactory>();
 
                 if (loggers is not null)
-                    Failed(loggers.CreateLogger(typeof(ToolFailures)), failure, request.Params?.Name ?? "a tool");
+                    Failed(loggers.CreateLogger(typeof(ToolFailures)), failure, tool);
 
-                return ToolAnswer.Failed(failure.Message, Hint, Internal);
+                return ToolAnswer.Failed(words.Error?.Invoke(tool, failure) ?? failure.Message, words.Hint, Internal);
             }
 
             if (answer.IsError != true && ToolAnswer.IsFailure(answer))

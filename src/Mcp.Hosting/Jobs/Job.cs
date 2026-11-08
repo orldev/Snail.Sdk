@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization.Metadata;
 
 namespace Snail.Sdk.Mcp.Hosting.Jobs;
 
@@ -66,30 +65,39 @@ public sealed class Job
     }
 
     /// <summary>Runs the work to its end; <paramref name="kept"/> is told of the end before <see cref="Completion"/> is, so whoever awaits the job finds the jobs kept as they will stand.</summary>
-    internal async Task RunAsync<TResult>(Func<IProgress<JobProgress>, CancellationToken, Task<TResult>> work, JsonTypeInfo<TResult> resultType, CancellationToken stopping, TimeProvider clock, Action<Job> kept)
+    internal async Task RunAsync(Func<IProgress<JobProgress>, CancellationToken, Task<JobEnding>> work, CancellationToken stopping, TimeProvider clock, Action<Job> kept)
     {
         using var either = CancellationTokenSource.CreateLinkedTokenSource(_cancelling.Token, stopping);
         var progress = new Steps(step => Change(report => report with { Progress = step.Share ?? report.Progress, Message = step.What ?? report.Message }));
 
         try
         {
-            var result = await work(progress, either.Token).ConfigureAwait(false);
+            var ending = await work(progress, either.Token).ConfigureAwait(false);
 
-            End(JobState.Succeeded, null, JsonSerializer.SerializeToElement(result, resultType), clock, kept);
+            End(ending, clock, kept);
         }
         catch (OperationCanceledException) when (either.IsCancellationRequested)
         {
-            End(JobState.Cancelled, "cancelled", null, clock, kept);
+            End(new JobEnding(JobState.Cancelled, "cancelled"), clock, kept);
         }
         catch (Exception failure)
         {
-            End(JobState.Failed, failure.Message, null, clock, kept);
+            End(new JobEnding(JobState.Failed, failure.Message), clock, kept);
         }
     }
 
-    private void End(JobState state, string? message, JsonElement? result, TimeProvider clock, Action<Job> kept)
+    private void End(JobEnding ending, TimeProvider clock, Action<Job> kept)
     {
-        Change(report => report with { State = state, EndedAt = clock.GetUtcNow(), Progress = state == JobState.Succeeded ? 1 : report.Progress, Message = message ?? report.Message, Result = result });
+        Change(report => report with
+        {
+            State = ending.State,
+            EndedAt = clock.GetUtcNow(),
+            Progress = ending.State == JobState.Succeeded ? 1 : report.Progress,
+            Message = ending.Message ?? report.Message,
+            Result = ending.Result,
+            Hint = ending.Hint,
+            Type = ending.Type,
+        });
         kept(this);
         _ended.TrySetResult(Report);
         _cancelling.Dispose();
@@ -121,3 +129,6 @@ public sealed class Job
         public void Report(JobProgress value) => step(value);
     }
 }
+
+/// <summary>How the work of a job ended: its state, and the result or the failure the report takes.</summary>
+internal readonly record struct JobEnding(JobState State, string? Message = null, JsonElement? Result = null, string? Hint = null, string? Type = null);

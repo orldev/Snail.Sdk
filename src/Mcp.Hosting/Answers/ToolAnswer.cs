@@ -37,6 +37,9 @@ public static class ToolAnswer
 
     private static readonly JsonWriterOptions Writing = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
+    /// <summary>How the text of every success opens, its data written next.</summary>
+    private static ReadOnlySpan<byte> SuccessOpening => """{"ok":true,"data":"""u8;
+
     /// <summary>The options answers are written with: compact, nothing escaped that JSON does not require, the JSON nodes generated.</summary>
     /// <remarks>For a server that writes a node of its own the way answers are written: <c>node.ToJsonString(ToolAnswer.Wire)</c>.</remarks>
     public static JsonSerializerOptions Wire => Generated.Options;
@@ -45,25 +48,51 @@ public static class ToolAnswer
     /// <remarks><c>jobs.Start(kind, work, ToolAnswer.ObjectInfo)</c>, where a server kept a context of its own only for this.</remarks>
     public static JsonTypeInfo<JsonObject> ObjectInfo => Generated.JsonObject;
 
+    /// <summary>The generated type information of a JsonElement, for data kept as JSON already: a job's result.</summary>
+    internal static JsonTypeInfo<JsonElement> ElementInfo => Generated.JsonElement;
+
     /// <summary>A successful answer: the data in the envelope as the text, and the structured content <paramref name="shape"/> names.</summary>
     /// <remarks>
     /// The protocol allows only an object as structured content, so with <see cref="AnswerShape.Data"/> data that is an
     /// array or a value goes as text alone.
     /// </remarks>
-    public static CallToolResult Ok(JsonNode data, AnswerShape shape = AnswerShape.Data)
+    public static CallToolResult Ok(JsonNode data, AnswerShape shape)
     {
         ArgumentNullException.ThrowIfNull(data);
 
-        var text = Envelope(true, data, null, null, null);
-        var structured = shape switch
-        {
-            AnswerShape.Data when data is JsonObject => JsonSerializer.SerializeToElement(data, Generated.JsonNode),
-            AnswerShape.Envelope => JsonSerializer.Deserialize(text, Generated.JsonElement),
-            _ => (JsonElement?)null,
-        };
-
-        return new CallToolResult { Content = [new TextContentBlock { Text = text }], StructuredContent = structured };
+        return Succeeded(writer => data.WriteTo(writer, Wire), shape);
     }
+
+    /// <summary>A successful answer: the data in the envelope as the text, and as the structured content when it is an object.</summary>
+    public static CallToolResult Ok(JsonNode data) => Ok(data, AnswerShape.Data);
+
+    /// <summary>A successful answer of typed data, written from its generated type straight into the text: no tree of nodes is built first.</summary>
+    /// <remarks>
+    /// <para>
+    /// For data that is large or typed already: a run's files as base64 (Snail.MCP.Sandbox sends up to 32 MB), a record
+    /// the server keeps a generated context for. The names and converters are those of <paramref name="type"/>; the
+    /// escaping is the envelope's, nothing escaped that JSON does not require, whatever the type's options say.
+    /// </para>
+    /// <para>
+    /// The structured content of <see cref="AnswerShape.Data"/> is read from the same bytes the text holds, once, and
+    /// left out when the data is not an object, as with <see cref="Ok(JsonNode, AnswerShape)"/>.
+    /// </para>
+    /// </remarks>
+    /// <param name="data">What the tool answers.</param>
+    /// <param name="type">Its generated type information, from the server's context: a native build looks nothing up at run time.</param>
+    /// <param name="shape">What goes beside the text as the structured content.</param>
+    public static CallToolResult Ok<T>(T data, JsonTypeInfo<T> type, AnswerShape shape)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(type);
+
+        return Succeeded(writer => JsonSerializer.Serialize(writer, data, type), shape);
+    }
+
+    /// <summary>A successful answer of typed data, written from its generated type straight into the text, with the data as the structured content when it is an object.</summary>
+    /// <param name="data">What the tool answers.</param>
+    /// <param name="type">Its generated type information, from the server's context.</param>
+    public static CallToolResult Ok<T>(T data, JsonTypeInfo<T> type) => Ok(data, type, AnswerShape.Data);
 
     /// <summary>A failed answer: why, what to do, the kind of failure and what there is to report, flagged as an error, as text alone.</summary>
     /// <param name="error">Why nothing happened, in words the model can act on.</param>
@@ -74,7 +103,24 @@ public static class ToolAnswer
     {
         ArgumentNullException.ThrowIfNull(error);
 
-        return new CallToolResult { IsError = true, Content = [new TextContentBlock { Text = Envelope(false, data, error, hint, type) }] };
+        return new CallToolResult { IsError = true, Content = [new TextContentBlock { Text = Envelope(false, data is null ? null : writer => data.WriteTo(writer, Wire), error, hint, type) }] };
+    }
+
+    /// <summary>A failed answer as the tool's answer: its error, hint and type, and what there is to report all the same.</summary>
+    /// <remarks>Written out by hand, the type was the field left behind (Snail.MCP.BuildBridge, six places).</remarks>
+    /// <exception cref="ArgumentException">The answer is a success, which has a value to answer rather than a failure.</exception>
+    public static CallToolResult Failed<T>(Answer<T> failed) => Failed(failed, null);
+
+    /// <summary>A failed answer as the tool's answer, with what there is to report all the same as its data.</summary>
+    /// <exception cref="ArgumentException">The answer is a success, which has a value to answer rather than a failure.</exception>
+    public static CallToolResult Failed<T>(Answer<T> failed, JsonNode? data)
+    {
+        ArgumentNullException.ThrowIfNull(failed);
+
+        if (failed.IsSuccess)
+            throw new ArgumentException("A successful answer has a value to answer, not a failure: answer it with From or Ok.", nameof(failed));
+
+        return Failed(failed.Error, failed.Hint, failed.Type, data);
     }
 
     /// <summary>An answer as a tool result: its value through <paramref name="data"/>, or its failure.</summary>
@@ -83,7 +129,64 @@ public static class ToolAnswer
         ArgumentNullException.ThrowIfNull(answer);
         ArgumentNullException.ThrowIfNull(data);
 
-        return answer.IsSuccess ? Ok(data(answer.Value!), shape) : Failed(answer.Error!, answer.Hint, answer.Type);
+        return answer.TryGet(out var value) ? Ok(data(value), shape) : Failed(answer.Error, answer.Hint, answer.Type);
+    }
+
+    /// <summary>An answer whose value is JSON already as a tool result: the value as the data, or its failure.</summary>
+    public static CallToolResult From<T>(Answer<T> answer)
+        where T : JsonNode => From(answer, AnswerShape.Data);
+
+    /// <summary>An answer whose value is JSON already as a tool result, with the structured content <paramref name="shape"/> names.</summary>
+    public static CallToolResult From<T>(Answer<T> answer, AnswerShape shape)
+        where T : JsonNode
+    {
+        ArgumentNullException.ThrowIfNull(answer);
+
+        return answer.TryGet(out var value) ? Ok(value, shape) : Failed(answer.Error, answer.Hint, answer.Type);
+    }
+
+    /// <summary>The envelope a result carries: the text of its first block, which is where every answer of <see cref="ToolAnswer"/> writes it.</summary>
+    /// <remarks>
+    /// For an answer that travels outside a tool result as it is: the body of an HTTP door that refuses in the words a tool
+    /// would (Snail.MCP.Connector's dashboard), a record kept of what a tool answered. A result with blocks after the text
+    /// — files, pictures — still has the envelope first.
+    /// </remarks>
+    /// <exception cref="ArgumentException">The result does not open with a text block.</exception>
+    public static string Text(CallToolResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        return result.Content is [TextContentBlock { Text: var text }, ..]
+            ? text
+            : throw new ArgumentException($"A tool answer opens with the text block of its envelope; this one opens with {(result.Content.Count == 0 ? "nothing" : result.Content[0].Type)}.", nameof(result));
+    }
+
+    /// <summary>The tool result a stored envelope stands for: a success with its data, or a failure with its error, hint, type and data, flagged as an error.</summary>
+    /// <remarks>
+    /// The inverse of <see cref="Text"/>: an envelope kept as JSON — in a job's result, a file, a queue — answered again as
+    /// the tool first answered it, written by the same rules, so a failure is text alone and <c>isError</c> whatever it
+    /// was stored as.
+    /// </remarks>
+    /// <param name="envelope">The envelope, <c>{"ok":true,"data":…}</c> or <c>{"ok":false,"error":…}</c>.</param>
+    /// <param name="shape">What a success carries beside the text as the structured content.</param>
+    /// <exception cref="ArgumentException">The object is not the envelope: no <c>ok</c> flag, a success without data or a failure without an error.</exception>
+    public static CallToolResult Of(JsonObject envelope, AnswerShape shape = AnswerShape.Data)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+
+        var isOk = envelope["ok"]?.GetValueKind() switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => throw new ArgumentException("An envelope opens with an ok flag, true or false; this object has none.", nameof(envelope)),
+        };
+
+        if (isOk)
+            return Ok(envelope["data"]?.DeepClone() ?? throw new ArgumentException("A successful envelope carries its data; this one has none.", nameof(envelope)), shape);
+
+        var error = StringOf(envelope["error"]) ?? throw new ArgumentException("A failed envelope says why in its error; this one does not.", nameof(envelope));
+
+        return Failed(error, StringOf(envelope["hint"]), StringOf(envelope["type"]), envelope["data"]?.DeepClone());
     }
 
     /// <summary>Whether a result is the failure envelope: one text block whose top-level <c>ok</c> is false.</summary>
@@ -125,29 +228,68 @@ public static class ToolAnswer
         return generated;
     }
 
-    private static string Envelope(bool isOk, JsonNode? data, string? error, string? hint, string? type)
+    /// <summary>A success whose data <paramref name="data"/> writes, with the structured content <paramref name="shape"/> names read from the text's own bytes.</summary>
+    private static CallToolResult Succeeded(Action<Utf8JsonWriter> data, AnswerShape shape)
     {
         var buffer = new ArrayBufferWriter<byte>();
 
-        using (var writer = new Utf8JsonWriter(buffer, Writing))
+        Write(buffer, true, data, null, null, null);
+
+        var written = buffer.WrittenSpan;
+        var structured = shape switch
         {
-            writer.WriteStartObject();
-            writer.WriteBoolean("ok"u8, isOk);
-            WriteIfAny(writer, "error"u8, error);
-            WriteIfAny(writer, "hint"u8, hint);
-            WriteIfAny(writer, "type"u8, type);
+            AnswerShape.Data => DataOf(written),
+            AnswerShape.Envelope => Element(written),
+            _ => null,
+        };
 
-            if (data is not null)
-            {
-                writer.WritePropertyName("data"u8);
-                data.WriteTo(writer, Wire);
-            }
+        return new CallToolResult { Content = [new TextContentBlock { Text = Encoding.UTF8.GetString(written) }], StructuredContent = structured };
+    }
 
-            writer.WriteEndObject();
-        }
+    /// <summary>The data of a success's envelope as the structured content when it is an object: the bytes between <c>{"ok":true,"data":</c> and the closing brace.</summary>
+    private static JsonElement? DataOf(ReadOnlySpan<byte> envelope)
+    {
+        var data = envelope[SuccessOpening.Length..^1];
+
+        return data is [(byte)'{', ..] ? Element(data) : null;
+    }
+
+    private static JsonElement Element(ReadOnlySpan<byte> json)
+    {
+        var reader = new Utf8JsonReader(json);
+
+        return JsonElement.ParseValue(ref reader);
+    }
+
+    private static string Envelope(bool isOk, Action<Utf8JsonWriter>? data, string? error, string? hint, string? type)
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+
+        Write(buffer, isOk, data, error, hint, type);
 
         return Encoding.UTF8.GetString(buffer.WrittenSpan);
     }
+
+    private static void Write(ArrayBufferWriter<byte> buffer, bool isOk, Action<Utf8JsonWriter>? data, string? error, string? hint, string? type)
+    {
+        using var writer = new Utf8JsonWriter(buffer, Writing);
+
+        writer.WriteStartObject();
+        writer.WriteBoolean("ok"u8, isOk);
+        WriteIfAny(writer, "error"u8, error);
+        WriteIfAny(writer, "hint"u8, hint);
+        WriteIfAny(writer, "type"u8, type);
+
+        if (data is not null)
+        {
+            writer.WritePropertyName("data"u8);
+            data(writer);
+        }
+
+        writer.WriteEndObject();
+    }
+
+    private static string? StringOf(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
     private static void WriteIfAny(Utf8JsonWriter writer, ReadOnlySpan<byte> name, string? value)
     {

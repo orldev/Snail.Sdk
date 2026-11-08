@@ -17,9 +17,14 @@ What every Snail MCP server starts from:
   `~/.config/s3l-mcp-<name>`.
 - `ServerIdentity.Of(assembly)`: the name and version the server announces in `initialize`.
 - `Invocation.Stable(path)`: the path of the running program that outlives an update of it.
-- `ToolAnswer.Ok(data)`, `ToolAnswer.Failed(error, hint)` and `ToolAnswer.From(answer, data)`: the answer envelope every
-  tool gives, `{"ok":true,"data":…}` or `{"ok":false,"error":…,"hint":…}` as one compact text block, a failure flagged
-  `isError`; `.ExplainFailures()` answers a tool that threw with it.
+- `ToolAnswer.Ok(data)`, `ToolAnswer.Failed(error, hint, type)` and `ToolAnswer.From(answer, data)`: the answer envelope
+  every tool gives, `{"ok":true,"data":…}` or `{"ok":false,"error":…,"hint":…,"type":…}` as one compact text block, a
+  failure flagged `isError`; `ToolAnswer.Ok(data, typeInfo)` writes typed data without a tree of nodes, and
+  `ToolAnswer.Text`/`ToolAnswer.Of` carry the envelope outside a result and back. `Answer<T>` with `TryGet`,
+  `As<TOther>()` and `Map` is the value-or-why behind it. `.ExplainFailures()` answers a tool that threw with it, and a
+  call whose arguments did not bind with `type` `arguments`.
+- `Jobs.Start` and `JobAnswer`: a long operation as a job; work that returns an `Answer<T>` ends a failure as a failed
+  job with its hint and type, and `JobAnswer.Envelope` or `JobAnswer.Result` answers the tool.
 - `Snail.Sdk.Mcp.Hosting.Sessions`: what a session's address (`?tool=`, `?root=`) grants it.
   `.RefuseWhatWasNotGranted()` refuses and hides a tool the session was not granted (`SessionGrant`, or a gate of the
   server's own, `IToolGate`); `ToolForwarding.CallAsync` is how a `[Forwards]` tool such as `run_tools` calls a step,

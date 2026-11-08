@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.Hosting;
+using Snail.Sdk.Mcp.Hosting.Answers;
 
 namespace Snail.Sdk.Mcp.Hosting.Jobs;
 
@@ -96,13 +98,39 @@ public sealed class Jobs
         ArgumentNullException.ThrowIfNull(work);
         ArgumentNullException.ThrowIfNull(resultType);
 
-        var uri = $"job://{_server}/{kind}/{Guid.NewGuid():N}";
-        var job = new Job(uri, owner, _clock.GetUtcNow(), report => Changed?.Invoke(report));
+        return Run(kind, owner, async (progress, token) => new JobEnding(JobState.Succeeded, Result: JsonSerializer.SerializeToElement(await work(progress, token).ConfigureAwait(false), resultType)));
+    }
 
-        _jobs[uri] = job;
-        _ = RunAsync(job, work, resultType);
+    /// <summary>
+    /// Starts work that answers an <see cref="Answer{T}"/> and answers with its job at once: a success ends the job
+    /// succeeded with the value as its result, a failure ends it failed with the answer's error, hint and type.
+    /// </summary>
+    /// <remarks>
+    /// Without it a server either threw away the hint and type of a failure to end the job failed, or ended it succeeded
+    /// with <c>{"ok":false,…}</c> as its result — a failure the job's resource, its client and its tool all read as work
+    /// done (Snail.MCP.BuildBridge's builds over a dropped SSH, Snail.MCP.E2E, Snail.MCP.Connector).
+    /// </remarks>
+    /// <param name="kind">What the work is, one word a URI can carry: <c>render</c>, <c>index</c>.</param>
+    /// <param name="work">The work; the value of its answer becomes the job's result, serialized with <paramref name="resultType"/>.</param>
+    /// <param name="resultType">The value's type information, from the server's generated context.</param>
+    public Job Start<T>(string kind, Func<IProgress<JobProgress>, CancellationToken, Task<Answer<T>>> work, JsonTypeInfo<T> resultType) =>
+        Start(kind, null, work, resultType);
 
-        return job;
+    /// <summary>
+    /// Starts work that answers an <see cref="Answer{T}"/> for an owner and answers with its job at once: a success ends
+    /// the job succeeded with the value as its result, a failure ends it failed with the answer's error, hint and type.
+    /// </summary>
+    /// <param name="kind">What the work is, one word a URI can carry: <c>render</c>, <c>index</c>.</param>
+    /// <param name="owner">Who the job belongs to, in the server's own terms, as <c>WithJobs</c> names the owner of a request; null leaves it to whoever holds its URI.</param>
+    /// <param name="work">The work; the value of its answer becomes the job's result, serialized with <paramref name="resultType"/>.</param>
+    /// <param name="resultType">The value's type information, from the server's generated context.</param>
+    public Job Start<T>(string kind, string? owner, Func<IProgress<JobProgress>, CancellationToken, Task<Answer<T>>> work, JsonTypeInfo<T> resultType)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(kind);
+        ArgumentNullException.ThrowIfNull(work);
+        ArgumentNullException.ThrowIfNull(resultType);
+
+        return Run(kind, owner, async (progress, token) => Ending(await work(progress, token).ConfigureAwait(false), resultType));
     }
 
     /// <summary>The job at a URI, or null when there is none: never started, or ended and forgotten.</summary>
@@ -116,10 +144,30 @@ public sealed class Jobs
     /// <summary>Whether a URI names a job of this server, found or not.</summary>
     internal bool IsJobUri(string uri) => uri.StartsWith($"job://{_server}/", StringComparison.Ordinal);
 
-    private async Task RunAsync<TResult>(Job job, Func<IProgress<JobProgress>, CancellationToken, Task<TResult>> work, JsonTypeInfo<TResult> resultType)
+    private static JobEnding Ending<T>(Answer<T> answer, JsonTypeInfo<T> resultType)
+    {
+        ArgumentNullException.ThrowIfNull(answer);
+
+        return answer.TryGet(out var value)
+            ? new JobEnding(JobState.Succeeded, Result: JsonSerializer.SerializeToElement(value, resultType))
+            : new JobEnding(JobState.Failed, answer.Error, null, answer.Hint, answer.Type);
+    }
+
+    private Job Run(string kind, string? owner, Func<IProgress<JobProgress>, CancellationToken, Task<JobEnding>> work)
+    {
+        var uri = $"job://{_server}/{kind}/{Guid.NewGuid():N}";
+        var job = new Job(uri, owner, _clock.GetUtcNow(), report => Changed?.Invoke(report));
+
+        _jobs[uri] = job;
+        _ = RunAsync(job, work);
+
+        return job;
+    }
+
+    private async Task RunAsync(Job job, Func<IProgress<JobProgress>, CancellationToken, Task<JobEnding>> work)
     {
         await Task.Yield();
-        await job.RunAsync(work, resultType, _stopping, _clock, Keep).ConfigureAwait(false);
+        await job.RunAsync(work, _stopping, _clock, Keep).ConfigureAwait(false);
     }
 
     /// <summary>Keeps an ended job, forgetting its owner's oldest past <see cref="Kept"/> and the server's oldest past <see cref="KeptInAll"/>.</summary>

@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.IO.Pipelines;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -128,6 +129,95 @@ public sealed class ToolFailuresTests
         Assert.Equal("The guard broke.", answer.Error());
     }
 
+    /// <summary>A value the MCP SDK could not bind never reached the tool: "internal, try once more" had the model repeat the call as it was (Snail.MCP.Documents).</summary>
+    [Fact]
+    public async Task Call_WithAValueOfTheWrongKind_IsAnsweredAsTheArguments_NamingTheParameter()
+    {
+        await using var stand = await Stand.StartAsync();
+
+        var answer = await stand.Client.CallToolAsync("counts", new Dictionary<string, object?> { ["count"] = "many", ["label"] = "x" });
+
+        Assert.True(answer.IsError);
+        Assert.Equal("""'counts' cannot take "many" for 'count': it takes a whole number.""", answer.Error());
+        Assert.Contains("\"type\":\"arguments\"", answer.Text(), StringComparison.Ordinal);
+        Assert.Contains("'counts' takes count (required), label (required), stage.", answer.Hint(), StringComparison.Ordinal);
+        Assert.DoesNotContain(stand.Logs.Entries, entry => entry.Level >= LogLevel.Warning);
+    }
+
+    [Fact]
+    public async Task Call_WithAWordTheEnumDoesNotHave_IsAnsweredAsTheArguments_WithTheWordsItHas()
+    {
+        await using var stand = await Stand.StartAsync();
+
+        var answer = await stand.Client.CallToolAsync("counts", new Dictionary<string, object?> { ["count"] = 1, ["label"] = "x", ["stage"] = "later" });
+
+        Assert.True(answer.IsError);
+        Assert.StartsWith("""'counts' cannot take "later" for 'stage': it takes one of""", answer.Error(), StringComparison.Ordinal);
+    }
+
+    /// <summary>A whole number past an int fits the schema, which bounds nothing, and still fails the binding: told by the trace, without a name.</summary>
+    [Fact]
+    public async Task Call_WithAValueTheSchemaAllowsButTheBindingRefuses_IsStillAnsweredAsTheArguments()
+    {
+        await using var stand = await Stand.StartAsync();
+
+        var answer = await stand.Client.CallToolAsync("counts", new Dictionary<string, object?> { ["count"] = 3_000_000_000L, ["label"] = "x" });
+
+        Assert.True(answer.IsError);
+        Assert.StartsWith("'counts' could not read the arguments of this call:", answer.Error(), StringComparison.Ordinal);
+        Assert.Contains("\"type\":\"arguments\"", answer.Text(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Call_ThatLeavesOutARequiredParameter_IsAnsweredAsTheArguments_NamingIt()
+    {
+        await using var stand = await Stand.StartAsync();
+
+        var answer = await stand.Client.CallToolAsync("counts", new Dictionary<string, object?> { ["count"] = 3 });
+
+        Assert.True(answer.IsError);
+        Assert.Equal("'counts' needs 'label', which this call did not send.", answer.Error());
+        Assert.Contains("\"type\":\"arguments\"", answer.Text(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Call_WithArgumentsThatFit_ReachesTheTool()
+    {
+        await using var stand = await Stand.StartAsync();
+
+        var answer = await stand.Client.CallToolAsync("counts", new Dictionary<string, object?> { ["count"] = 3, ["label"] = "x", ["stage"] = "inprogress" });
+
+        Assert.NotEqual(true, answer.IsError);
+        Assert.Equal("""{"ok":true,"data":"x:3"}""", answer.Text());
+    }
+
+    /// <summary>A tool's own code throws the same exceptions as the binding: with arguments that fit, it is the server's failure.</summary>
+    [Fact]
+    public async Task Tool_ThatThrowsAJsonExceptionOfItsOwn_WithArgumentsThatFit_IsAnInternalFailure()
+    {
+        await using var stand = await Stand.StartAsync();
+
+        var answer = await stand.Client.CallToolAsync("parses", new Dictionary<string, object?> { ["json"] = "{" });
+
+        Assert.True(answer.IsError);
+        Assert.Contains("\"type\":\"internal\"", answer.Text(), StringComparison.Ordinal);
+        Assert.Equal(ToolFailures.Hint, answer.Hint());
+    }
+
+    [Fact]
+    public async Task Failure_NobodyForesaw_IsWordedAsTheServerChose()
+    {
+        await using var stand = await Stand.StartAsync(configure: options =>
+        {
+            options.Error = (tool, failure) => $"{tool} failed: {failure.GetType().Name}";
+            options.Hint = "Read the server's log.";
+        });
+
+        var answer = await stand.Client.CallToolAsync("throws");
+
+        Assert.Equal("""{"ok":false,"error":"throws failed: InvalidOperationException","hint":"Read the server's log.","type":"internal"}""", answer.Text());
+    }
+
     [Fact]
     public void ExplainFailures_CalledTwice_RegistersOnce()
     {
@@ -157,7 +247,7 @@ public sealed class ToolFailuresTests
 
         public Waiting Waiting => Host.Services.GetRequiredService<Waiting>();
 
-        public static async Task<Stand> StartAsync(bool isGuarded = false)
+        public static async Task<Stand> StartAsync(bool isGuarded = false, Action<FailureOptions>? configure = null)
         {
             var toServer = new Pipe();
             var toClient = new Pipe();
@@ -173,7 +263,10 @@ public sealed class ToolFailuresTests
             if (isGuarded)
                 server.WithRequestFilters(filters => filters.AddCallToolFilter(Guard));
 
-            server.ExplainFailures();
+            if (configure is null)
+                server.ExplainFailures();
+            else
+                server.ExplainFailures(configure);
 
             var host = builder.Build();
             await host.StartAsync();
@@ -221,6 +314,13 @@ public sealed class ToolFailuresTests
         [McpServerTool(Name = "protocol"), Description("Throws a protocol error.")]
         public static string Protocol() => throw new McpProtocolException("Bad argument.", McpErrorCode.InvalidParams);
 
+        [McpServerTool(Name = "counts"), Description("Counts a label.")]
+        public static string Counts([Description("How many.")] int count, [Description("What.")] string label, [Description("When.")] Stage stage = Stage.Queued) =>
+            $$"""{"ok":true,"data":"{{label}}:{{count}}"}""";
+
+        [McpServerTool(Name = "parses"), Description("Parses JSON of its own and throws on a bad one.")]
+        public static string Parses([Description("The JSON.")] string json) => JsonNode.Parse(json)!.ToJsonString();
+
         [McpServerTool(Name = "waits"), Description("Waits until cancelled.")]
         public async Task<string> WaitsAsync(CancellationToken cancellationToken)
         {
@@ -238,6 +338,14 @@ public sealed class ToolFailuresTests
 
             return "never";
         }
+    }
+
+    /// <summary>The stages a sample parameter takes.</summary>
+    [JsonConverter(typeof(JsonStringEnumConverter<Stage>))]
+    public enum Stage
+    {
+        Queued,
+        InProgress,
     }
 
     /// <summary>One line of the server's log.</summary>

@@ -37,11 +37,11 @@ static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.From<T>(Snail.Sdk.Mcp.Hosting.An
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.IsFailure(ModelContextProtocol.Protocol.CallToolResult! result) -> bool
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Moment(System.DateTimeOffset at) -> string!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.ObjectInfo.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<System.Text.Json.Nodes.JsonObject!>!
-static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Ok(System.Text.Json.Nodes.JsonNode! data, Snail.Sdk.Mcp.Hosting.Answers.AnswerShape shape = Snail.Sdk.Mcp.Hosting.Answers.AnswerShape.Data) -> ModelContextProtocol.Protocol.CallToolResult!
+static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Ok(System.Text.Json.Nodes.JsonNode! data) -> ModelContextProtocol.Protocol.CallToolResult!
+static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Ok(System.Text.Json.Nodes.JsonNode! data, Snail.Sdk.Mcp.Hosting.Answers.AnswerShape shape) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Wire.get -> System.Text.Json.JsonSerializerOptions!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Word<TEnum>(TEnum value, Snail.Sdk.Mcp.Hosting.Answers.WordCase casing = Snail.Sdk.Mcp.Hosting.Answers.WordCase.Lower) -> string!
 static Snail.Sdk.Mcp.Hosting.Answers.ToolFailures.ExplainFailures(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
-static Snail.Sdk.Mcp.Hosting.Jobs.JobAnswer.Envelope(Snail.Sdk.Mcp.Hosting.Jobs.JobReport! report, System.Text.Json.Nodes.JsonObject? beside = null) -> ModelContextProtocol.Protocol.CallToolResult!
 Snail.Sdk.Mcp.Hosting.McpEndpoint
 Snail.Sdk.Mcp.Hosting.McpEndpoint.<Clone>$() -> Snail.Sdk.Mcp.Hosting.McpEndpoint!
 Snail.Sdk.Mcp.Hosting.McpEndpoint.Deconstruct(out Snail.Sdk.Mcp.Hosting.McpTransport Transport, out System.Uri! Url, out bool ListensOnEveryInterface) -> void
@@ -263,3 +263,30 @@ Snail.Sdk.Mcp.Hosting.ServerSecretRefusedException.Expected.get -> string!
 Snail.Sdk.Mcp.Hosting.ServerSecretRefusedException.File.get -> string!
 Snail.Sdk.Mcp.Hosting.ServerSecretRefusedException.Found.get -> string!
 Snail.Sdk.Mcp.Hosting.ServerSecretRefusedException.ServerSecretRefusedException(string! file, string! found, string! expected) -> void
+Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.As<TOther>() -> Snail.Sdk.Mcp.Hosting.Answers.Answer<TOther>!
+Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.Map<TOther>(System.Func<T, TOther>! map) -> Snail.Sdk.Mcp.Hosting.Answers.Answer<TOther>!
+Snail.Sdk.Mcp.Hosting.Answers.Answer<T>.TryGet(out T value) -> bool
+Snail.Sdk.Mcp.Hosting.Answers.FailureOptions
+Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.Error.get -> System.Func<string!, System.Exception!, string!>?
+Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.Error.set -> void
+Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.FailureOptions() -> void
+Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.Hint.get -> string?
+Snail.Sdk.Mcp.Hosting.Answers.FailureOptions.Hint.set -> void
+Snail.Sdk.Mcp.Hosting.Answers.ToolFailures.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).ExplainFailures(System.Action<Snail.Sdk.Mcp.Hosting.Answers.FailureOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Hint.get -> string?
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Hint.init -> void
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Type.get -> string?
+Snail.Sdk.Mcp.Hosting.Jobs.JobReport.Type.init -> void
+Snail.Sdk.Mcp.Hosting.Jobs.Jobs.Start<T>(string! kind, string? owner, System.Func<System.IProgress<Snail.Sdk.Mcp.Hosting.Jobs.JobProgress>!, System.Threading.CancellationToken, System.Threading.Tasks.Task<Snail.Sdk.Mcp.Hosting.Answers.Answer<T>!>!>! work, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T>! resultType) -> Snail.Sdk.Mcp.Hosting.Jobs.Job!
+Snail.Sdk.Mcp.Hosting.Jobs.Jobs.Start<T>(string! kind, System.Func<System.IProgress<Snail.Sdk.Mcp.Hosting.Jobs.JobProgress>!, System.Threading.CancellationToken, System.Threading.Tasks.Task<Snail.Sdk.Mcp.Hosting.Answers.Answer<T>!>!>! work, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T>! resultType) -> Snail.Sdk.Mcp.Hosting.Jobs.Job!
+static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Failed<T>(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>! failed) -> ModelContextProtocol.Protocol.CallToolResult!
+static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Failed<T>(Snail.Sdk.Mcp.Hosting.Answers.Answer<T>! failed, System.Text.Json.Nodes.JsonNode? data) -> ModelContextProtocol.Protocol.CallToolResult!
+static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.From<T>(Snail.Sdk.Mcp.Hosting.Answers.Answer<T!>! answer) -> ModelContextProtocol.Protocol.CallToolResult!
+static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.From<T>(Snail.Sdk.Mcp.Hosting.Answers.Answer<T!>! answer, Snail.Sdk.Mcp.Hosting.Answers.AnswerShape shape) -> ModelContextProtocol.Protocol.CallToolResult!
+static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Of(System.Text.Json.Nodes.JsonObject! envelope, Snail.Sdk.Mcp.Hosting.Answers.AnswerShape shape = Snail.Sdk.Mcp.Hosting.Answers.AnswerShape.Data) -> ModelContextProtocol.Protocol.CallToolResult!
+static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Ok<T>(T data, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T>! type) -> ModelContextProtocol.Protocol.CallToolResult!
+static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Ok<T>(T data, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T>! type, Snail.Sdk.Mcp.Hosting.Answers.AnswerShape shape) -> ModelContextProtocol.Protocol.CallToolResult!
+static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Text(ModelContextProtocol.Protocol.CallToolResult! result) -> string!
+static Snail.Sdk.Mcp.Hosting.Answers.ToolFailures.ExplainFailures(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, System.Action<Snail.Sdk.Mcp.Hosting.Answers.FailureOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+static Snail.Sdk.Mcp.Hosting.Jobs.JobAnswer.Envelope(Snail.Sdk.Mcp.Hosting.Jobs.JobReport! report, System.Text.Json.Nodes.JsonObject? beside = null, string? hint = null) -> ModelContextProtocol.Protocol.CallToolResult!
+static Snail.Sdk.Mcp.Hosting.Jobs.JobAnswer.Result(Snail.Sdk.Mcp.Hosting.Jobs.JobReport! report, System.Text.Json.Nodes.JsonObject? running = null, string? hint = null) -> ModelContextProtocol.Protocol.CallToolResult!

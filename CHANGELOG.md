@@ -24,6 +24,16 @@ A change that a repository must act on says what to do.
   `await HttpServerProgram.StartAsync("Snail.MCP.<Name>", "SNAIL_<SHORT>_SERVER", environment)` in `InitializeAsync`
   and `await server.DisposeAsync()`, and its browser test with
   `Assert.Empty(await HttpGuards.ProblemsAsync(server.Endpoint))`; `dotnet new s3l-mcp`'s `HttpContractTests` does.
+- `InProcessServer` of `Snail.Sdk.Mcp.Testing`: a server over HTTP in the test's own process, for what needs it whole —
+  the door, the grant from the query, the tools Snail.Sdk adds — without a process per test.
+  `await InProcessServer.StartAsync(builder => …, app => …)` builds it on `McpHttpHost.CreateBuilder` at
+  `127.0.0.1:0` (`app.MapLocalMcp()` when no map is given), and `InProcessServer.ServeAsync(app)` starts a host the
+  server's program built itself on such an endpoint; either reads back the port Kestrel bound, so nothing can take it
+  in between. `Address`, `Endpoint`, `Services` and `SessionAsync(query)` are those of `HttpServerProgram`; disposing
+  it stops and disposes the host. The package now references `Snail.Sdk.Mcp.Http`, and through it the ASP.NET Core
+  shared framework, which a test project always has. Snail.MCP.Git may replace `tests/Support/TestServer.cs` and
+  Snail.MCP.FileSystem `tests/Support/Listening.cs` with
+  `await InProcessServer.ServeAsync(McpServerHost.Listening([], config, new McpEndpoint(McpTransport.Http, new Uri("http://127.0.0.1:0/"), false)))`.
 - One answer envelope for every tool, in `Snail.Sdk.Mcp.Hosting.Answers`. `ToolAnswer.Ok(data, shape)`,
   `ToolAnswer.Failed(error, hint, type, data)` and `ToolAnswer.From(answer, data, shape)` write the text every server
   of the fleet writes by hand — one block of compact JSON with nothing escaped that JSON allows, `{"ok":true,"data":…}`

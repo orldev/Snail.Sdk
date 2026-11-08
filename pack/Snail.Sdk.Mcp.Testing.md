@@ -18,6 +18,9 @@ Contract tests of a Snail MCP server, over stdio, against the build a client run
   exits at start fails at once with its stderr, and disposing it kills it with its child processes.
   `SessionAsync(query)` opens a session on `/mcp`, and `HttpGuards.ProblemsAsync(server.Endpoint)` checks that a
   browser's request (one with `Origin`) is refused and an agent's is not.
+- `InProcessServer.StartAsync(builder => …)`: a server over HTTP in the test's own process, built on `McpHttpHost` at a
+  port Kestrel chose on 127.0.0.1, with the same `Address`, `Endpoint` and `SessionAsync(query)`;
+  `InProcessServer.ServeAsync(app)` starts a host the server's program built itself.
 - `answer.Text()`: the text of a tool's answer.
 - `answer.IsOk()`, `Data()`, `Error()`, `Hint()`: the fields of the answer envelope; `Report()`: the job's report a tool
   answered with.

@@ -28,6 +28,16 @@
     <ProjectReference Include="../Mcp.Hosting/Mcp.Hosting.csproj" />
   </ItemGroup>
 
+  <!--
+    InProcessServer is built on the host every HTTP server is built on, so the package takes Snail.Sdk.Mcp.Http and,
+    through it, the ASP.NET Core shared framework. It is referenced by test projects only, which run on a machine with
+    the SDK, where that framework always is; the servers whose tests start one in process reference Mcp.Http already,
+    and a stdio server's tests gain a framework reference and nothing they ship.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="../Mcp.Http/Mcp.Http.csproj" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Snail.Sdk.Mcp.Tests" />
   </ItemGroup>

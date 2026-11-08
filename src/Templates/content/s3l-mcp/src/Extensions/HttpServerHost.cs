@@ -20,7 +20,7 @@ public static class HttpServerHost
     /// <summary>Runs the server over Streamable HTTP until the system ends it.</summary>
     public static Task RunAsync(string[] args)
     {
-        var builder = McpHttpHost.CreateBuilder(args, ServerSettings.Endpoint);
+        var builder = McpHttpHost.CreateBuilder(args, ServerSettings.Endpoint, ServerSettings.Values);
 
         builder.Services.AddMcpServer(ServerRegistration.Describe)
             .ExplainFailures()

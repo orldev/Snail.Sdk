@@ -166,6 +166,85 @@ public sealed class McpHttpHostTests : IAsyncLifetime
     public void CreateBuilder_AnHttpsAddress_IsRefused() =>
         Assert.Throws<ArgumentException>(() => McpHttpHost.CreateBuilder([], new Uri("https://127.0.0.1:9230/")));
 
+    /// <summary>Snail.MCP.Playwright: the process answers, but its browser does not, so the orchestrator hears 503 and restarts it.</summary>
+    [Theory]
+    [InlineData(true, HttpStatusCode.OK)]
+    [InlineData(false, HttpStatusCode.ServiceUnavailable)]
+    public async Task MapHealth_WithACheck_AnswersAsItSays(bool isHealthy, HttpStatusCode expected)
+    {
+        var status = await CheckedHealthAsync((_, _) => Task.FromResult(isHealthy));
+
+        Assert.Equal(expected, status);
+    }
+
+    [Fact]
+    public async Task MapHealth_ACheckThatThrows_Answers503()
+    {
+        var status = await CheckedHealthAsync((_, _) => throw new InvalidOperationException("The browser is gone."));
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, status);
+    }
+
+    [Fact]
+    public async Task MapHealth_TheCheck_IsAskedWithTheServersServices()
+    {
+        var status = await CheckedHealthAsync((services, _) => Task.FromResult(services.GetService<McpActivity>() is not null));
+
+        Assert.Equal(HttpStatusCode.OK, status);
+    }
+
+    [Fact]
+    public void MapHealth_ABlankPath_IsRefused() =>
+        Assert.Throws<ArgumentException>(() => _app.MapHealth(" ", (_, _) => Task.FromResult(true)));
+
+    /// <summary>The settings the program read are the host's, read once — and an in-process test, under the runner, gives them the same way.</summary>
+    [Fact]
+    public async Task CreateBuilder_WithTheSettingsTheProgramRead_IsTheirHost()
+    {
+        var port = FreePort();
+        var settings = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["BrowserDefaults:Headless"] = "true" })
+            .Build();
+        var endpoint = new McpEndpoint(McpTransport.Http, new Uri($"http://127.0.0.1:{port}/"), ListensOnEveryInterface: false);
+
+        var builder = McpHttpHost.CreateBuilder([], endpoint, settings);
+
+        Assert.Equal("true", builder.Configuration["BrowserDefaults:Headless"]);
+        Assert.Equal(HttpStatusCode.OK, await HealthAsync(builder, port));
+    }
+
+    [Fact]
+    public async Task CreateBuilder_WithSettings_AnEndpointOnEveryInterface_ListensOnItsPort()
+    {
+        var port = FreePort();
+        var endpoint = new McpEndpoint(McpTransport.Http, new Uri($"http://0.0.0.0:{port}/"), ListensOnEveryInterface: true);
+
+        var status = await HealthAsync(McpHttpHost.CreateBuilder([], endpoint, new ConfigurationBuilder().Build()), port);
+
+        Assert.Equal(HttpStatusCode.OK, status);
+    }
+
+    [Theory]
+    [InlineData(McpTransport.Stdio, "http://127.0.0.1:9230/")]
+    [InlineData(McpTransport.Http, "http://192.168.1.5:9230/")]
+    [InlineData(McpTransport.Http, "https://127.0.0.1:9230/")]
+    public void CreateBuilder_WithSettings_RefusesWhatTheEndpointOverloadRefuses(McpTransport transport, string url) =>
+        Assert.Throws<ArgumentException>(() => McpHttpHost.CreateBuilder([], new McpEndpoint(transport, new Uri(url), ListensOnEveryInterface: false), new ConfigurationBuilder().Build()));
+
+    private static async Task<HttpStatusCode> CheckedHealthAsync(Func<IServiceProvider, CancellationToken, Task<bool>> isHealthy)
+    {
+        var port = FreePort();
+        await using var app = McpHttpHost.CreateBuilder([], new Uri($"http://127.0.0.1:{port}/")).Build();
+
+        app.MapHealth(McpHttpHost.DefaultHealthPath, isHealthy);
+        await app.StartAsync();
+
+        using var http = new HttpClient();
+        using var response = await http.GetAsync(new Uri($"http://127.0.0.1:{port}{McpHttpHost.DefaultHealthPath}"));
+
+        return response.StatusCode;
+    }
+
     private static async Task<HttpStatusCode> HealthAsync(WebApplicationBuilder builder, int port)
     {
         await using var app = builder.Build();

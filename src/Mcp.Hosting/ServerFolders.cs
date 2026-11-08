@@ -19,7 +19,7 @@ public static class ServerFolders
     /// A path in a setting is written by a person, and a person writes <c>~/notes</c>; no shell expands it on the way to
     /// a launchd job, a client's registration or a settings file. <c>~\</c> counts as <c>~/</c>, and <c>~other</c> — another
     /// user's home — is left as it is. A relative path stays relative: <c>Path.GetFullPath</c> after this makes it
-    /// absolute against the server's working directory, when that is what the setting means.
+    /// absolute against the server's working directory, when that is what the setting means — <see cref="FullPath(string)"/> does both.
     /// </remarks>
     /// <exception cref="ArgumentException">The path is empty or blank: a setting that may be left out takes the overload with a fallback.</exception>
     public static string ExpandHome(string path)
@@ -33,6 +33,26 @@ public static class ServerFolders
     /// <remarks>The overload for a setting that may be left out, such as a data folder that defaults to <see cref="DataDirectory(string)"/>.</remarks>
     public static string ExpandHome(string? path, string fallback) =>
         string.IsNullOrWhiteSpace(path) ? fallback : WithHome(path, Home);
+
+    /// <summary>The path as an absolute one: a leading <c>~</c> or <c>~/</c> made the user's home, a relative path made absolute against the working directory.</summary>
+    /// <remarks>
+    /// <see cref="ExpandHome(string)"/> and then <see cref="Path.GetFullPath(string)"/>, which also folds <c>.</c> and
+    /// <c>..</c>: a root, a data folder or a solution named in a setting is compared and opened as one absolute path, so
+    /// <c>~/work/../work</c> and <c>~/work</c> are the same folder. Snail.MCP.CodeContext, FileSystem and Git wrote
+    /// <c>Path.GetFullPath(ServerFolders.ExpandHome(path))</c> in helpers of their own.
+    /// </remarks>
+    /// <exception cref="ArgumentException">The path is empty or blank: a setting that may be left out takes the overload with a fallback.</exception>
+    public static string FullPath(string path) => Path.GetFullPath(ExpandHome(path));
+
+    /// <summary>The path as an absolute one, or <paramref name="fallback"/> made absolute when the path is missing or blank.</summary>
+    /// <remarks>The overload for a setting that may be left out, such as a data folder that defaults to <see cref="DataDirectory(string)"/>.</remarks>
+    /// <exception cref="ArgumentException">The fallback is empty or blank.</exception>
+    public static string FullPath(string? path, string fallback)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fallback);
+
+        return Path.GetFullPath(ExpandHome(path, fallback));
+    }
 
     /// <summary>The trimmed path with a leading <c>~</c> or <c>~/</c> made <paramref name="home"/>.</summary>
     internal static string WithHome(string path, string home)

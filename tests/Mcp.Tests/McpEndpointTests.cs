@@ -147,6 +147,72 @@ public sealed class McpEndpointTests
         Assert.StartsWith("SNAIL_MCP_DEMO_SERVER__PORT (or Server:Port in the settings file) is 'eighty'", refusal.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>Snail.MCP.Playwright, FileSystem, Documents and Git keep their settings in a Snail section, and their operators wrote the endpoint there too.</summary>
+    [Fact]
+    public void Read_AKeyOnlyInTheFallbackSection_IsRead()
+    {
+        var endpoint = Read(new() { ["Snail:Port"] = "8822", ["Snail:ListensOnEveryInterface"] = "true" }, "Snail");
+
+        Assert.Equal(new McpEndpoint(McpTransport.Http, new Uri("http://127.0.0.1:8822/"), ListensOnEveryInterface: true), endpoint);
+    }
+
+    [Fact]
+    public void Read_AKeyAtTheRootAndInTheFallbackSection_IsTheRootOne() =>
+        Assert.Equal(8818, Read(new() { ["Port"] = "8818", ["Snail:Port"] = "8822" }, "Snail").Url.Port);
+
+    /// <summary>Each key is looked for on its own: a transport at the root and an address in the section are both read.</summary>
+    [Fact]
+    public void Read_KeysSplitBetweenTheRootAndTheFallbackSection_AreEachRead()
+    {
+        var endpoint = Read(new() { ["Transport"] = "Http", ["Snail:Http:Url"] = "http://127.0.0.1:9400/" }, "Snail");
+
+        Assert.Equal(new McpEndpoint(McpTransport.Http, new Uri("http://127.0.0.1:9400/"), ListensOnEveryInterface: false), endpoint);
+    }
+
+    /// <summary>An address at the root, in either spelling, wins over any address in the section.</summary>
+    [Fact]
+    public void Read_AnAddressAtTheRoot_WinsOverTheSectionsUrl() =>
+        Assert.Equal(8080, Read(new() { ["Transport"] = "Http", ["Http:Url"] = "http://127.0.0.1:8080/", ["Snail:Url"] = "http://127.0.0.1:9400/" }, "Snail").Url.Port);
+
+    [Fact]
+    public void Read_WithoutAFallbackSection_LooksAtTheRootAlone() =>
+        Assert.Equal(McpTransport.Stdio, Read(new() { ["Snail:Port"] = "8822" }).Transport);
+
+    /// <summary>#20 with a section: the operator wrote the key in the section, so the refusal names the section's variable and key.</summary>
+    [Theory]
+    [InlineData("Snail:Port", "eighty", "SNAIL_MCP_DEMO_SNAIL__PORT (or Snail:Port in the settings file) is 'eighty'")]
+    [InlineData("Snail:Http:Url", "ftp://x/", "SNAIL_MCP_DEMO_SNAIL__HTTP__URL (or Snail:Http:Url in the settings file) is 'ftp://x/'")]
+    [InlineData("Snail:Transport", "Stdio", "SNAIL_MCP_DEMO_SNAIL__TRANSPORT (or Snail:Transport in the settings file) is 'Stdio'")]
+    [InlineData("Snail:ListensOnEveryInterface", "yes", "SNAIL_MCP_DEMO_SNAIL__LISTENS_ON_EVERY_INTERFACE (or Snail:ListensOnEveryInterface in the settings file) is 'yes'")]
+    public void ReadHttp_AValueInTheFallbackSection_IsRefusedNamingItsVariable(string key, string value, string expected)
+    {
+        var refusal = Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(Settings(new() { [key] = value }), Default, isHttpOnly: true, containerVariable: null, server: "demo", fallbackSection: "Snail"));
+
+        Assert.StartsWith(expected, refusal.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A value at the root is the one read, so it is the one a refusal names, whatever the section holds.</summary>
+    [Fact]
+    public void Read_ARootValueBesideTheSection_IsRefusedNamingTheRootVariable()
+    {
+        var refusal = Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(Settings(new() { ["Port"] = "eighty", ["Snail:Port"] = "8822" }), Default, isHttpOnly: false, containerVariable: null, server: "demo", fallbackSection: "Snail"));
+
+        Assert.StartsWith("SNAIL_MCP_DEMO_PORT (or Port in the settings file) is 'eighty'", refusal.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void Read_ABlankFallbackSection_IsRefused(string section)
+    {
+        Assert.Throws<ArgumentException>(() => McpEndpoint.Read(Settings([]), Default, section));
+        Assert.Throws<ArgumentException>(() => McpEndpoint.ReadHttp(Settings([]), Default, section));
+    }
+
+    [Fact]
+    public void ReadHttp_TheFallbackSection_IsReadByThePublicCall() =>
+        Assert.Equal(8822, McpEndpoint.ReadHttp(Settings(new() { ["Snail:Port"] = "8822" }), Default, "Snail").Url.Port);
+
     /// <summary>Snail.MCP.E2E under launchd listens on every interface outside a container: its default URL says 0.0.0.0, and a loopback URL narrows it.</summary>
     [Fact]
     public void ReadHttp_ADefaultUrlOnEveryInterface_ListensOnEveryInterface_UntilAUrlNarrowsIt()
@@ -187,7 +253,8 @@ public sealed class McpEndpointTests
     public void CreateBuilder_AnAddressBeyondLoopbackWithoutTheFlag_IsRefused() =>
         Assert.Throws<ArgumentException>(() => McpHttpHost.CreateBuilder([], new McpEndpoint(McpTransport.Http, new Uri("http://192.168.1.5:9400/"), ListensOnEveryInterface: false)));
 
-    private static McpEndpoint Read(Dictionary<string, string?> values) => McpEndpoint.Read(Settings(values), Default, isHttpOnly: false, containerVariable: null, server: null);
+    private static McpEndpoint Read(Dictionary<string, string?> values, string? fallbackSection = null) =>
+        McpEndpoint.Read(Settings(values), Default, isHttpOnly: false, containerVariable: null, server: null, fallbackSection);
 
     private static McpEndpoint ReadHttp(Dictionary<string, string?> values) => McpEndpoint.Read(Settings(values), Default, isHttpOnly: true, containerVariable: null, server: null);
 

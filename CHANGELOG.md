@@ -107,9 +107,16 @@ A change that a repository must act on says what to do.
   server in its assembly; the key alone for any other. A server that listens on every interface outside a container
   too — Snail.MCP.E2E under launchd — names `0.0.0.0` in its default URL: a `Port` keeps that host, a loopback `Url`
   narrows it. `McpHttpHost.CreateBuilder(args, endpoint)` builds the host it names, loopback or every interface. A
-  server drops its `McpServerHost` choice and its `Transport` enum.
-- `McpHttpHost.MapHealth(path = "/healthz")`: 200 with no body, for a container's healthcheck, which the servers in
-  images mapped by hand.
+  server drops its `McpServerHost` choice and its `Transport` enum. `Read(settings, defaultUrl, fallbackSection)` and
+  `ReadHttp(…, fallbackSection)` also look in a section for a key the root does not hold, key by key, the root winning:
+  Snail.MCP.Playwright, FileSystem, Documents and Git keep their settings under `Snail`, and their operators wrote the
+  endpoint there, where a read at the root alone did not look. A refusal names the key where it was found,
+  `SNAIL_MCP_FILESYSTEM_SNAIL__PORT (or Snail:Port in the settings file) is '…'`. Such a server passes `"Snail"` and
+  drops the remark that the section is not read.
+- `McpHttpHost.MapHealth(path = "/healthz", isHealthy = null)`: 200 with no body, for a container's healthcheck, which
+  the servers in images mapped by hand; with `isHealthy` — asked with the request's services and its cancellation —
+  503 while the server cannot serve, and when the check throws. Snail.MCP.Playwright mapped a `/healthz` of its own
+  that asked whether its browser answers; it passes that check instead, and `HttpServerProgram` waits for it alike.
 - `ServerSecret` of `Snail.Sdk.Mcp.Hosting`: `ReadOrCreate(file, length)` keeps a secret in the server's data folder —
   readable by its owner alone from its first byte, written to a draft and moved into place whole, made by one process
   at a time under a lock beside it so every server starting at once agrees on one, and never replaced: a file of
@@ -120,6 +127,20 @@ A change that a repository must act on says what to do.
   "without overwrite" alone does not guard the race on Unix, where .NET looks for the target and then renames over it.
 - `ServerFolders.Home`, now public, and `ServerFolders.ExpandHome(path)` / `ExpandHome(path, fallback)`: a leading `~`
   or `~/` made the user's home; a missing path is the fallback. The servers kept copies of their own in nine places.
+  `ServerFolders.FullPath(path)` / `FullPath(path, fallback)` make the path absolute as well (`Path.GetFullPath`, dots
+  folded, a relative path under the working directory): Snail.MCP.CodeContext, FileSystem and Git wrapped
+  `ExpandHome` in `Path.GetFullPath` in helpers of their own, which they may drop.
+- `McpHost.CreateBuilder(args, settings)` and `McpHttpHost.CreateBuilder(args, endpoint, settings)`: the host built over
+  the settings the program read to choose its endpoint, rather than over the same files and variables read a second
+  time. A server that adds to its settings — Snail.MCP.Playwright's browser defaults — called
+  `builder.Configuration.AddConfiguration(settings)` after a host that had read them already; it passes them instead.
+  The builders without settings find the server by the entry assembly, so a host built in a test's own process, whose
+  entry assembly is the test runner, reads no settings at all: an in-process test passes them this way (Snail.MCP.FileSystem).
+- `AddReadyThreads(workers)` beside `AddIdleTrim`: the thread pool's minimum of workers raised as the host starts, never
+  lowered, the largest of several calls holding. The pool adds a worker or two a second beyond the machine's cores, and
+  Snail.MCP.CleanUp's census, 27 kinds and trails blocking side by side, held them all: a tool call that came in
+  meanwhile waited 7 to 8 seconds for a thread (2026-11-01) until the server raised the minimum to 64. CleanUp drops its
+  own `ThreadPool.SetMinThreads` and its `McpServerHost` with it, for `builder.Services.AddReadyThreads(64)`.
 - What a session's address grants it, for every server — stdio and HTTP alike — in `Snail.Sdk.Mcp.Hosting.Sessions`.
   Nine servers kept a `SessionGrant` of their own, four a `SessionRoots`, three a `SessionCopy`, and three let a role
   granted `run_tools` reach every tool they had, because their copies held at the door and nowhere else. A server that
@@ -248,7 +269,8 @@ A change that a repository must act on says what to do.
 
 - `dotnet new s3l-mcp` is written on the 0.5.0 API: its tools answer through `ToolAnswer` (the job through
   `JobAnswer.Envelope`) beside `.ExplainFailures()`; over HTTP the host is `McpHttpHost.CreateBuilder(args,
-  McpEndpoint.Read(…))` — the container builder chosen by the endpoint, no longer by the template — with `MapHealth()`
+  McpEndpoint.Read(…), settings)` over the settings it read once — the container builder chosen by the endpoint, no
+  longer by the template; over stdio `McpHost.CreateBuilder(args, settings)` — with `MapHealth()`
   and `.RefuseWhatWasNotGranted()` answering a refusal in the envelope — `McpEndpoint.ReadHttp` for a server of HTTP
   alone, which refuses `Transport=Stdio` at the start; its HTTP contract, which no longer sets the transport itself,
   waits for `/healthz` and

@@ -290,3 +290,10 @@ static Snail.Sdk.Mcp.Hosting.Answers.ToolAnswer.Text(ModelContextProtocol.Protoc
 static Snail.Sdk.Mcp.Hosting.Answers.ToolFailures.ExplainFailures(this Microsoft.Extensions.DependencyInjection.IMcpServerBuilder! builder, System.Action<Snail.Sdk.Mcp.Hosting.Answers.FailureOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
 static Snail.Sdk.Mcp.Hosting.Jobs.JobAnswer.Envelope(Snail.Sdk.Mcp.Hosting.Jobs.JobReport! report, System.Text.Json.Nodes.JsonObject? beside = null, string? hint = null) -> ModelContextProtocol.Protocol.CallToolResult!
 static Snail.Sdk.Mcp.Hosting.Jobs.JobAnswer.Result(Snail.Sdk.Mcp.Hosting.Jobs.JobReport! report, System.Text.Json.Nodes.JsonObject? running = null, string? hint = null) -> ModelContextProtocol.Protocol.CallToolResult!
+static Snail.Sdk.Mcp.Hosting.McpEndpoint.Read(Microsoft.Extensions.Configuration.IConfiguration! settings, System.Uri! defaultUrl, string! fallbackSection) -> Snail.Sdk.Mcp.Hosting.McpEndpoint!
+static Snail.Sdk.Mcp.Hosting.McpEndpoint.ReadHttp(Microsoft.Extensions.Configuration.IConfiguration! settings, System.Uri! defaultUrl, string! fallbackSection) -> Snail.Sdk.Mcp.Hosting.McpEndpoint!
+static Snail.Sdk.Mcp.Hosting.ServerFolders.FullPath(string! path) -> string!
+static Snail.Sdk.Mcp.Hosting.ServerFolders.FullPath(string? path, string! fallback) -> string!
+static Snail.Sdk.Mcp.Hosting.McpHost.CreateBuilder(string![]! args, Microsoft.Extensions.Configuration.IConfiguration! settings) -> Microsoft.Extensions.Hosting.HostApplicationBuilder!
+Snail.Sdk.Mcp.Hosting.McpHost.extension(Microsoft.Extensions.DependencyInjection.IServiceCollection!).AddReadyThreads(int workers) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Snail.Sdk.Mcp.Hosting.McpHost.AddReadyThreads(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, int workers) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

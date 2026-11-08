@@ -321,6 +321,8 @@ And for the server project (no kind):
   (`ReadOrCreateHex` for one read as text): made once, readable by its owner alone from its first byte, appearing only
   whole, the same for every process that starts at once, and never replaced — a file of another length is refused, not
   written over, with a `ServerSecretRefusedException` that names the file, what it holds and what was asked for.
+  `ReadOrCreate(file, length, out created)` says whether this call wrote it, for the log line "wrote a new token" —
+  never a look for the file first.
   `ServerSecret.Matches` compares in constant time.
 - The folders moved from the snail names by reading the settings: `AddServerSettings(name)`, and with it
   `ServerSettings.Read`, `McpHost.CreateBuilder` and the HTTP builders, calls `ServerFolders.MoveFromSnailNames` first,
@@ -350,10 +352,13 @@ And for the server project (no kind):
   `ToolAnswer.From(answer, data)` from an `Answer<T>` (success is its error being null; `TryGet`, `As<TOther>()`, `Map`
   and `ToolAnswer.Failed(answer)` carry it without copying a field; `Answer.Failed(error, hint, type, details)` needs no
   type argument, and its `details`, what the work learned before it stopped, are the failure's `data`), typed data through `ToolAnswer.Ok(data, typeInfo)`
-  with no tree of nodes, the data mapped from domain records in the server's `AnswerFields`. `ToolAnswer.Text(result)`
-  is the envelope outside a result and `ToolAnswer.Of(envelope)` a stored one answered again. A failure is always `isError`
+  with no tree of nodes (`ToolAnswer.From(answer, typeInfo)` from an `Answer<T>`), the data mapped from domain records
+  in the server's `AnswerFields`. Fields a tool's contract keeps beside the data go after it at the top level through
+  `ToolAnswer.Ok(data, shape, beside)`, never written by hand; a tool that returns a string returns
+  `ToolAnswer.OkText(data)` or `ToolAnswer.FailedText(error, hint, type, data)`. `ToolAnswer.Text(result)`
+  is the envelope outside a result and `ToolAnswer.Of(envelope)` a stored one answered again, fields beside kept. A failure is always `isError`
   and text alone; a success carries its data as the structured content, or the whole envelope (`AnswerShape.Envelope`,
-  for tools with an output schema of `Envelope<T>`), or none — data carried twice, in the text and beside it, and a
+  for tools with an output schema of `Envelope<T>`, which publishes `data` as required and never null), or none — data carried twice, in the text and beside it, and a
   size budget counts the text. A picture follows the envelope in a block of its own (`result.WithImage(bytes, mime)`),
   never base64 in the JSON. `ToolAnswer.Word` spells an enum value in the casing the server chose,
   `ToolAnswer.Moment` a moment; `ToolAnswer.ObjectInfo` is the generated `JsonObject` a job's result needs.
@@ -361,8 +366,15 @@ And for the server project (no kind):
   and flags an envelope with `ok` false that a tool returned as a string; a cancelled call stays cancelled; arguments
   the MCP SDK could not bind are `type` `arguments`, naming the parameter; a `ToolRefusalException` — a caller's mistake
   found deep inside — is answered in its own error, hint and type and not logged; `FailureOptions` words the rest,
-  its error, hint and type each from the exception, so a server's own exception for a caller's mistake is a refusal. A job
+  its error, hint and type each from the exception, and `options.Refuse<TException>(type, hint)` makes a server's own
+  exception for a caller's mistake a refusal, the default hint — "try once more" — left to `internal` failures alone. A job
   answered in the envelope is `JobAnswer.Envelope(report, beside, hint)`.
+  The envelope is the rule for a server that answers data. A server whose answers are text — words a command, a hook
+  or a person reads as they are: Snail.MCP.Memory, whose answers the mem0 commands and hooks read; Snail.MCP.Plans,
+  markdown — keeps text, its successes and its failures alike: `.ExplainFailures(options => options.AnswersText = true)`
+  answers what was thrown, arguments that did not bind and a `ToolRefusalException` as plain text, `error — hint`,
+  flagged `isError`, never JSON among the words. It states no output schema, and a check of the envelope does not
+  apply to it.
 - What a session's address grants it (`Snail.Sdk.Mcp.Hosting.Sessions`): a server many roles reach is opened at
   `…/mcp?root=/workspaces/<task>&tool=<name>&tool=…`, a URL the platform writes and the model never can.
   `.RefuseWhatWasNotGranted()` refuses and hides a tool the address did not name (`SessionGrant`, or the server's own
@@ -536,7 +548,9 @@ every push. Beyond what a test of the code itself asserts:
       the tool and every parameter described, read-only or destructive stated, every allowed value named as a word of
       its own, English;
     - **the answers** — `answer.IsOk()`, `Data()`, `Error()`, `Hint()`, `Type()` and `Report()` of `ToolAnswers` read
-      the envelope and the job's report, and `Images()` the pictures after it, so no test parses a tool's text itself;
+      the envelope and the job's report, `Field(name)` a field beside `data`, and `Images()` the pictures after it, so
+      no test parses a tool's text itself; `OutputSchemas.Problems(tool, result)` holds a tool's structured content
+      against the output schema it states, as a validating client does;
     - **the HTTP contract** for a server with HTTP: the endpoint, its tools, the refusal of a browser's request.
       `HttpServerProgram.StartAsync(assembly, "SNAIL_<SHORT>_SERVER")` starts the same build or publication on a free
       loopback port (`Ports.Free()`), told through `SNAIL_MCP_<SHORT>_URL` — or the variable the test names, given the

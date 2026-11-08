@@ -269,6 +269,21 @@ override Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.GetHashCode() -> in
 override Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.ToString() -> string!
 static Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.operator !=(Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>? left, Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>? right) -> bool
 static Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.operator ==(Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>? left, Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>? right) -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>.ToAnswer(System.Func<Snail.Sdk.Mcp.Hosting.Sessions.CopyRefusal, Snail.Sdk.Mcp.Hosting.Answers.AnswerFailure!>! refused) -> Snail.Sdk.Mcp.Hosting.Answers.Answer<Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>!>!
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.<Clone>$() -> Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>!
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.Deconstruct(out TTask Task, out string! Path) -> void
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.Equals(Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>? other) -> bool
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.Path.get -> string!
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.Path.init -> void
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.Task.get -> TTask
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.Task.init -> void
+Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.WorkspacePlace(TTask Task, string! Path) -> void
+override Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.Equals(object? obj) -> bool
+override Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.GetHashCode() -> int
+override Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.ToString() -> string!
+static Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.operator !=(Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>? left, Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>? right) -> bool
+static Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>.operator ==(Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>? left, Snail.Sdk.Mcp.Hosting.Sessions.WorkspacePlace<TTask>? right) -> bool
 static Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy.Of(string? root, string! workspaces, System.Func<string!, bool>! isTaskId) -> Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<string!>!
 static Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy.Of<TTask>(string? root, string! workspaces, System.Func<string!, TTask?>! task) -> Snail.Sdk.Mcp.Hosting.Sessions.WorkspaceCopy<TTask>!
 Snail.Sdk.Mcp.Hosting.Discovery.ArgumentCheckOptions

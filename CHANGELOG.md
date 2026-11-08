@@ -328,6 +328,15 @@ A change that a repository must act on says what to do.
     that is a value, read as `T?` — `int?`, a struct of the server's — gives a `WorkspaceCopy<T>` whose `Task` is the
     value itself, where it came out `Nullable<T>` and stayed so after `IsCopy` (Snail.MCP.E2E wrote `.Value` at every
     use).
+  - `copy.ToAnswer(refusal => …)` hands a copy on as an `Answer<WorkspacePlace<TTask>>`: `WorkspacePlace<TTask>(Task,
+    Path)` with both set, or the server's words for the reason — the failure typed by it (`noRoot`, `outside`,
+    `malformed`, `notATask`) unless the server's words name a type — where `WorkspaceCopy<TTask>` keeps `Task` and
+    `Path` nullable for a refusal and Snail.MCP.Security, Connector and E2E each wrote a `CopyPlace` to carry the copy.
+    To adopt, a `SessionCopy.Of` becomes `WorkspaceCopy.Of(root, workspaces, IsTaskId).ToAnswer(refusal => refusal ==
+    CopyRefusal.NoRoot ? Answer.Failed(Messages.NoCopy, Messages.NoCopyHint) : Answer.Failed(Messages.CopyOutside(root
+    ?? string.Empty, workspaces)))` returning `Answer<WorkspacePlace<string>>` (E2E's `WorkspacePlace<TaskEnvironment>`,
+    `copy.Environment` read as `copy.Task`), and `CopyPlace` goes; Security keeps its scan job's name as
+    `$"{ScanJob.Prefix}{place.Task}"`, an extension property over `WorkspacePlace<string>` where it reads better.
   - `JobOwners.TaskOfCopy(services => workspaces, isTaskId)` is the `ownerOf` of `.WithJobs(server, ownerOf)` for a
     server that owns its jobs by task — the task of the copy the session's address names, none for a session at no copy
     — which Snail.MCP.Security, Connector and E2E each wrote over their `SessionCopy`. A server that registers no

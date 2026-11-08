@@ -718,8 +718,19 @@ The working copy a root names under the workspaces folder and the task it belong
 
 | Member | Summary |
 | --- | --- |
+| `Answer<WorkspacePlace<TTask>> ToAnswer(Func<CopyRefusal, AnswerFailure> refused)` | The copy as an answer a server hands on: its place, or the refusal in the server's words. |
 | `CopyRefusal Refusal { get; init; }` | Why the root names no copy; `None` when it names one. |
 | `TTask? Task { get; init; }` | The task, read from the copy's first folder under the workspaces folder; set when it is a copy. |
 | `WorkspaceCopy(TTask? Task, string? Path, CopyRefusal Refusal)` | The working copy a root names under the workspaces folder and the task it belongs to, or why it names none. |
 | `bool IsCopy { get; }` | Whether the root names a task's copy; `Task` and `Path` are then set. |
 | `string? Path { get; init; }` | The copy itself — `/workspaces/<task>/step-3` — set when it is a copy. |
+
+### class WorkspacePlace<TTask>
+
+A task's working copy under the workspaces folder and the task it belongs to: what a `WorkspaceCopy1` that is a copy names.
+
+| Member | Summary |
+| --- | --- |
+| `TTask Task { get; init; }` | The task, read from the copy's first folder under the workspaces folder. |
+| `WorkspacePlace(TTask Task, string Path)` | A task's working copy under the workspaces folder and the task it belongs to: what a `WorkspaceCopy1` that is a copy names. |
+| `string Path { get; init; }` | The copy itself — `/workspaces/<task>/step-3`. |

@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
+using Snail.Sdk.Mcp.Hosting.Answers;
 using Snail.Sdk.Mcp.Hosting.Sessions;
 using Snail.Sdk.Mcp.Testing;
 
@@ -310,6 +311,50 @@ public sealed class SessionRootsTests
         Assert.Equal(42, copy.Task);
         Assert.Equal("/workspaces/42/step-3", copy.Path);
         Assert.Equal(new WorkspaceCopy<int>(0, null, CopyRefusal.NotATask), refused);
+    }
+
+    /// <summary>#128: Security, Connector and E2E each wrote a CopyPlace to carry the copy through an Answer, its task and path nullable on WorkspaceCopy.</summary>
+    [Fact]
+    public void ToAnswer_OfACopy_IsItsPlace_WithTaskAndPathSet()
+    {
+        var answer = WorkspaceCopy.Of("/workspaces/task-1/step-3", "/workspaces", IsTask).ToAnswer(_ => Answer.Failed("never asked"));
+
+        Assert.True(answer.TryGet(out var place));
+        Assert.Equal(new WorkspacePlace<string>("task-1", "/workspaces/task-1/step-3"), place);
+    }
+
+    /// <summary>The words are the server's, and a failure that names no type of its own is typed by the reason, as a path refused is.</summary>
+    [Theory]
+    [InlineData(null, "no copy", "noRoot")]
+    [InlineData("/etc", "elsewhere", "outside")]
+    [InlineData("/workspaces/task-1/../task-2", "elsewhere", "malformed")]
+    [InlineData("/workspaces/Not_A_Task", "elsewhere", "notATask")]
+    public void ToAnswer_OfNoCopy_IsTheServersWords_TypedByTheReason(string? root, string error, string type)
+    {
+        var answer = WorkspaceCopy.Of(root, "/workspaces", IsTask)
+            .ToAnswer(refusal => refusal == CopyRefusal.NoRoot ? Answer.Failed("no copy", "open the session at a copy") : Answer.Failed("elsewhere"));
+
+        Assert.False(answer.IsSuccess);
+        Assert.Equal((error, type), (answer.Error, answer.Type));
+    }
+
+    [Fact]
+    public void ToAnswer_OfNoCopy_KeepsTheTypeTheServerGave()
+    {
+        var answer = WorkspaceCopy.Of("/etc", "/workspaces", IsTask).ToAnswer(_ => Answer.Failed("elsewhere", type: "notACopy"));
+
+        Assert.Equal("notACopy", answer.Type);
+    }
+
+    /// <summary>A task that is a value is carried as the value, as WorkspaceCopy carries it.</summary>
+    [Fact]
+    public void ToAnswer_OfATaskThatIsAValue_CarriesTheValue()
+    {
+        static int? Number(string folder) => int.TryParse(folder, CultureInfo.InvariantCulture, out var number) ? number : null;
+
+        Answer<WorkspacePlace<int>> answer = WorkspaceCopy.Of("/workspaces/42", "/workspaces", Number).ToAnswer(_ => Answer.Failed("never asked"));
+
+        Assert.Equal(42, answer.Value!.Task);
     }
 
     /// <summary>Snail.MCP.Documents' benchmark kept a <c>NoAddress</c> of its own to build the roots of a program.</summary>

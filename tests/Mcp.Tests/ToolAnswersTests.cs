@@ -55,6 +55,28 @@ public sealed class ToolAnswersTests
     }
 
     [Fact]
+    public void Type_IsTheKindOfFailure_OrNull()
+    {
+        Assert.Equal("missing", ToolAnswer.Failed("No.", type: "missing").Type());
+        Assert.Null(ToolAnswer.Failed("No.").Type());
+        Assert.Null(ToolAnswer.Ok(new JsonObject()).Type());
+    }
+
+    [Fact]
+    public void Images_OfAnAnswerWithoutPictures_AreNone() =>
+        Assert.Empty(ToolAnswer.Ok(new JsonObject()).Images());
+
+    [Fact]
+    public void Text_OfAnAnswerThatDoesNotOpenWithText_FailsTheTest()
+    {
+        var answer = new CallToolResult { Content = [ImageContentBlock.FromBytes(new byte[] { 1 }, "image/png")] };
+
+        var failure = Assert.Throws<InvalidOperationException>(() => answer.Text());
+
+        Assert.Contains("image", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Report_OfAnAnswerThatIsNoJob_IsNull()
     {
         Assert.Null(ToolAnswer.Ok(new JsonObject { ["count"] = 2 }).Report());

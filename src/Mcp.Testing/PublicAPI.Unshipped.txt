@@ -21,6 +21,10 @@ static Snail.Sdk.Mcp.Testing.ToolAnswers.Error(this ModelContextProtocol.Protoco
 static Snail.Sdk.Mcp.Testing.ToolAnswers.Hint(this ModelContextProtocol.Protocol.CallToolResult! answer) -> string?
 static Snail.Sdk.Mcp.Testing.ToolAnswers.IsOk(this ModelContextProtocol.Protocol.CallToolResult! answer) -> bool
 static Snail.Sdk.Mcp.Testing.ToolAnswers.Report(this ModelContextProtocol.Protocol.CallToolResult! answer) -> Snail.Sdk.Mcp.Hosting.Jobs.JobReport?
+static Snail.Sdk.Mcp.Testing.ToolAnswers.Images(this ModelContextProtocol.Protocol.CallToolResult! answer) -> System.Collections.Generic.IReadOnlyList<ModelContextProtocol.Protocol.ImageContentBlock!>!
+static Snail.Sdk.Mcp.Testing.ToolAnswers.Type(this ModelContextProtocol.Protocol.CallToolResult! answer) -> string?
+Snail.Sdk.Mcp.Testing.ToolAnswers.extension(ModelContextProtocol.Protocol.CallToolResult!).Images() -> System.Collections.Generic.IReadOnlyList<ModelContextProtocol.Protocol.ImageContentBlock!>!
+Snail.Sdk.Mcp.Testing.ToolAnswers.extension(ModelContextProtocol.Protocol.CallToolResult!).Type() -> string?
 Snail.Sdk.Mcp.Testing.FixedAddress
 Snail.Sdk.Mcp.Testing.FixedAddress.FixedAddress(params (string! Parameter, string! Value)[]! values) -> void
 Snail.Sdk.Mcp.Testing.FixedAddress.Values(string! parameter) -> System.Collections.Generic.IReadOnlyList<string!>!

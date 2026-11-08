@@ -27,6 +27,18 @@ namespace Snail.Sdk.Mcp.Hosting.Answers;
 /// there — Snail.MCP.FileSystem sends a refusal as text alone for that reason. The text holds everything a failure says.
 /// </para>
 /// <para>
+/// A success with structured content carries its data twice: once in the text, once beside it — the protocol asks a
+/// server with structured content to repeat it as text for the client that reads text alone. A budget on the size of
+/// an answer counts the text, which is what a model is given; counting the whole result counted the data twice
+/// (Snail.MCP.Roslyn's filter saw 70 357 characters for one listing). A server whose payload is large and read by a
+/// model — the text of a page — answers <see cref="AnswerShape.None"/>, and a client that hands the whole result to its
+/// model pays for it once.
+/// </para>
+/// <para>
+/// A picture goes in a block of its own after the text (<see cref="WithImage"/>), never as base64 inside the JSON: a
+/// client hands an image block to a model as an image, and megabytes of characters read as characters help nobody.
+/// </para>
+/// <para>
 /// Nothing is escaped that JSON does not require: the answer is read by a model, which pays for every escape, and the
 /// default encoder turned 59 characters of C# with generics and Cyrillic into 154 (Snail.MCP.FileSystem).
 /// </para>
@@ -51,10 +63,14 @@ public static class ToolAnswer
     /// <summary>The generated type information of a JsonElement, for data kept as JSON already: a job's result.</summary>
     internal static JsonTypeInfo<JsonElement> ElementInfo => Generated.JsonElement;
 
+    /// <summary>The generated type information of a JsonNode, for what a failure learned kept as a job's result.</summary>
+    internal static JsonTypeInfo<JsonNode> NodeInfo => Generated.JsonNode;
+
     /// <summary>A successful answer: the data in the envelope as the text, and the structured content <paramref name="shape"/> names.</summary>
     /// <remarks>
     /// The protocol allows only an object as structured content, so with <see cref="AnswerShape.Data"/> data that is an
-    /// array or a value goes as text alone.
+    /// array or a value goes as text alone. With <see cref="AnswerShape.Data"/> or <see cref="AnswerShape.Envelope"/> the
+    /// data is in the result twice, in the text and beside it: a size budget counts the text.
     /// </remarks>
     public static CallToolResult Ok(JsonNode data, AnswerShape shape)
     {
@@ -106,12 +122,12 @@ public static class ToolAnswer
         return new CallToolResult { IsError = true, Content = [new TextContentBlock { Text = Envelope(false, data is null ? null : writer => data.WriteTo(writer, Wire), error, hint, type) }] };
     }
 
-    /// <summary>A failed answer as the tool's answer: its error, hint and type, and what there is to report all the same.</summary>
+    /// <summary>A failed answer as the tool's answer: its error, hint and type, and its details as the data.</summary>
     /// <remarks>Written out by hand, the type was the field left behind (Snail.MCP.BuildBridge, six places).</remarks>
     /// <exception cref="ArgumentException">The answer is a success, which has a value to answer rather than a failure.</exception>
     public static CallToolResult Failed<T>(Answer<T> failed) => Failed(failed, null);
 
-    /// <summary>A failed answer as the tool's answer, with what there is to report all the same as its data.</summary>
+    /// <summary>A failed answer as the tool's answer, with what there is to report all the same as its data: <paramref name="data"/>, or the answer's details when it is null.</summary>
     /// <exception cref="ArgumentException">The answer is a success, which has a value to answer rather than a failure.</exception>
     public static CallToolResult Failed<T>(Answer<T> failed, JsonNode? data)
     {
@@ -120,19 +136,19 @@ public static class ToolAnswer
         if (failed.IsSuccess)
             throw new ArgumentException("A successful answer has a value to answer, not a failure: answer it with From or Ok.", nameof(failed));
 
-        return Failed(failed.Error, failed.Hint, failed.Type, data);
+        return Failed(failed.Error, failed.Hint, failed.Type, data ?? failed.Details);
     }
 
-    /// <summary>An answer as a tool result: its value through <paramref name="data"/>, or its failure.</summary>
+    /// <summary>An answer as a tool result: its value through <paramref name="data"/>, or its failure with its details as the data.</summary>
     public static CallToolResult From<T>(Answer<T> answer, Func<T, JsonNode> data, AnswerShape shape = AnswerShape.Data)
     {
         ArgumentNullException.ThrowIfNull(answer);
         ArgumentNullException.ThrowIfNull(data);
 
-        return answer.TryGet(out var value) ? Ok(data(value), shape) : Failed(answer.Error, answer.Hint, answer.Type);
+        return answer.TryGet(out var value) ? Ok(data(value), shape) : Failed(answer.Error, answer.Hint, answer.Type, answer.Details);
     }
 
-    /// <summary>An answer whose value is JSON already as a tool result: the value as the data, or its failure.</summary>
+    /// <summary>An answer whose value is JSON already as a tool result: the value as the data, or its failure with its details as the data.</summary>
     public static CallToolResult From<T>(Answer<T> answer)
         where T : JsonNode => From(answer, AnswerShape.Data);
 
@@ -142,7 +158,38 @@ public static class ToolAnswer
     {
         ArgumentNullException.ThrowIfNull(answer);
 
-        return answer.TryGet(out var value) ? Ok(value, shape) : Failed(answer.Error, answer.Hint, answer.Type);
+        return answer.TryGet(out var value) ? Ok(value, shape) : Failed(answer.Error, answer.Hint, answer.Type, answer.Details);
+    }
+
+    extension(CallToolResult result)
+    {
+        /// <summary>The answer with a picture after its text, in an image block of its own: <c>ToolAnswer.Ok(data, AnswerShape.None).WithImage(png, "image/png")</c>.</summary>
+        /// <remarks>
+        /// <para>
+        /// The envelope stays the first block, so <see cref="Text"/> still reads it; the picture is for a model to look at,
+        /// never a field of the JSON, which would be megabytes of base64 read as characters. Snail.MCP.Playwright,
+        /// AfterEffects, Blender and Figma each added the block by hand.
+        /// </para>
+        /// <para>
+        /// A failure may carry a picture too — what the screen showed when the work stopped — and stays a failure: it is
+        /// flagged <c>isError</c> when it is made, whatever follows its text.
+        /// </para>
+        /// </remarks>
+        /// <param name="bytes">The picture as it is encoded: the bytes of a PNG, a JPEG.</param>
+        /// <param name="mimeType">What the bytes are: <c>image/png</c>, <c>image/jpeg</c>.</param>
+        /// <returns>The same result, the picture added after its last block.</returns>
+        public CallToolResult WithImage(ReadOnlyMemory<byte> bytes, string mimeType)
+        {
+            ArgumentNullException.ThrowIfNull(result);
+            ArgumentException.ThrowIfNullOrWhiteSpace(mimeType);
+
+            if (bytes.IsEmpty)
+                throw new ArgumentException("A picture has bytes; these are none.", nameof(bytes));
+
+            result.Content.Add(ImageContentBlock.FromBytes(bytes, mimeType));
+
+            return result;
+        }
     }
 
     /// <summary>The envelope a result carries: the text of its first block, which is where every answer of <see cref="ToolAnswer"/> writes it.</summary>
@@ -189,7 +236,7 @@ public static class ToolAnswer
         return Failed(error, StringOf(envelope["hint"]), StringOf(envelope["type"]), envelope["data"]?.DeepClone());
     }
 
-    /// <summary>Whether a result is the failure envelope: one text block whose top-level <c>ok</c> is false.</summary>
+    /// <summary>Whether a result is the failure envelope: a text block whose top-level <c>ok</c> is false, with nothing after it but pictures.</summary>
     /// <remarks>
     /// <para>
     /// The envelope is read, not parsed: only a text that opens with <c>{</c> is looked at, and the reader stops at the
@@ -197,15 +244,19 @@ public static class ToolAnswer
     /// a document tree. A refusal, which is short, is read to its end, so a text cut after <c>"ok":false</c> is not one.
     /// </para>
     /// <para>
-    /// Anything else — several blocks, a picture, a text that is not JSON or not the envelope, an <c>ok</c> nested deeper,
-    /// malformed JSON — is not a failure: a tool may answer with a report of its own that carries no envelope.
+    /// Anything else — several text blocks, a picture first, a text that is not JSON or not the envelope, an <c>ok</c>
+    /// nested deeper, malformed JSON — is not a failure: a tool may answer with a report of its own that carries no
+    /// envelope. Pictures after the envelope (<see cref="WithImage"/>) leave it what it is.
     /// </para>
     /// </remarks>
     public static bool IsFailure(CallToolResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
 
-        return result.Content is [TextContentBlock { Text: var text }] && text.StartsWith('{') && IsRefusal(text);
+        return result.Content is [TextContentBlock { Text: var text }, ..]
+            && result.Content.Skip(1).All(after => after is ImageContentBlock)
+            && text.StartsWith('{')
+            && IsRefusal(text);
     }
 
     /// <summary>An enum value as the answer spells it, in the casing the server chose.</summary>

@@ -31,12 +31,25 @@ A change that a repository must act on says what to do.
   out (the servers wrote `"hint":null`); a failure always `isError` and text alone, with no structured content, since a
   client of the TypeScript SDK validates the structured content of an error against the tool's output schema; a
   success's structured content is its data (`AnswerShape.Data`, the default), the whole envelope
-  (`AnswerShape.Envelope`, for tools with an output schema) or none (`AnswerShape.None`). `Answer<T>` with
-  `Answer.Ok(value)` and `Answer.Failed<T>(error, hint, type)` is the value-or-why a server's application layer returns;
+  (`AnswerShape.Envelope`, for tools with an output schema) or none (`AnswerShape.None`) — a success with structured
+  content carries its data twice, in the text and beside it, so a size budget counts the text (Snail.MCP.Roslyn's
+  counted 70 357 characters for one listing). `Envelope<T>` is the envelope as a type, `ok` first, for the declared
+  output of a tool that answers `AnswerShape.Envelope` (`OutputSchemaType = typeof(Envelope<FileRead>)`), so its schema
+  is published; Snail.MCP.FileSystem drops its `Answered<T>` and names `Envelope<…>` in its context.
+  `result.WithImage(bytes, mimeType)` adds a picture after the envelope in an image block of its own, never base64 in
+  the JSON; `ToolAnswer.Text` and `IsFailure` read the envelope before it (Playwright's `Replies`/`Pictured`,
+  AfterEffects, Blender and Figma). `Answer<T>` with
+  `Answer.Ok(value)` and `Answer.Failed(error, hint, type, details)` is the value-or-why a server's application layer returns;
   success is `IsSuccess`, its error being null, never its value being set — `Value is { }` holds for a failed
   `Answer<bool>` too. `IsSuccess` tells the compiler a failure has its `Error`, and `answer.TryGet(out var value)` hands
   the value over as nullable as `T` is — no attribute vouches for `Value` itself, since an `Answer<string?>` may succeed
-  with null — so neither `Error!` nor `Value!` is written after the check. `answer.As<TOther>()` carries a failure on as
+  with null — so neither `Error!` nor `Value!` is written after the check. `Answer.Failed(…)` without a type argument is
+  an `AnswerFailure` that becomes the `Answer<T>` expected — a return value, a branch beside `Answer.Ok(value)` in `?:`,
+  the return of an async lambda — where CleanUp wrote the type 28 times and Playwright 25; `Answer.Failed<T>(…)` stays
+  for `var` and `Task.FromResult`. A failure carries what the work learned before it stopped as `Details`, JSON that
+  goes on with it through `As` and `Map` and is answered as the failure's `data` by `ToolAnswer.From` and
+  `ToolAnswer.Failed(answer)` (Playwright's `Stopped`, Git's `SequenceRun`), and as the result of a failed job.
+  `answer.As<TOther>()` carries a failure on as
   an answer of another type with its error, hint and type (it throws on a success), `answer.Map(f)` makes a success's
   value another and carries a failure as it is, and `ToolAnswer.Failed(answer, data)` answers a failure whole — the
   fleet copied the three fields by hand in some thirty places and left the type behind. `ToolAnswer.From(answer)` takes
@@ -66,8 +79,13 @@ A change that a repository must act on says what to do.
   what the tool takes as the hint, and not logged as the server's failure: "internal, try once more" had the model
   repeat the call as it was. The exception's kind alone proves nothing, since a tool throws the same ones: the call is
   held against the schema, and else against a trace through the SDK's parameter marshalling; anything else stays
-  `internal`. `.ExplainFailures(options => …)` words a failure nobody foresaw — `FailureOptions.Error` from the tool's
-  name and the exception, `FailureOptions.Hint` — for a server whose failures named the tool (Snail.MCP.Documents).
+  `internal`. A tool that throws `ToolRefusalException(error, hint, type)` — a caller's mistake found deep inside, "Solution
+  'x' is not loaded" — is answered in its words, with its `Details` as the data, and not logged as the server's failure;
+  in a job it ends the job failed with its hint and type. `.ExplainFailures(options => …)` words a failure nobody
+  foresaw — `FailureOptions.Error`, `Hint` and `Type`, each from the tool's name and the exception — for a server whose
+  failures named the tool (Snail.MCP.Documents) and one that throws exceptions of its own for a caller's mistake
+  (`Type = (_, e) => e is NotLoadedException ? "notLoaded" : null`, a hint to match): only a failure left `internal` is
+  logged with its trace. A fixed hint is `Hint = (_, _) => "…"`; `Hint = null` answers none (Snail.MCP.Roslyn).
 - `JobAnswer.Envelope(report, beside, hint)`: a job in the envelope — the report as the text's data, with the fields of
   `beside` added there, and the report alone as the structured content a client of `Snail.Sdk.Mcp.JobClient` reads.
   Replaces `ToolResponse.Job(report)` of Snail.MCP.Security, BuildBridge, AfterEffects and Blender. A job that failed or
@@ -85,8 +103,9 @@ A change that a repository must act on says what to do.
   the report the structured content throughout. A server drops its `Outcome`, `Said`/`Told` and envelope-parsing
   helpers: `jobs.Start(kind, async (p, t) => (await work(p, t)).Map(AnswerFields.Of), ToolAnswer.ObjectInfo)` and
   `JobAnswer.Envelope(report)` or `JobAnswer.Result(report, running)`.
-- `Snail.Sdk.Mcp.Testing` reads the envelope: `answer.IsOk()`, `Data()`, `Error()`, `Hint()` and `Report()` (the job's
-  report in the structured content), failing with the text when it is not the envelope. A test that parsed the text
+- `Snail.Sdk.Mcp.Testing` reads the envelope: `answer.IsOk()`, `Data()`, `Error()`, `Hint()`, `Type()` and `Report()`
+  (the job's report in the structured content), failing with the text when it is not the envelope; `Images()` are the
+  pictures after it, and `Text()` reads the envelope's block with pictures after it. A test that parsed the text
   itself (`ReportOf`, its own `Ok`/`Data` readers) uses these. The package now depends on `Snail.Sdk.Mcp.Hosting`.
 - `AddIdleShutdown(after, isBusy)` of `Snail.Sdk.Mcp.Hosting`: a stdio server that has heard no MCP message for
   `after` stops, unless `isBusy` says it is at work no message shows. For the process a client started and then lost

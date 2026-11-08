@@ -210,12 +210,67 @@ public sealed class ToolFailuresTests
         await using var stand = await Stand.StartAsync(configure: options =>
         {
             options.Error = (tool, failure) => $"{tool} failed: {failure.GetType().Name}";
-            options.Hint = "Read the server's log.";
+            options.Hint = (_, _) => "Read the server's log.";
         });
 
         var answer = await stand.Client.CallToolAsync("throws");
 
         Assert.Equal("""{"ok":false,"error":"throws failed: InvalidOperationException","hint":"Read the server's log.","type":"internal"}""", answer.Text());
+    }
+
+    /// <summary>"Try once more" contradicted "call load_solution first" (Snail.MCP.Roslyn, Snail.MCP.CodeContext).</summary>
+    [Fact]
+    public async Task Refusal_ThatAToolThrows_IsAnsweredInItsOwnWords_AndNotLoggedAsTheServers()
+    {
+        await using var stand = await Stand.StartAsync();
+
+        var answer = await stand.Client.CallToolAsync("refuses_deep");
+
+        Assert.True(answer.IsError);
+        Assert.Equal("""{"ok":false,"error":"Solution 'a.sln' is not loaded.","hint":"Call load_solution first.","type":"notLoaded","data":{"loaded":[]}}""", answer.Text());
+        Assert.DoesNotContain(stand.Logs.Entries, entry => entry.Level >= LogLevel.Warning);
+    }
+
+    [Fact]
+    public async Task Refusal_WithoutAHintOrAType_LeavesThemOut()
+    {
+        await using var stand = await Stand.StartAsync();
+
+        var answer = await stand.Client.CallToolAsync("refuses_bare");
+
+        Assert.Equal("""{"ok":false,"error":"No codebase to index."}""", answer.Text());
+        Assert.Null(answer.Type());
+    }
+
+    /// <summary>A server that throws exceptions of its own for a caller's mistake tells them by their type.</summary>
+    [Fact]
+    public async Task Failure_OfAServersOwnKind_IsWordedAsTheRefusalItIs_AndNotLoggedAsTheServers()
+    {
+        await using var stand = await Stand.StartAsync(configure: options =>
+        {
+            options.Type = (_, failure) => failure is NotLoadedException ? "notLoaded" : null;
+            options.Hint = (tool, failure) => failure is NotLoadedException ? $"call load_solution before {tool}" : ToolFailures.Hint;
+        });
+
+        var refused = await stand.Client.CallToolAsync("not_loaded");
+        var failed = await stand.Client.CallToolAsync("throws");
+
+        Assert.Equal("""{"ok":false,"error":"Solution 'a.sln' is not loaded.","hint":"call load_solution before not_loaded","type":"notLoaded"}""", refused.Text());
+        Assert.Equal("internal", failed.Type());
+        Assert.Equal(ToolFailures.Hint, failed.Hint());
+        var logged = Assert.Single(stand.Logs.Entries, entry => entry.Level >= LogLevel.Warning);
+        Assert.Equal("throws failed inside the server", logged.Message);
+    }
+
+    /// <summary>Snail.MCP.Roslyn answers its failures without a hint.</summary>
+    [Fact]
+    public async Task Failure_WithTheHintTakenAway_HasNone()
+    {
+        await using var stand = await Stand.StartAsync(configure: options => options.Hint = null);
+
+        var answer = await stand.Client.CallToolAsync("throws");
+
+        Assert.Equal("""{"ok":false,"error":"The disk is full.","type":"internal"}""", answer.Text());
     }
 
     [Fact]
@@ -302,6 +357,15 @@ public sealed class ToolFailuresTests
         [McpServerTool(Name = "throws"), Description("Throws.")]
         public static string Throws() => throw new InvalidOperationException("The disk is full.");
 
+        [McpServerTool(Name = "refuses_deep"), Description("Throws a refusal from deep inside.")]
+        public static string RefusesDeep() => throw new ToolRefusalException("Solution 'a.sln' is not loaded.", "Call load_solution first.", "notLoaded") { Details = new JsonObject { ["loaded"] = new JsonArray() } };
+
+        [McpServerTool(Name = "refuses_bare"), Description("Throws a refusal with no hint.")]
+        public static string RefusesBare() => throw new ToolRefusalException("No codebase to index.");
+
+        [McpServerTool(Name = "not_loaded"), Description("Throws an exception of the server's own for a caller's mistake.")]
+        public static string NotLoaded() => throw new NotLoadedException("Solution 'a.sln' is not loaded.");
+
         [McpServerTool(Name = "refuses"), Description("Answers the failure envelope as a string.")]
         public static string Refuses() => """{"ok":false,"error":"No such file."}""";
 
@@ -339,6 +403,9 @@ public sealed class ToolFailuresTests
             return "never";
         }
     }
+
+    /// <summary>A caller's mistake a sample server throws an exception of its own for.</summary>
+    public sealed class NotLoadedException(string message) : InvalidOperationException(message);
 
     /// <summary>The stages a sample parameter takes.</summary>
     [JsonConverter(typeof(JsonStringEnumConverter<Stage>))]

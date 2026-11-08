@@ -336,15 +336,20 @@ And for the server project (no kind):
   that JSON allows, `{"ok":true,"data":…}` or `{"ok":false,"error":"…","hint":"…","type":"…","data":…}` with a field
   that has no value left out, written by `ToolAnswer.Ok(data, shape)`, `ToolAnswer.Failed(error, hint, type, data)` or
   `ToolAnswer.From(answer, data)` from an `Answer<T>` (success is its error being null; `TryGet`, `As<TOther>()`, `Map`
-  and `ToolAnswer.Failed(answer)` carry it without copying a field), typed data through `ToolAnswer.Ok(data, typeInfo)`
+  and `ToolAnswer.Failed(answer)` carry it without copying a field; `Answer.Failed(error, hint, type, details)` needs no
+  type argument, and its `details`, what the work learned before it stopped, are the failure's `data`), typed data through `ToolAnswer.Ok(data, typeInfo)`
   with no tree of nodes, the data mapped from domain records in the server's `AnswerFields`. `ToolAnswer.Text(result)`
   is the envelope outside a result and `ToolAnswer.Of(envelope)` a stored one answered again. A failure is always `isError`
   and text alone; a success carries its data as the structured content, or the whole envelope (`AnswerShape.Envelope`,
-  for tools with an output schema), or none. `ToolAnswer.Word` spells an enum value in the casing the server chose,
+  for tools with an output schema of `Envelope<T>`), or none — data carried twice, in the text and beside it, and a
+  size budget counts the text. A picture follows the envelope in a block of its own (`result.WithImage(bytes, mime)`),
+  never base64 in the JSON. `ToolAnswer.Word` spells an enum value in the casing the server chose,
   `ToolAnswer.Moment` a moment; `ToolAnswer.ObjectInfo` is the generated `JsonObject` a job's result needs.
   `.ExplainFailures()` beside `AddMcpServer` answers a tool that threw with the envelope, `type` `internal`, logged once,
   and flags an envelope with `ok` false that a tool returned as a string; a cancelled call stays cancelled; arguments
-  the MCP SDK could not bind are `type` `arguments`, naming the parameter; `FailureOptions` words the rest. A job
+  the MCP SDK could not bind are `type` `arguments`, naming the parameter; a `ToolRefusalException` — a caller's mistake
+  found deep inside — is answered in its own error, hint and type and not logged; `FailureOptions` words the rest,
+  its error, hint and type each from the exception, so a server's own exception for a caller's mistake is a refusal. A job
   answered in the envelope is `JobAnswer.Envelope(report, beside, hint)`.
 - What a session's address grants it (`Snail.Sdk.Mcp.Hosting.Sessions`): a server many roles reach is opened at
   `…/mcp?root=/workspaces/<task>&tool=<name>&tool=…`, a URL the platform writes and the model never can.
@@ -513,8 +518,8 @@ every push. Beyond what a test of the code itself asserts:
     - **the guard rules** — `ToolGuards.Problems(tools)` on the list a client receives: snake-case names listed once,
       the tool and every parameter described, read-only or destructive stated, every allowed value named as a word of
       its own, English;
-    - **the answers** — `answer.IsOk()`, `Data()`, `Error()`, `Hint()` and `Report()` of `ToolAnswers` read the envelope
-      and the job's report, so no test parses a tool's text itself;
+    - **the answers** — `answer.IsOk()`, `Data()`, `Error()`, `Hint()`, `Type()` and `Report()` of `ToolAnswers` read
+      the envelope and the job's report, and `Images()` the pictures after it, so no test parses a tool's text itself;
     - **the HTTP contract** for a server with HTTP: the endpoint, its tools, the refusal of a browser's request.
       `HttpServerProgram.StartAsync(assembly, "SNAIL_<SHORT>_SERVER")` starts the same build or publication on a free
       loopback port (`Ports.Free()`), told through `SNAIL_MCP_<SHORT>_URL` — or the variable the test names, given the

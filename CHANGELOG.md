@@ -511,6 +511,13 @@ A change that a repository must act on says what to do.
   calls `ServerFolders.MoveFromSnailNames(name)` first, so a settings file left under the snail name is read by the
   start that moves it. A server may drop its own `ServerFolders.MoveFromSnailNames` call from `Program.cs`; one that
   keeps it moves nothing more.
+- `McpEndpoint.Read` refuses `ListensOnEveryInterface=true` when the endpoint is stdio — no transport and no port, a
+  port of 0, or `Transport=Stdio` — naming the variable: `SNAIL_MCP_<NAME>_LISTENS_ON_EVERY_INTERFACE (or
+  ListensOnEveryInterface in the settings file) is 'true'; the server answers over stdio, which opens no port, …`. Over
+  stdio the flag was ignored in silence, where its operator meant HTTP; Snail.MCP.FileSystem
+  (`IsEveryInterfaceWithoutHttp`) and Git (`ListensOnEveryInterface needs a Port`) refused it themselves, and may drop
+  those checks. Only the setting is refused — a container, a `Url` (where HTTP would listen) and the flag beside a port
+  or `Transport=Http`, as in an image, start as before.
 
 ### Fixed
 

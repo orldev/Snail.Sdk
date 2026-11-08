@@ -69,6 +69,61 @@ public sealed class McpEndpointTests
         Assert.Equal(8818, endpoint.Url.Port);
     }
 
+    /// <summary>Over stdio no port is opened, so the flag means nothing: an operator who set it meant HTTP, and is told so naming the variable (Snail.MCP.FileSystem, Git refused it themselves).</summary>
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("Stdio", null)]
+    [InlineData(null, "0")]
+    [InlineData("Stdio", "8818")]
+    public void Read_TheFlagOverStdio_IsRefusedNamingIt(string? transport, string? port)
+    {
+        var settings = Settings(new() { ["Transport"] = transport, ["Port"] = port, ["ListensOnEveryInterface"] = "true" });
+
+        var refusal = Assert.Throws<StartRefusedException>(() => McpEndpoint.Read(settings, Default, isHttpOnly: false, containerVariable: null, server: "demo"));
+
+        Assert.StartsWith("SNAIL_MCP_DEMO_LISTENS_ON_EVERY_INTERFACE (or ListensOnEveryInterface in the settings file) is 'true'; the server answers over stdio", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("SNAIL_MCP_DEMO_TRANSPORT (or Transport in the settings file) is Http", refusal.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Only the operator's setting is refused over stdio: a container, a flag set to false and a URL that says where HTTP would listen all start a stdio server.</summary>
+    [Theory]
+    [InlineData("ListensOnEveryInterface", "false", null)]
+    [InlineData("Url", "http://0.0.0.0:8818/", null)]
+    [InlineData("Url", "http://192.168.1.5:8818/", null)]
+    [InlineData("Transport", "Stdio", "true")]
+    public void Read_OverStdio_WhatOpensNoPort_IsNotRefused(string key, string value, string? container)
+    {
+        var settings = Settings(new() { [key] = value });
+
+        var endpoint = McpEndpoint.Read(settings, Default, isHttpOnly: false, container, server: "demo", new McpEndpointOptions { Reach = McpReach.LoopbackOnly });
+
+        Assert.Equal(McpTransport.Stdio, endpoint.Transport);
+    }
+
+    /// <summary>An image that sets the flag beside its port or transport serves HTTP as before, and so does a flag kept under the fallback section.</summary>
+    [Theory]
+    [InlineData("Port", "8818")]
+    [InlineData("Transport", "Http")]
+    public void Read_TheFlagOverHttp_ListensOnEveryInterface(string key, string value)
+    {
+        var atRoot = Read(new() { [key] = value, ["ListensOnEveryInterface"] = "true" });
+        var inSection = Read(new() { [$"Snail:{key}"] = value, ["Snail:ListensOnEveryInterface"] = "true" }, "Snail");
+
+        Assert.True(atRoot.ListensOnEveryInterface);
+        Assert.True(inSection.ListensOnEveryInterface);
+    }
+
+    /// <summary>The flag under the fallback section is refused over stdio too, named where it was found.</summary>
+    [Fact]
+    public void Read_TheFlagInTheSectionOverStdio_IsRefusedNamingIt()
+    {
+        var settings = Settings(new() { ["Snail:ListensOnEveryInterface"] = "true" });
+
+        var refusal = Assert.Throws<StartRefusedException>(() => McpEndpoint.Read(settings, Default, isHttpOnly: false, containerVariable: null, server: "demo", "Snail"));
+
+        Assert.StartsWith("SNAIL_MCP_DEMO_SNAIL__LISTENS_ON_EVERY_INTERFACE (or Snail:ListensOnEveryInterface in the settings file) is 'true'", refusal.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>A transport that is set decides; a port then only replaces the port of the URL.</summary>
     [Fact]
     public void Read_TransportStdioBesideAPort_IsStdio() =>

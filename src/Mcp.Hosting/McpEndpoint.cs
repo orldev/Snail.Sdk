@@ -57,8 +57,15 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// is listened on as named. A keyless server narrows that with <see cref="Read(IConfiguration, Uri, McpEndpointOptions)"/>
     /// and <see cref="McpReach"/>.
     /// </para>
+    /// <para>
+    /// Over stdio no port is opened, so <c>ListensOnEveryInterface=true</c> means nothing there, and is refused naming the
+    /// variable rather than ignored: an operator who set it meant HTTP and got stdio without a word, and
+    /// Snail.MCP.FileSystem and Git refused it themselves. Only the setting counts — the flag a container turns on is not
+    /// the operator's — and a <c>Url</c> stays allowed, since it says where HTTP would listen once a transport or a port
+    /// asks for it.
+    /// </para>
     /// </remarks>
-    /// <exception cref="StartRefusedException">A key holds what it cannot mean: a transport not named above, a URL that is not an absolute http one or names a host rather than an address, a port or a flag that is not one.</exception>
+    /// <exception cref="StartRefusedException">A key holds what it cannot mean: a transport not named above, a URL that is not an absolute http one or names a host rather than an address, a port or a flag that is not one, or <c>ListensOnEveryInterface=true</c> over stdio.</exception>
     public static McpEndpoint Read(IConfiguration settings, Uri defaultUrl) =>
         Read(settings, defaultUrl, isHttpOnly: false, Environment.GetEnvironmentVariable(ContainerVariable), ServerSettings.NameOf(Assembly.GetEntryAssembly()));
 
@@ -74,7 +81,7 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// read at the root alone did not look. A refusal names the key where it was found:
     /// <c>SNAIL_MCP_&lt;NAME&gt;_SNAIL__PORT (or Snail:Port in the settings file)</c> for a port in the section.
     /// </remarks>
-    /// <exception cref="StartRefusedException">A key holds what it cannot mean: a transport not named above, a URL that is not an absolute http one, a port or a flag that is not one.</exception>
+    /// <exception cref="StartRefusedException">A key holds what it cannot mean: a transport not named above, a URL that is not an absolute http one, a port or a flag that is not one, or <c>ListensOnEveryInterface=true</c> over stdio.</exception>
     /// <exception cref="ArgumentException">The section's name is empty or blank.</exception>
     public static McpEndpoint Read(IConfiguration settings, Uri defaultUrl, string fallbackSection)
     {
@@ -96,7 +103,7 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// <c>DOTNET_RUNNING_IN_CONTAINER is 'true'; …</c> — rather than served to the network.
     /// </para>
     /// </remarks>
-    /// <exception cref="StartRefusedException">A key holds what it cannot mean, as for <see cref="Read(IConfiguration, Uri)"/>, or an endpoint over HTTP is beyond the server's reach.</exception>
+    /// <exception cref="StartRefusedException">A key holds what it cannot mean, as for <see cref="Read(IConfiguration, Uri)"/> — <c>ListensOnEveryInterface=true</c> over stdio among them — or an endpoint over HTTP is beyond the server's reach.</exception>
     /// <exception cref="ArgumentException">The section's name or the server's is blank.</exception>
     public static McpEndpoint Read(IConfiguration settings, Uri defaultUrl, McpEndpointOptions options)
     {
@@ -173,7 +180,8 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
 
         var keys = new SettingKeys(settings, options.FallbackSection, server);
 
-        var transport = TransportOf(keys.Of("Transport"), isHttpOnly);
+        var transportSetting = keys.Of("Transport");
+        var transport = TransportOf(transportSetting, isHttpOnly);
         var port = PortOf(keys.Of("Port"), isHttpOnly);
         var address = keys.Of("Url", "Http:Url");
         var url = UrlOf(address, defaultUrl);
@@ -187,6 +195,8 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
 
         if (chosen is McpTransport.Http)
             reach.Check();
+        else if (reach.Flag is { } everyInterface)
+            throw new StartRefusedException($"{everyInterface.Name} is '{everyInterface.Value}'; the server answers over stdio, which opens no port, so it is false, or unset — or {transportSetting.Name} is Http.");
 
         return new McpEndpoint(chosen, url, reach.ListensOnEveryInterface) { UrlSetting = address.Value is null ? null : address.Path };
     }

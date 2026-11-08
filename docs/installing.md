@@ -205,6 +205,9 @@ guards its endpoint with a key of its own (Snail.MCP.Blender, AfterEffects); a `
 server listens on an address: an IP address, `localhost`, or `0.0.0.0` for every interface. A value a setting cannot
 mean — `Transport=Htpp`, a port that is not a number — stops the server at its start with a line that names the
 variable and the key of the settings file: `SNAIL_MCP_<SHORT>_PORT (or Port in the settings file) is 'eighty'; …`.
+So does `ListensOnEveryInterface=true` on a server that answers over stdio, which opens no port: the operator meant
+HTTP and would have got stdio without a word. A `Url` stays allowed over stdio, since it says where HTTP would listen,
+and so does a container.
 
 A server whose endpoint asks for no key keeps to loopback whatever its settings say, and says so in its README:
 

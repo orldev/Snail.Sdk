@@ -21,7 +21,7 @@ public static class JobOwners
     /// starts its jobs with that name.
     /// </para>
     /// <para>
-    /// The address is <see cref="ISessionAddress"/> of the request's services, which <c>RefuseWhatWasNotGranted</c>,
+    /// The address is <see cref="ISessionAddress"/> of the request's services, which <c>WithSessionGrant</c>,
     /// <c>WithSessionRoots</c> and the HTTP transport register; a server that registers none is refused with that said,
     /// since an owner read from nowhere would quietly leave every job to whoever holds its URI.
     /// </para>
@@ -88,7 +88,7 @@ public static class JobOwners
     private static string? RootOf(IServiceProvider services)
     {
         var address = services.GetService<ISessionAddress>()
-            ?? throw new InvalidOperationException("JobOwners.TaskOfCopy reads the session's address, and no ISessionAddress is registered: call RefuseWhatWasNotGranted, WithSessionRoots or WithSessionAddress.");
+            ?? throw new InvalidOperationException("JobOwners.TaskOfCopy reads the session's address, and no ISessionAddress is registered: call WithSessionGrant, WithSessionRoots or WithSessionAddress.");
 
         return address.Values(SessionRoots.Parameter).FirstOrDefault();
     }

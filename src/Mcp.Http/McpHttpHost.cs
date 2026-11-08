@@ -253,7 +253,7 @@ public static class McpHttpHost
         /// </para>
         /// <para>
         /// The session's address is read from each request (<c>WithSessionAddress</c>). Called before or after
-        /// <c>RefuseWhatWasNotGranted</c> and <c>WithSessionRoots</c> alike: its address replaces the empty one they register
+        /// <c>WithSessionGrant</c> and <c>WithSessionRoots</c> alike: its address replaces the empty one they register
         /// wherever it comes, and they add theirs only where there is none, so a server orders its registrations as it reads
         /// best — Snail.MCP.Security asked which order was the right one.
         /// </para>

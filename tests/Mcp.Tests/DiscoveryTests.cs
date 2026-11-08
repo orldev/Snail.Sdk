@@ -774,6 +774,17 @@ public sealed class RunToolsTests
         Assert.StartsWith("did you mean 'read_file'", ran.Hint(), StringComparison.Ordinal);
     }
 
+    /// <summary>The type was unknown_tool, the one word of the envelope in another case than notGranted and noSuchCommand.</summary>
+    [Fact]
+    public async Task Step_NamingNoTool_IsOfTheTypeNoSuchTool()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var ran = await stand.RunAsync(Step("read_fil"));
+
+        Assert.Equal("noSuchTool", ran.Type());
+    }
+
     [Fact]
     public async Task Step_WithAnArgumentItsToolDoesNotTake_IsRefused_AsADirectCallWouldBe()
     {
@@ -1001,6 +1012,16 @@ public sealed class SkillsTests
     }
 
     [Fact]
+    public async Task UnknownSkill_IsRefused_OfTheTypeNoSuchSkill()
+    {
+        await using var stand = await DiscoveryStand.StartAsync();
+
+        var refused = await stand.Client.CallToolAsync("sample_enable_skill", new Dictionary<string, object?> { ["name"] = "physics" });
+
+        Assert.Equal("noSuchSkill", refused.Type());
+    }
+
+    [Fact]
     public async Task Call_ToAToolOfASkillNotLoaded_LoadsIt()
     {
         await using var stand = await DiscoveryStand.StartAsync();
@@ -1212,7 +1233,7 @@ internal sealed class DiscoveryStand : IAsyncDisposable
 
         var server = builder.Services.AddMcpServer()
             .WithStreamServerTransport(toServer.Reader.AsStream(), toClient.Writer.AsStream())
-            .RefuseWhatWasNotGranted()
+            .WithSessionGrant()
             .WithArgumentCheck(checks)
             .WithToolDiscovery(discovery);
 

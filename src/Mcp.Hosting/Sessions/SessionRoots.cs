@@ -118,7 +118,7 @@ public sealed class SessionRootsOptions
     /// <para>
     /// Only where there is no address (<see cref="ISessionAddress.IsPresent"/>): a server over HTTP is reached by whoever
     /// reaches its port, and a session there that names no root at a server with no volume reaches nothing, as it did —
-    /// <c>RefuseSessionsItCannotServe</c> turns it away at the door either way. A configured volume, or a root a session
+    /// <c>UseSessionRoots</c> turns it away at the door either way. A configured volume, or a root a session
     /// names, confines the server as before.
     /// </para>
     /// </remarks>

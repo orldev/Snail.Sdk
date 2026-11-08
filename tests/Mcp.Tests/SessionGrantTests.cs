@@ -387,7 +387,7 @@ public sealed class ToolForwardingWithoutARequestTests
         var services = new ServiceCollection();
 
         services.AddSingleton(address);
-        services.AddMcpServer().RefuseWhatWasNotGranted(configure);
+        services.AddMcpServer().WithSessionGrant(configure);
 
         return services.BuildServiceProvider();
     }
@@ -427,7 +427,7 @@ internal sealed class SessionStand : IAsyncDisposable
 
         builder.Services.AddMcpServer()
             .WithStreamServerTransport(toServer.Reader.AsStream(), toClient.Writer.AsStream())
-            .RefuseWhatWasNotGranted(configure)
+            .WithSessionGrant(configure)
             .WithTools<NoteTools>();
 
         var host = builder.Build();

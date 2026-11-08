@@ -18,7 +18,7 @@ public sealed class ForwardsAttribute : Attribute;
 /// <summary>The one way a tool calls another tool of its server: held to the session's grant, and never one forwarder inside another.</summary>
 /// <remarks>
 /// <para>
-/// A tool that invokes another tool's object runs past the door (<see cref="SessionRegistration.RefuseWhatWasNotGranted"/>),
+/// A tool that invokes another tool's object runs past the door (<see cref="SessionRegistration.WithSessionGrant"/>),
 /// which sees only what the protocol delivers. Three servers of the fleet let a role granted <c>run_tools</c> call every
 /// tool they had, the withheld ones included, until each checked the grant again in its forwarder — and each wrote that
 /// check itself. Here it is written once: a forwarder that calls its steps through <see cref="CallAsync"/> cannot forget it.

@@ -327,7 +327,7 @@ A change that a repository must act on says what to do.
   Nine servers kept a `SessionGrant` of their own, four a `SessionRoots`, three a `SessionCopy`, and three let a role
   granted `run_tools` reach every tool they had, because their copies held at the door and nowhere else. A server that
   keeps one of those deletes it and its `ISessionAddress`, `HttpAddress` and `StdioAddress`, and takes these instead:
-  - `.RefuseWhatWasNotGranted()` beside `AddMcpServer`: a call to a tool the address (`?tool=`) did not name is refused
+  - `.WithSessionGrant()` beside `AddMcpServer`: a call to a tool the address (`?tool=`) did not name is refused
     in the fleet's words — in the answer envelope, type `notGranted` (`GrantOptions.NotGranted`) with the hint
     `GrantOptions.Hint`, lowercase and without a closing stop as the hints beside it are — and the tool is left
     out of the list (`GrantOptions.HidesWithheldTools`, true). The words speak of "this request" instead of "this
@@ -363,7 +363,7 @@ A change that a repository must act on says what to do.
     inside it"), and their twins for a folder. `SessionRootsOptions.RootsSetting` names the server's setting —
     `SNAIL_MCP_DOCUMENTS_ROOTS__0`, the first entry of the list, since the bare `SNAIL_MCP_DOCUMENTS_ROOTS` binds
     nothing to a list and an operator who set it still had a server serving nothing — in the hint to a session with no
-    root ("or set …", instead of "or configure the server's roots"), there and at `RefuseSessionsItCannotServe`'s door. Every refusal carries its kind in
+    root ("or set …", instead of "or configure the server's roots"), there and at `UseSessionRoots`'s door. Every refusal carries its kind in
     `Reached.Type` — `outside`, `noRoot`, `noPath`, `unfollowable`, `unreadable`, `absent`, `notAFile`, `notAFolder` (constants on
     `Reached`) — and `reached.As<T>()` hands it on as a tool's failure with its words, hint and kind;
     `Reached.IsAllowed` tells the compiler that `Path` is set when it holds and `Refusal` when it does not, so
@@ -435,12 +435,12 @@ A change that a repository must act on says what to do.
     `SessionCopy.IsTaskId`, which read the environment once only to throw it away.
 - `WithSessionAddress()` of `Snail.Sdk.Mcp.Http` reads the session's address from the query of each request;
   `WithLocalHttpTransport()` adds it by itself, and a server on the MCP SDK's default transport calls it beside
-  `WithHttpTransport()` — before or after `RefuseWhatWasNotGranted()` and `WithSessionRoots()`, alike.
+  `WithHttpTransport()` — before or after `WithSessionGrant()` and `WithSessionRoots()`, alike.
   `JobOwners.Session` owns a job by the MCP session of the request — `.WithJobs("<short>", JobOwners.Session)`, and
-  `JobOwners.Session(services)` for the tool that starts it — read from `HttpSessions.SessionHeader` (`Mcp-Session-Id`),
+  `JobOwners.Session(services)` for the tool that starts it — read from `HttpSessions.Header` (`Mcp-Session-Id`),
   which the MCP SDK checks against a session it opened; a transport that keeps no sessions leaves the header unchecked,
   so there it names nobody. Snail.MCP.Sandbox drops its `SessionOwner`.
-  `app.RefuseSessionsItCannotServe(services => volumes)` replaces the `RefuseASessionItCannotServe` of
+  `app.UseSessionRoots(services => volumes)` replaces the `RefuseASessionItCannotServe` of
   Snail.MCP.FileSystem, Documents, Git and Roslyn, with their words: 400 for a root this machine does not have, a root
   outside the volumes, or no root where no volume is configured — after a 403 to a request with an `Origin`, whichever of
   it and `MapLocalMcp` is called first.
@@ -553,7 +553,7 @@ A change that a repository must act on says what to do.
     as the hint; `run_tools` checks its steps alike. Without it a missing parameter was the MCP SDK's "An error occurred
     invoking …" and an unknown one was dropped without a word. `ArgumentCheckOptions.Synonyms` offers what a name spelled
     like nothing it means stands for — `.WithArgumentCheck(options => options.Synonyms["query"] = ["task", "intent"])`
-    (Blender's logs). Register it after `.RefuseWhatWasNotGranted()`.
+    (Blender's logs). Register it after `.WithSessionGrant()`.
   - `.WithSkills(options => …)` with `[Skill(name, description)]` on a tool class: the skill's tools are registered like
     any other (`.WithTools<MaterialTools>()`) and left out of a session's list until it loads the skill with
     `<short>_enable_skill` (`<short>_skills` lists, `<short>_disable_skill` unloads; `SkillOptions.Prefix`, `ae` or
@@ -641,7 +641,7 @@ A change that a repository must act on says what to do.
   `JobAnswer.Envelope`) beside `.ExplainFailures()`; over HTTP the host is `McpHttpHost.CreateBuilder(args,
   McpEndpoint.Read(…), settings)` over the settings it read once — the container builder chosen by the endpoint, no
   longer by the template; over stdio `McpHost.CreateBuilder(args, settings)` — with `MapHealth()`
-  and `.RefuseWhatWasNotGranted()` answering a refusal in the envelope — `McpEndpoint.ReadHttp` for a server of HTTP
+  and `.WithSessionGrant()` answering a refusal in the envelope — `McpEndpoint.ReadHttp` for a server of HTTP
   alone, which refuses `Transport=Stdio` at the start; its HTTP contract, which no longer sets the transport itself,
   waits for `/healthz` and
   checks a session's `?tool=` grant, and its tests read answers with `IsOk`/`Data`/`Error`/`Report`. The Sdk tests

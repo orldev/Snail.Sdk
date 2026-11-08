@@ -33,6 +33,9 @@ internal static class SkillTools
     /// <summary>The revision from which a client hears only the notices it subscribed to.</summary>
     private const string SubscribingRevision = "2026-07-28";
 
+    /// <summary>The type of a call that names a skill the server does not have, in the fleet's case as <c>noSuchCommand</c> is.</summary>
+    internal const string NoSuchSkill = "noSuchSkill";
+
     /// <summary>Tells the session its tool list changed: in the reply to the call that changed it, or through its subscription.</summary>
     /// <remarks>
     /// A client before the 2026-07-28 revision is told in the response it is already reading: over HTTP Claude Code never
@@ -176,7 +179,7 @@ internal static class SkillTools
         ServerTools.Named(server, tool) is { } found ? ToolCatalog.SkillOf(found) : null;
 
     private static CallToolResult Unknown(string name, IReadOnlyList<Skill> skills) =>
-        ToolAnswer.Failed($"this server has no skill '{name}'", $"its skills are {string.Join(", ", skills.Select(skill => skill.Name))}", "unknown_skill");
+        ToolAnswer.Failed($"this server has no skill '{name}'", $"its skills are {string.Join(", ", skills.Select(skill => skill.Name))}", NoSuchSkill);
 
     private static JsonObject Described(Skill skill, LoadedSkills loaded) => new()
     {

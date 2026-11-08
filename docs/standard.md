@@ -390,14 +390,14 @@ And for the server project (no kind):
   output schema, and a check of the envelope does not apply to it.
 - What a session's address grants it (`Snail.Sdk.Mcp.Hosting.Sessions`): a server many roles reach is opened at
   `…/mcp?root=/workspaces/<task>&tool=<name>&tool=…`, a URL the platform writes and the model never can.
-  `.RefuseWhatWasNotGranted()` refuses and hides a tool the address did not name (`SessionGrant`, or the server's own
+  `.WithSessionGrant()` refuses and hides a tool the address did not name (`SessionGrant`, or the server's own
   `IToolGate`); a tool that calls other tools carries `[Forwards]` and calls each through `ToolForwarding.CallAsync`, so
   no forwarder widens a grant and none runs another. `.WithSessionRoots(volumes)` confines paths to the named roots
   inside the configured volumes, every link followed (`SessionRoots.Reach`, `RealPath`), a file or a folder where the
   tool needs one (`mustBe`), each refusal with its kind (`Reached.Type`) and handed on as a tool's failure by
   `reached.As<T>()` — a disk that fails while a path is reached among them, `unreadable`, never the server's failure; a
   server whose disk is behind a port of its own reaches paths on it (`SessionRootsOptions.Disk`, an `IRootsDisk`), so a
-  test can hand it a disk that fails — and over HTTP `app.RefuseSessionsItCannotServe(volumes)` turns away at the door a session
+  test can hand it a disk that fails — and over HTTP `app.UseSessionRoots(volumes)` turns away at the door a session
   whose root the machine does not have or the volumes do not hold — every root a session names, at a server configured
   with no volume, unless it reaches any named root (`SessionRootsOptions.ReachesAnyNamedRoot`, Snail.MCP.Roslyn on
   loopback). Over stdio there is no address
@@ -406,7 +406,7 @@ And for the server project (no kind):
   `notGranted` whichever layer refuses it — the door, a forwarder, a catalog (`ToolForwarding.Refused`), a program —
   and a refusal speaks of "this request" where the transport keeps no sessions — a path outside the roots as outside
   the roots its address named, or the server's, since a request works in nothing. Both registrations go before or after
-  the HTTP transport alike — `.RefuseWhatWasNotGranted()` before `.WithLocalHttpTransport()` or after it, the same server; `services.AddSessionRoots(volumes)` registers the roots where there is no MCP builder. The task of a step is the first folder of its copy under the workspaces
+  the HTTP transport alike — `.WithSessionGrant()` before `.WithLocalHttpTransport()` or after it, the same server; `services.AddSessionRoots(volumes)` registers the roots where there is no MCP builder. The task of a step is the first folder of its copy under the workspaces
   (`WorkspaceCopy.Of`, which says why a root is no copy, and `copy.ToAnswer(…)` hands the copy on as an
   `Answer<WorkspacePlace<TTask>>` in the server's words), and a server many tasks share owns its jobs by it
   (`JobOwners.TaskOfCopy`, a task type of the server's own named by its `ownerOf`) or by the MCP session (`JobOwners.Session` of `Snail.Sdk.Mcp.Http`).

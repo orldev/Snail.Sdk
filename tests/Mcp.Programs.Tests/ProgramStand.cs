@@ -41,7 +41,7 @@ internal sealed class ProgramStand : IAsyncDisposable
 
         var server = builder.Services.AddMcpServer()
             .WithStreamServerTransport(toServer.Reader.AsStream(), toClient.Writer.AsStream())
-            .RefuseWhatWasNotGranted(grant)
+            .WithSessionGrant(grant)
             .ExplainFailures()
             .WithTools<NoteTools>();
 

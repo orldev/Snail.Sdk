@@ -33,7 +33,7 @@ What every Snail MCP server starts from:
   job with its hint and type, and `JobAnswer.Envelope` or `JobAnswer.Result` answers the tool — `JobAnswer.Pending` a
   job still running.
 - `Snail.Sdk.Mcp.Hosting.Sessions`: what a session's address (`?tool=`, `?root=`) grants it.
-  `.RefuseWhatWasNotGranted()` refuses and hides a tool the session was not granted (`SessionGrant`, or a gate of the
+  `.WithSessionGrant()` refuses and hides a tool the session was not granted (`SessionGrant`, or a gate of the
   server's own, `IToolGate`); `ToolForwarding.CallAsync` is how a `[Forwards]` tool such as `run_tools` calls a step,
   held to the same grant, and `ToolForwarding.Refused` gives a catalog of commands the door's refusal, type
   `notGranted`; `SessionRoots` and `RealPath` say whether a path lies in the session's roots with every link

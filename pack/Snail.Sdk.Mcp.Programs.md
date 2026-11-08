@@ -14,7 +14,7 @@ A server opts in: a reference without a version (the `Snail.Sdk.Mcp` level gives
 ```csharp
 builder.Services.AddMcpServer()
     .WithTools<NoteTools>()
-    .RefuseWhatWasNotGranted()
+    .WithSessionGrant()
     .WithPrograms<ToolCommands>(options => options.Global = "notes");
 ```
 

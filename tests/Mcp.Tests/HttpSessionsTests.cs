@@ -34,7 +34,7 @@ public sealed class HttpSessionsTests
     [Fact]
     public async Task Grant_OverHttp_HidesAndRefusesWhatTheAddressDidNotName()
     {
-        await using var app = await StartAsync(builder => builder.WithLocalHttpTransport().RefuseWhatWasNotGranted(), null);
+        await using var app = await StartAsync(builder => builder.WithLocalHttpTransport().WithSessionGrant(), null);
 
         await using var client = await ConnectAsync(app, "?tool=address");
         var listed = await client.ListToolsAsync();
@@ -47,7 +47,7 @@ public sealed class HttpSessionsTests
     [Fact]
     public async Task Grant_OverHttp_WhereOneIsRequired_RefusesASessionThatNamedNone()
     {
-        await using var app = await StartAsync(builder => builder.WithLocalHttpTransport().RefuseWhatWasNotGranted(options => options.RequiresGrant = true), null);
+        await using var app = await StartAsync(builder => builder.WithLocalHttpTransport().WithSessionGrant(options => options.RequiresGrant = true), null);
 
         await using var client = await ConnectAsync(app, string.Empty);
         var refused = await client.CallToolAsync("address");
@@ -160,7 +160,7 @@ public sealed class HttpSessionsTests
     [Fact]
     public async Task Grant_OnATransportWithoutSessions_RefusesInTheWordsOfTheRequest()
     {
-        await using var app = await StartAsync(builder => builder.WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless).WithSessionAddress().RefuseWhatWasNotGranted(), null);
+        await using var app = await StartAsync(builder => builder.WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless).WithSessionAddress().WithSessionGrant(), null);
 
         await using var client = await ConnectAsync(app, "?tool=address");
         var refused = await client.CallToolAsync("read_note");
@@ -209,7 +209,7 @@ public sealed class HttpSessionsTests
     [InlineData(false)]
     public async Task Grant_HoldsWhicheverOfItAndTheTransportIsCalledFirst(bool isGrantFirst)
     {
-        await using var app = await StartAsync(builder => isGrantFirst ? builder.RefuseWhatWasNotGranted().WithLocalHttpTransport() : builder.WithLocalHttpTransport().RefuseWhatWasNotGranted(), null);
+        await using var app = await StartAsync(builder => isGrantFirst ? builder.WithSessionGrant().WithLocalHttpTransport() : builder.WithLocalHttpTransport().WithSessionGrant(), null);
 
         await using var client = await ConnectAsync(app, "?tool=address");
         var listed = await client.ListToolsAsync();
@@ -277,7 +277,7 @@ public sealed class HttpSessionsTests
     public async Task JobOwner_OnATransportWithoutSessions_IsNobody_WhateverTheHeaderSays()
     {
         await using var app = await StartAsync(builder => builder.WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless).WithSessionAddress().WithTools<OwnerTools>(), null);
-        var options = new HttpClientTransportOptions { Endpoint = Endpoint(app, string.Empty), AdditionalHeaders = new Dictionary<string, string> { [HttpSessions.SessionHeader] = "someone-else" } };
+        var options = new HttpClientTransportOptions { Endpoint = Endpoint(app, string.Empty), AdditionalHeaders = new Dictionary<string, string> { [HttpSessions.Header] = "someone-else" } };
 
         await using var client = await McpClient.CreateAsync(new HttpClientTransport(options));
 
@@ -306,7 +306,7 @@ public sealed class HttpSessionsTests
         var app = builder.Build();
 
         if (volumes is not null)
-            app.RefuseSessionsItCannotServe(volumes);
+            app.UseSessionRoots(volumes);
 
         app.MapLocalMcp();
         await app.StartAsync();

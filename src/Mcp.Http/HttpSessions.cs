@@ -13,7 +13,7 @@ namespace Snail.Sdk.Mcp.Http;
 public static partial class HttpSessions
 {
     /// <summary>The header Streamable HTTP carries a session's id in, from the response to <c>initialize</c> on.</summary>
-    public const string SessionHeader = "Mcp-Session-Id";
+    public const string Header = "Mcp-Session-Id";
 
     extension(IMcpServerBuilder builder)
     {
@@ -22,7 +22,7 @@ public static partial class HttpSessions
         /// <c>WithLocalHttpTransport</c> registers it by itself; a server on the MCP SDK's default transport, which keeps no
         /// sessions, calls this beside <c>WithHttpTransport</c>. Every request of a session is posted to the same URL, so the
         /// query of the current one answers about the session; outside a request — a job that outlived its call — it
-        /// answers nothing. Called before or after <c>RefuseWhatWasNotGranted</c> and <c>WithSessionRoots</c> alike: it
+        /// answers nothing. Called before or after <c>WithSessionGrant</c> and <c>WithSessionRoots</c> alike: it
         /// replaces the address they register, and they add theirs only where there is none. Its
         /// <see cref="ISessionAddress.Subject"/> is <c>request</c> on a transport that keeps no sessions
         /// (<c>HttpServerSessionMode.Stateless</c>), so a refusal there speaks of the request rather than of a session.
@@ -48,7 +48,7 @@ public static partial class HttpSessions
         /// since the MCP SDK keeps its name internal.
         /// </para>
         /// <para>
-        /// Read from the <see cref="SessionHeader"/> of the request being served, which the MCP SDK checks against a
+        /// Read from the <see cref="Header"/> of the request being served, which the MCP SDK checks against a
         /// session it opened before any handler runs, so a client cannot claim another's. A transport that keeps no
         /// sessions (<c>HttpServerSessionMode.Stateless</c>) leaves the header unchecked, so there it names nobody, as it
         /// does over stdio: such jobs belong to whoever holds their URI. It needs the request: <c>WithLocalHttpTransport</c>
@@ -67,7 +67,7 @@ public static partial class HttpSessions
             if (IsStateless(services))
                 return null;
 
-            return requests.HttpContext?.Request.Headers[SessionHeader] is { Count: > 0 } session && !string.IsNullOrWhiteSpace(session) ? session.ToString() : null;
+            return requests.HttpContext?.Request.Headers[Header] is { Count: > 0 } session && !string.IsNullOrWhiteSpace(session) ? session.ToString() : null;
         }
     }
 
@@ -96,7 +96,7 @@ public static partial class HttpSessions
         /// </remarks>
         /// <param name="volumes">The folders the server serves, as given to <c>WithSessionRoots</c>.</param>
         /// <param name="path">The MCP endpoint; any other path is let through.</param>
-        public WebApplication RefuseSessionsItCannotServe(Func<IServiceProvider, IReadOnlyList<string>> volumes, string path = McpHttpHost.DefaultPath)
+        public WebApplication UseSessionRoots(Func<IServiceProvider, IReadOnlyList<string>> volumes, string path = McpHttpHost.DefaultPath)
         {
             ArgumentNullException.ThrowIfNull(volumes);
             ArgumentException.ThrowIfNullOrWhiteSpace(path);

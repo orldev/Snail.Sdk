@@ -19,7 +19,7 @@ public sealed class InProcessServerTests
             builder.Services.AddSingleton(notes);
             builder.Services.AddMcpServer()
                 .WithLocalHttpTransport()
-                .RefuseWhatWasNotGranted()
+                .WithSessionGrant()
                 .ExplainFailures()
                 .WithTools<NoteTools>()
                 .WithPrograms<NoteCommands>(options => options.Global = "notes");

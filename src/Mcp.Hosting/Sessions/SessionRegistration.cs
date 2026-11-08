@@ -29,7 +29,7 @@ public static class SessionRegistration
         /// registers itself, before or after, is the one asked. Called twice, it registers once.
         /// </para>
         /// </remarks>
-        public IMcpServerBuilder RefuseWhatWasNotGranted(Action<GrantOptions>? configure = null)
+        public IMcpServerBuilder WithSessionGrant(Action<GrantOptions>? configure = null)
         {
             if (builder.Services.Any(service => service.ServiceType == typeof(GrantOptions)))
                 return builder;
@@ -58,8 +58,8 @@ public static class SessionRegistration
         /// </summary>
         /// <remarks>
         /// The volumes are read once, when the roots are first asked for; the address on every question. The same function
-        /// given to <c>RefuseSessionsItCannotServe</c> of <c>Snail.Sdk.Mcp.Http</c> turns away at the door a session whose
-        /// root this machine does not have or the volumes do not hold. Like <see cref="RefuseWhatWasNotGranted"/>, it is
+        /// given to <c>UseSessionRoots</c> of <c>Snail.Sdk.Mcp.Http</c> turns away at the door a session whose
+        /// root this machine does not have or the volumes do not hold. Like <see cref="WithSessionGrant"/>, it is
         /// called before or after <c>WithLocalHttpTransport</c> or <c>WithSessionAddress</c> alike. Called twice, it
         /// registers once.
         /// </remarks>

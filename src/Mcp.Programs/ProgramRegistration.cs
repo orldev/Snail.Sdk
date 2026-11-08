@@ -21,7 +21,7 @@ public static class ProgramRegistration
         /// <para>
         /// <typeparamref name="TCommands"/> is resolved from the services of each request, registered scoped unless the server
         /// registered it itself; <see cref="ToolCommands"/> is made over the server's own tools instead. Before every command
-        /// the gate of <c>RefuseWhatWasNotGranted</c> is asked for the command's tool, and a refusal reaches the program as an
+        /// the gate of <c>WithSessionGrant</c> is asked for the command's tool, and a refusal reaches the program as an
         /// exception it may catch. The tool is destructive and open-world, since a program reaches whatever its commands reach.
         /// </para>
         /// <para>

@@ -11,7 +11,7 @@ namespace Snail.Sdk.Mcp.Hosting.Sessions;
 /// <para>
 /// Nine servers of the fleet kept a copy of this class, and a role granted <c>run_tools</c> reached every tool of three of
 /// them — the copies held at the door and nowhere else. The grant is checked at the door by
-/// <see cref="SessionRegistration.RefuseWhatWasNotGranted"/> and for every forwarded step by <see cref="ToolForwarding"/>,
+/// <see cref="SessionRegistration.WithSessionGrant"/> and for every forwarded step by <see cref="ToolForwarding"/>,
 /// both through <see cref="IToolGate"/>.
 /// </para>
 /// </remarks>

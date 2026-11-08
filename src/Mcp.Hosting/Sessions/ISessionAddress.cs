@@ -42,7 +42,7 @@ public static class SessionAddress
     /// <summary>No address: what a server started as a program has, and what reads it outside any request.</summary>
     /// <remarks>
     /// It answers nothing, so a grant names no tool and the roots are the configured volumes. Registered by
-    /// <see cref="SessionRegistration.RefuseWhatWasNotGranted"/> and <see cref="SessionRegistration.WithSessionRoots"/>
+    /// <see cref="SessionRegistration.WithSessionGrant"/> and <see cref="SessionRegistration.WithSessionRoots"/>
     /// unless a transport gives one; a benchmark or a test that builds <see cref="SessionRoots"/> by hand passes it, as
     /// Snail.MCP.Documents' benchmark kept a <c>NoAddress</c> of its own to do.
     /// </remarks>

@@ -14,7 +14,7 @@ One Snail MCP server for every session of the machine, over Streamable HTTP:
   web page can reach the server; `UseBrowserRefusal(path, port)` is that refusal alone. `MapHealth()`: `/healthz`, 200
   with no body; `MapHealth(path, check)` answers 503 while the server cannot serve, with the JSON body the check gives.
 - `WithSessionAddress()`: the session's address read from the query of each request — `WithLocalHttpTransport` adds it
-  by itself — and `RefuseSessionsItCannotServe(volumes)`: 400 at the door for a session whose root this machine does
+  by itself — and `UseSessionRoots(volumes)`: 400 at the door for a session whose root this machine does
   not have or the volumes do not hold.
 - `JobOwners.Session`: a job owned by the MCP session that started it, `.WithJobs("<short>", JobOwners.Session)`.
 

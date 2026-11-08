@@ -4,7 +4,7 @@ using Snail.Sdk.Mcp.Hosting.Answers;
 
 namespace Snail.Sdk.Mcp.Hosting.Sessions;
 
-/// <summary>How <see cref="SessionRegistration.RefuseWhatWasNotGranted"/> holds a session to its grant.</summary>
+/// <summary>How <see cref="SessionRegistration.WithSessionGrant"/> holds a session to its grant.</summary>
 public sealed class GrantOptions
 {
     /// <summary>Whether a tool the session may not call is left out of the list it is given; true unless set.</summary>

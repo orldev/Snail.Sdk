@@ -107,7 +107,7 @@ internal static partial class RunTools
         var named = step.Tool?.Trim() ?? string.Empty;
 
         if (ServerTools.Named(context.Server, named) is not { } tool)
-            return Step.Failed(named, $"this server has no tool '{named}'", NoSuchTool(context, named), "unknown_tool");
+            return Step.Failed(named, $"this server has no tool '{named}'", NoSuchTool(context, named), NoSuchToolType);
 
         var schema = tool.ProtocolTool.InputSchema;
 
@@ -154,6 +154,10 @@ internal static partial class RunTools
 
         return new RequestContext<CallToolRequestParams>(context.Server, context.JsonRpcRequest, parameters) { MatchedPrimitive = tool, Services = context.Services };
     }
+
+    /// <summary>The type of a step that names a tool the server does not have.</summary>
+    /// <remarks>In the fleet's case, as <c>notGranted</c> and <c>noSuchCommand</c> are: it was <c>unknown_tool</c>, the one word of the envelope a client had to branch on in another spelling.</remarks>
+    internal const string NoSuchToolType = "noSuchTool";
 
     private static string NoSuchTool(RequestContext<CallToolRequestParams> context, string named)
     {

@@ -101,7 +101,7 @@ public static class DiscoveryRegistration
         /// for: <c>.WithArgumentCheck(options => options.Synonyms["query"] = ["task", "intent"])</c>.
         /// </para>
         /// <para>
-        /// A filter in the order of registration: called after <c>RefuseWhatWasNotGranted</c>, a session learns nothing about
+        /// A filter in the order of registration: called after <c>WithSessionGrant</c>, a session learns nothing about
         /// a tool it may not call. Called twice, it registers once.
         /// </para>
         /// </remarks>

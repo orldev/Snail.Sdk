@@ -51,7 +51,7 @@ public sealed class JobOwnersTests
 
         var refused = Assert.Throws<InvalidOperationException>(() => TaskOfCopy(services));
 
-        Assert.Contains("RefuseWhatWasNotGranted", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("WithSessionGrant", refused.Message, StringComparison.Ordinal);
     }
 
     /// <summary>#125: the overload of an id always gave the folder's name; a server with a task type of its own names the owner itself.</summary>

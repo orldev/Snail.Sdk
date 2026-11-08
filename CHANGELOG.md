@@ -174,7 +174,9 @@ A change that a repository must act on says what to do.
   `.WithPrograms<TCommands>(options => options.Global = "git")` beside `AddMcpServer`. A program is JavaScript run on
   Jint 4.17.0 beside the server, whose global object holds the server's commands — `git.status()`,
   `blender.add_primitive({ … })` — so work that decides as it goes costs one call. `TCommands` is an `IProgramCommands`
-  (`Names`, `ToolOf(command)`, `CallAsync`, answering a `ProgramAnswer`), or `ToolCommands`, every tool of the server
+  (`Names`, `ToolOf(command)`, `CallAsync`, answering a `ProgramAnswer`; `CallAsync(command, arguments, context, …)`
+  hands a command the request of `run_program` — its session, services and progress token — and calls the one without
+  it unless a catalog overrides it), or `ToolCommands`, every tool of the server
   but the forwarders, `notes_read` called as `notes.read()`, through `ToolForwarding.CallAsync`. The tool is marked
   `[Forwards]`; before every command the session's gate is asked for the command's tool, and a refusal, like any failed
   command, reaches the program as `{ error, message, hint, type, details }`, which it may catch. A command the server

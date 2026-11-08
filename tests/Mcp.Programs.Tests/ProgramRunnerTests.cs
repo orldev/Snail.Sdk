@@ -258,7 +258,7 @@ public sealed class ProgramRunnerTests
         var options = new ProgramOptions { Global = "git" };
         configure?.Invoke(options);
 
-        return new ProgramRunner(options).RunAsync(commands ?? _catalog, code, input, timeout, refusal, cancellationToken);
+        return new ProgramRunner(options).RunAsync(commands ?? _catalog, code, input, timeout, refusal, cancellationToken: cancellationToken);
     }
 
     private sealed class Named(IReadOnlyList<string> names) : IProgramCommands

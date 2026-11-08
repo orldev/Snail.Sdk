@@ -19,8 +19,9 @@ builder.Services.AddMcpServer()
 ```
 
 - `WithPrograms<TCommands>(configure)` registers `run_program(code, input, timeoutSeconds)`, marked `[Forwards]`.
-  `TCommands` is an `IProgramCommands` — the server's own catalog, its names and the tool each stands for — or
-  `ToolCommands`, every tool of the server but the forwarders, `notes_read` called as `notes.read()`.
+  `TCommands` is an `IProgramCommands` — the server's own catalog, its names and the tool each stands for, each command
+  handed the request of `run_program` when it needs the session or its services — or `ToolCommands`, every tool of the
+  server but the forwarders, `notes_read` called as `notes.read()`.
 - The session's gate is asked for every command's tool before it runs; a refusal, like any failed command, reaches the
   program as `{ error, hint, type }`, which it may catch.
 - A command the server does not have stops the program with the names nearest to it, not with "is not a function";

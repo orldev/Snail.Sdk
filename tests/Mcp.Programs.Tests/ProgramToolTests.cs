@@ -161,6 +161,32 @@ public sealed partial class ProgramToolTests
         Assert.Empty(stand.Notes.Written);
     }
 
+    /// <summary>A catalog that needs the session, the services of the request or its progress token reads them from the request it is handed.</summary>
+    [Fact]
+    public async Task Command_IsHandedTheRequestOfRunProgram()
+    {
+        await using var stand = await ProgramStand.StartAsync(Everything, server =>
+        {
+            server.Services.AddSingleton<RequestCommands>();
+
+            return server.WithPrograms<RequestCommands>(options => options.Global = "notes");
+        });
+
+        var answer = await stand.RunAsync("return notes.request();");
+
+        Assert.True(answer.IsOk(), answer.Text());
+        Assert.Equal("""{"tool":"run_program","code":"return notes.request();","notes":0}""", answer.Data()!["result"]!.ToJsonString());
+    }
+
+    /// <summary>A catalog written before the request was handed over implements only the call without it, and runs unchanged.</summary>
+    [Fact]
+    public async Task Runner_GivenNoRequest_CallsTheCommandWithoutIt()
+    {
+        var run = await new ProgramRunner(new ProgramOptions { Global = "notes" }).RunAsync(new RequestCommands(), "try { notes.request(); } catch (e) { return e.type; }");
+
+        Assert.Equal("noRequest", run.Result!.GetValue<string>());
+    }
+
     [Fact]
     public async Task ToolCommands_NeverOfferAForwarder()
     {

@@ -8,6 +8,8 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
+using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
 using Snail.Sdk.Mcp.Hosting.Answers;
 
 namespace Snail.Sdk.Mcp.Programs;
@@ -64,6 +66,7 @@ public sealed class ProgramRunner(ProgramOptions options)
     /// <param name="input">What the program reads as <c>input</c>; an empty object when null.</param>
     /// <param name="timeout">How long it may run; <see cref="ProgramOptions.Timeout"/> when null.</param>
     /// <param name="refusal">Why the session may not call a tool, or null when it may, asked with <see cref="IProgramCommands.ToolOf"/> before every command; every command is allowed when null.</param>
+    /// <param name="context">The request of <c>run_program</c>, handed to every command through <see cref="IProgramCommands.CallAsync(string, JsonObject, RequestContext{CallToolRequestParams}, CancellationToken)"/>; when null, the commands are called without it.</param>
     /// <param name="cancellationToken">Ends the program, which then reports <see cref="ProgramFailures.Cancelled"/>.</param>
     public Task<ProgramRun> RunAsync(
         IProgramCommands commands,
@@ -71,6 +74,7 @@ public sealed class ProgramRunner(ProgramOptions options)
         JsonObject? input = null,
         TimeSpan? timeout = null,
         Func<string, string?>? refusal = null,
+        RequestContext<CallToolRequestParams>? context = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(commands);
@@ -81,7 +85,7 @@ public sealed class ProgramRunner(ProgramOptions options)
 
         return Task.Run(() =>
         {
-            using var execution = new Execution(options, commands, refusal, given, cancellationToken);
+            using var execution = new Execution(options, commands, refusal, context, given, cancellationToken);
 
             return execution.Run(code, input);
         });
@@ -93,6 +97,7 @@ public sealed class ProgramRunner(ProgramOptions options)
         private readonly ProgramOptions _options;
         private readonly IProgramCommands _commands;
         private readonly Func<string, string?>? _refusal;
+        private readonly RequestContext<CallToolRequestParams>? _context;
         private readonly TimeSpan _timeout;
         private readonly CancellationToken _caller;
         private readonly CancellationTokenSource _deadline;
@@ -103,11 +108,12 @@ public sealed class ProgramRunner(ProgramOptions options)
         private readonly JsValue _parse;
         private readonly JsValue _stringify;
 
-        public Execution(ProgramOptions options, IProgramCommands commands, Func<string, string?>? refusal, TimeSpan timeout, CancellationToken caller)
+        public Execution(ProgramOptions options, IProgramCommands commands, Func<string, string?>? refusal, RequestContext<CallToolRequestParams>? context, TimeSpan timeout, CancellationToken caller)
         {
             _options = options;
             _commands = commands;
             _refusal = refusal;
+            _context = context;
             _timeout = timeout;
             _caller = caller;
             _deadline = CancellationTokenSource.CreateLinkedTokenSource(caller);
@@ -279,7 +285,9 @@ public sealed class ProgramRunner(ProgramOptions options)
 
             try
             {
-                answer = _commands.CallAsync(command, given, _deadline.Token).WaitAsync(_deadline.Token).GetAwaiter().GetResult();
+                var sent = _context is null ? _commands.CallAsync(command, given, _deadline.Token) : _commands.CallAsync(command, given, _context, _deadline.Token);
+
+                answer = sent.WaitAsync(_deadline.Token).GetAwaiter().GetResult();
             }
             catch (OperationCanceledException) when (_deadline.IsCancellationRequested)
             {

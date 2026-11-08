@@ -133,3 +133,27 @@ internal sealed class NoteCommands(Notes notes) : IProgramCommands
         return Task.FromResult(ProgramAnswer.Ok(new JsonObject { ["count"] = notes.Written.Count }));
     }
 }
+
+/// <summary>A catalog registered once for the server, which reads the request of <c>run_program</c> each command came with.</summary>
+internal sealed class RequestCommands : IProgramCommands
+{
+    public IReadOnlyList<string> Names { get; } = ["request"];
+
+    public string ToolOf(string command) => $"notes_{command}";
+
+    public Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, CancellationToken cancellationToken) =>
+        Task.FromResult(ProgramAnswer.Failed("called without the request", "run_program hands every command its request", "noRequest"));
+
+    public Task<ProgramAnswer> CallAsync(string command, JsonObject arguments, RequestContext<CallToolRequestParams> context, CancellationToken cancellationToken)
+    {
+        var notes = (context.Services ?? context.Server.Services)!.GetRequiredService<Notes>();
+        var answer = new JsonObject
+        {
+            ["tool"] = context.Params!.Name,
+            ["code"] = context.Params.Arguments?["code"].GetString(),
+            ["notes"] = notes.Written.Count,
+        };
+
+        return Task.FromResult(ProgramAnswer.Ok(answer));
+    }
+}

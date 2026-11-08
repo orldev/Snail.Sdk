@@ -22,6 +22,7 @@ override Snail.Sdk.Mcp.Programs.ProgramRun.GetHashCode() -> int
 override Snail.Sdk.Mcp.Programs.ProgramRun.ToString() -> string!
 Snail.Sdk.Mcp.Programs.IProgramCommands
 Snail.Sdk.Mcp.Programs.IProgramCommands.CallAsync(string! command, System.Text.Json.Nodes.JsonObject! arguments, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Programs.ProgramAnswer!>!
+Snail.Sdk.Mcp.Programs.IProgramCommands.CallAsync(string! command, System.Text.Json.Nodes.JsonObject! arguments, ModelContextProtocol.Server.RequestContext<ModelContextProtocol.Protocol.CallToolRequestParams!>! context, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Programs.ProgramAnswer!>!
 Snail.Sdk.Mcp.Programs.IProgramCommands.Names.get -> System.Collections.Generic.IReadOnlyList<string!>!
 Snail.Sdk.Mcp.Programs.IProgramCommands.ToolOf(string! command) -> string!
 Snail.Sdk.Mcp.Programs.ProgramAnswer
@@ -107,7 +108,7 @@ Snail.Sdk.Mcp.Programs.ProgramRun.Result.get -> System.Text.Json.Nodes.JsonNode?
 Snail.Sdk.Mcp.Programs.ProgramRun.Result.init -> void
 Snail.Sdk.Mcp.Programs.ProgramRunner
 Snail.Sdk.Mcp.Programs.ProgramRunner.ProgramRunner(Snail.Sdk.Mcp.Programs.ProgramOptions! options) -> void
-Snail.Sdk.Mcp.Programs.ProgramRunner.RunAsync(Snail.Sdk.Mcp.Programs.IProgramCommands! commands, string! code, System.Text.Json.Nodes.JsonObject? input = null, System.TimeSpan? timeout = null, System.Func<string!, string?>? refusal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Programs.ProgramRun!>!
+Snail.Sdk.Mcp.Programs.ProgramRunner.RunAsync(Snail.Sdk.Mcp.Programs.IProgramCommands! commands, string! code, System.Text.Json.Nodes.JsonObject? input = null, System.TimeSpan? timeout = null, System.Func<string!, string?>? refusal = null, ModelContextProtocol.Server.RequestContext<ModelContextProtocol.Protocol.CallToolRequestParams!>? context = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Programs.ProgramRun!>!
 Snail.Sdk.Mcp.Programs.ToolCommands
 Snail.Sdk.Mcp.Programs.ToolCommands.CallAsync(string! command, System.Text.Json.Nodes.JsonObject! arguments, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Snail.Sdk.Mcp.Programs.ProgramAnswer!>!
 Snail.Sdk.Mcp.Programs.ToolCommands.Names.get -> System.Collections.Generic.IReadOnlyList<string!>!

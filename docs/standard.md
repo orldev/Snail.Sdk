@@ -361,7 +361,7 @@ And for the server project (no kind):
 - A program instead of a call per step, when the server opts in (`Snail.Sdk.Mcp.Programs`, referenced without a
   version): `.WithPrograms<TCommands>(options => options.Global = "<short>")` registers `run_program(code, input,
   timeoutSeconds)`, a JavaScript program on Jint whose global object holds the server's commands — its own catalog
-  (`IProgramCommands`: the names, the tool each stands for, the call) or its tools (`ToolCommands`). The engine reaches
+  (`IProgramCommands`: the names, the tool each stands for, the call, handed the request of `run_program`) or its tools (`ToolCommands`). The engine reaches
   no type of the host; the session's gate is asked before every command, and a refusal, like a failed command, is an
   exception the program may catch; an unknown command stops it with the nearest names; `log(…)` belongs to the program,
   never to the commands. It is bounded in time, memory (32 MiB), depth (256), statements (a million), commands and the

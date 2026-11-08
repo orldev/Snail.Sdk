@@ -180,6 +180,47 @@ public sealed class FindToolTests
         Assert.Equal(0.0, vocabulary.Score(vocabulary.Asked("the"), "git_stage", null, "the"));
     }
 
+    /// <summary>
+    /// A word of one to three letters is a form of nothing but itself: the "s" of "composition's" answered "slerp", the "z"
+    /// of "+z" answered "zzzz" and the "e" and "g" of "e.g." every word they begin (Snail.MCP.AfterEffects, Blender).
+    /// </summary>
+    [Theory]
+    [InlineData("quaternion slerp gimbal")]
+    [InlineData("zzzz qqqq")]
+    [InlineData("granular entropy")]
+    public void Words_NoToolUses_FindNothing_RatherThanAGuess(string task)
+    {
+        IReadOnlyList<ToolEntry> entries =
+        [
+            new("comp_settings", "Changes the composition's frame rate, e.g. 25 or 30.", null, null, []),
+            new("mesh_extrude", "Extrudes faces along +z by a distance.", null, null, []),
+            new("layer_add", "Adds a layer to a composition, i.e. a solid, a null or a shape.", null, null, []),
+        ];
+
+        Assert.Empty(ToolCatalog.Find(entries, task, 5));
+    }
+
+    [Fact]
+    public void Forms_NeedFourLettersOnBothSides_AndTheCommonWordsOfADescriptionSayNothing()
+    {
+        var vocabulary = new Vocabulary([], null);
+
+        Assert.Equal(0.0, vocabulary.Score(["slerp"], "comp_settings", null, "The composition's rate."));
+        Assert.Equal(0.0, vocabulary.Score(["theirs"], "list_files", null, "Lists their files."));
+        Assert.Equal(1.0, vocabulary.Score(["rates"], "comp_settings", null, "The composition's rate."));
+        Assert.Equal(4.0, vocabulary.Score(["z"], "move_z", null, null));
+    }
+
+    [Fact]
+    public async Task Task_InWordsNoToolUses_IsNotMatched()
+    {
+        await using var stand = await DiscoveryStand.StartAsync(skills: false);
+
+        var found = await stand.FindAsync(new() { ["task"] = "zzzz qqqq" });
+
+        Assert.False(found["isMatched"]!.GetValue<bool>());
+    }
+
     [Fact]
     public async Task Task_ThatMatchesNothing_IsAnsweredWithEveryTool_AndANote()
     {

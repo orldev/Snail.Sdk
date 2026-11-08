@@ -274,8 +274,10 @@ A change that a repository must act on says what to do.
   `AddMcpServer` and each over the tools the server registers, so none keeps a catalog of its own:
   - `.WithToolDiscovery(options => …)` adds `find_tool(task, limit)`, `intent` taken for `task` (Blender's and
     AfterEffects' logs show clients sending either). It ranks the server's tools with the weights five servers arrived
-    at — 4 for a word of the name or of `DiscoveryOptions.Meanings`, 2.5 for a form of one (four letters shared), 1 for
-    a word of the description, English glue, `Noise` and the words of `Prefix` dropped — and answers
+    at — 4 for a word of the name or of `DiscoveryOptions.Meanings`, 2.5 for a form of one (the first four letters
+    shared by two words of four or more: a shorter word is a form of nothing but itself, or the "s" of "composition's"
+    answered "slerp" and the "z" of "+z" answered "zzzz"), 1 for a word of the description, English glue — of the task
+    and of the description alike — `Noise` and the words of `Prefix` dropped — and answers
     `{task, isMatched, note, tools:[{name, command, description, parameters:[{name, type, isRequired, description}]}]}`
     read from each tool's input schema, an array typed by its items (`string[]`, `integer[][]`; CleanUp's own index
     wrote `string[]`, not `array`). When nothing matched, or no task was given, `isMatched` is false and every tool is

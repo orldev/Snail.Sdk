@@ -127,7 +127,7 @@ public sealed class ProgramRunner(ProgramOptions options)
             try
             {
                 _engine.SetValue("input", Parsed(input ?? []));
-                _engine.SetValue("log", new ClrFunction(_engine, "log", (_, written) => Write(written)));
+                _engine.SetValue("log", Host("log", Write));
                 _engine.SetValue(_options.Global, Guarded(Catalog()));
 
                 var answer = _engine.Evaluate($"(() => {{\n{code}\n}})()");
@@ -183,14 +183,14 @@ public sealed class ProgramRunner(ProgramOptions options)
             var catalog = new JsObject(_engine);
 
             foreach (var command in _commands.Names)
-                catalog.FastSetDataProperty(command, new ClrFunction(_engine, command, (_, arguments) => Send(command, arguments)));
+                catalog.FastSetDataProperty(command, Host(command, arguments => Send(command, arguments)));
 
             return catalog;
         }
 
         private ObjectInstance Guarded(JsObject catalog)
         {
-            var missing = new ClrFunction(_engine, "missing", (_, asked) => Missing(asked.Length == 0 ? string.Empty : asked[0].ToString()));
+            var missing = Host("missing", asked => Missing(asked.Length == 0 ? string.Empty : asked[0].ToString()));
 
             return _engine.Evaluate(Guard).Call(JsValue.Undefined, [catalog, missing]).AsObject();
         }
@@ -201,7 +201,40 @@ public sealed class ProgramRunner(ProgramOptions options)
             var nearest = NearestNames.Of(name, _commands.Names, NearestCount);
             var error = nearest.Count == 0 ? $"no command '{name}'" : $"no command '{name}'; the nearest: {string.Join(", ", nearest)}";
 
-            return new ClrFunction(_engine, name, (_, _) => throw new ProgramStopped(new ProgramFailure(ProgramFailures.NoSuchCommand, error, Listed())));
+            return Host(name, _ => throw new ProgramStopped(new ProgramFailure(ProgramFailures.NoSuchCommand, error, Listed())));
+        }
+
+        /// <summary>A function of the host a program calls, handed its arguments in an array of its own.</summary>
+        /// <remarks>
+        /// <para>
+        /// Jint hands a call whose arguments are all literals, or none, its cache of them: an <c>object[]</c> reinterpreted
+        /// as <c>JsValue[]</c> (<c>ExpressionCache.ArgumentListEvaluation</c>, Jint 4.17). Indexing it works; reading it as
+        /// <c>IEnumerable&lt;JsValue&gt;</c> — LINQ, <c>string.Join</c>, a spread — dispatches an interface the array does
+        /// not have, which the JIT forgives and Native AOT answers by failing fast. <c>log(1)</c>, <c>log()</c> and
+        /// <c>globalThis.log(1)</c> ended the whole native server, SIGABRT and nothing on stderr, while
+        /// <c>log.call(null, 1)</c>, which passes a real array, and every test run by the JIT passed — in Snail.MCP.Git's
+        /// native binary first, which ran this code before the package did.
+        /// </para>
+        /// <para>
+        /// The copy is made here, by index, for every function the engine is given, so no host function ever holds the
+        /// engine's array: none can trip on its type, and none can write into the cache of a literal. A span would not do,
+        /// since a span over a <c>JsValue[]</c> that is not one throws.
+        /// </para>
+        /// </remarks>
+        private ClrFunction Host(string name, Func<JsValue[], JsValue> body) =>
+            new(_engine, name, (_, arguments) => body(Owned(arguments)));
+
+        private static JsValue[] Owned(JsValue[] arguments)
+        {
+            if (arguments.Length == 0)
+                return [];
+
+            var owned = new JsValue[arguments.Length];
+
+            for (var i = 0; i < owned.Length; i++)
+                owned[i] = arguments[i];
+
+            return owned;
         }
 
         private string Listed()

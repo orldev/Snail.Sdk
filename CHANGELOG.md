@@ -194,6 +194,12 @@ A change that a repository must act on says what to do.
   `IProgramCommands` over the catalog (the grant, script and lease checks stay inside `CallAsync` or move to the gate),
   delete `JavaScriptPrograms`, `IProgramRunner`, `ProgramRun`, `ProgramTools`, the program descriptions and the Jint
   reference, and register `.WithPrograms<Catalog>(…)` with the server's own `MaxCalls`.
+  Under Native AOT `log(1)`, `log()`, `const l = log; l()` and `globalThis.log(1)` no longer end the whole server
+  (SIGABRT, nothing on stderr) — a defect of every server that ran its own Jint, Snail.MCP.Git's native binary among
+  them, and not of the JIT: Jint hands a call whose arguments are all literals, or none, its cache of them, an
+  `object[]` reinterpreted as `JsValue[]`, and reading it as an `IEnumerable<JsValue>` failed fast under Native AOT.
+  Every host function the engine is given now gets its arguments copied, by index, into an array of its own; a test
+  publishes a small native program over `ProgramRunner` and runs `log` and the commands in every form of call.
 - The ways into a server that the fleet spells alike, in `Snail.Sdk.Mcp.Hosting.Discovery`, each one line beside
   `AddMcpServer` and each over the tools the server registers, so none keeps a catalog of its own:
   - `.WithToolDiscovery(options => …)` adds `find_tool(task, limit)`, `intent` taken for `task` (Blender's and

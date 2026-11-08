@@ -26,4 +26,10 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- A program of its own, published natively by NativeProgramTests: its sources are not the tests'. -->
+  <ItemGroup>
+    <Compile Remove="Native/**" />
+    <None Remove="Native/**" />
+  </ItemGroup>
+
 </Project>

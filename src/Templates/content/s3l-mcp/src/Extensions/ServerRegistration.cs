@@ -26,7 +26,11 @@ public static class ServerRegistration
         /// <summary>Every tool of the server; a native build keeps the methods of the classes named here.</summary>
 #if (jobs)
         /// <remarks>The jobs of the server beside its tools: tmplshort_work starts one, and a client reads or awaits it as a resource.</remarks>
+#if (UsesHttp)
+        public IMcpServerBuilder WithServerTools() => builder.WithTools<DiagnosticsTools>().WithTools<WorkTools>(ToolJson.Options(WorkJson.Default)).WithJobs("tmplshort", WorkTools.OwnerOf);
+#else
         public IMcpServerBuilder WithServerTools() => builder.WithTools<DiagnosticsTools>().WithTools<WorkTools>(ToolJson.Options(WorkJson.Default)).WithJobs("tmplshort");
+#endif
 #else
         public IMcpServerBuilder WithServerTools() => builder.WithTools<DiagnosticsTools>();
 #endif

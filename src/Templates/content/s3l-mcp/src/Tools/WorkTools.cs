@@ -1,8 +1,16 @@
 using System.ComponentModel;
+#if (UsesHttp)
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+#endif
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using Snail.Sdk.Mcp.Hosting.Answers;
 using Snail.Sdk.Mcp.Hosting.Jobs;
+#if (UsesHttp)
+using Snail.Sdk.Mcp.Hosting.Sessions;
+using Snail.Sdk.Mcp.Http;
+#endif
 
 namespace Snail.MCP.Template.Tools;
 
@@ -16,10 +24,23 @@ namespace Snail.MCP.Template.Tools;
 /// wants. No status tool: the resource is the status.
 /// </remarks>
 [McpServerToolType]
+#if (UsesHttp)
+public sealed class WorkTools(Jobs jobs, IServiceProvider services)
+#else
 public sealed class WorkTools(Jobs jobs)
+#endif
 {
     /// <summary>The most a count goes to: a minute of steps a tenth of a second each.</summary>
     public const int MostSteps = 600;
+#if (UsesHttp)
+
+    /// <summary>Who a job belongs to: the MCP session that started it over HTTP, where every session shares the server; nobody over stdio, where the server is its one client's.</summary>
+    /// <remarks>
+    /// A server many clients share gives its jobs an owner, so that no client reads or watches another's by its URI
+    /// (the Snail.Sdk standard). <c>JobOwners.Session</c> reads the request being served, which only the HTTP host has.
+    /// </remarks>
+    public static string? OwnerOf(IServiceProvider services) => services.GetService<IHttpContextAccessor>() is null ? null : JobOwners.Session(services);
+#endif
 
     /// <summary>Counts to a number, one step a tenth of a second, as a job.</summary>
     /// <remarks>A number out of range is refused in the envelope, never counted to the nearest bound: a clamp did what was not asked and said nothing.</remarks>
@@ -33,7 +54,11 @@ public sealed class WorkTools(Jobs jobs)
         if (upTo is < 1 or > MostSteps)
             return ToolAnswer.Failed($"tmplshort_work counts to a number from 1 to {MostSteps}, not {upTo}", $"Send upTo from 1 to {MostSteps}.", "arguments");
 
+#if (UsesHttp)
+        Job job = jobs.Start("work", OwnerOf(services), (progress, token) => CountAsync(upTo, progress, token), WorkJson.Default.Counted);
+#else
         Job job = jobs.Start("work", (progress, token) => CountAsync(upTo, progress, token), WorkJson.Default.Counted);
+#endif
         JobReport report = await job.ForAsync(TimeSpan.FromSeconds(wait), cancellationToken);
 
         return JobAnswer.Envelope(report);

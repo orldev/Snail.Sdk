@@ -1,4 +1,5 @@
 #if (jobs)
+using ModelContextProtocol;
 using Snail.Sdk.Mcp.Hosting.Jobs;
 using Snail.Sdk.Mcp.JobClient;
 #endif
@@ -88,6 +89,17 @@ public sealed class HttpContractTests : IAsyncLifetime
 
         Assert.Equal(JobState.Succeeded, report.State);
         Assert.Equal(3, report.Result!.Value.GetProperty("count").GetInt32());
+    }
+
+    /// <summary>Every session shares the server, so a job is its session's: another reading it by its URI is told there is no such resource.</summary>
+    [Fact]
+    public async Task Work_StartedInAnotherSession_IsUnknownHere()
+    {
+        await using McpClient starter = await _server.SessionAsync();
+        await using McpClient other = await _server.SessionAsync();
+        CallToolResult started = await starter.CallToolAsync("tmplshort_work", new Dictionary<string, object?> { ["upTo"] = 5, ["wait"] = 0 });
+
+        await Assert.ThrowsAnyAsync<McpException>(() => other.ReadJobAsync(started.Report()!.Uri));
     }
 
 #endif

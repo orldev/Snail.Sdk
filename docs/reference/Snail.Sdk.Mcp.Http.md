@@ -12,6 +12,8 @@ The address a session was opened at, read from the request being served, and the
 | --- | --- |
 | `IMcpServerBuilder WithSessionAddress(this IMcpServerBuilder builder)` | The session's address — `?root=`, `?tool=` — read from the query of the request being served. |
 | `WebApplication RefuseSessionsItCannotServe(this WebApplication app, Func<IServiceProvider, IReadOnlyList<string>> volumes, string path = "/mcp")` | Answers 400, with the reason, to a request at `path` whose session names a root this machine does not have or the `volumes` do not hold, or names none where no volume is configured. |
+| `const string SessionHeader` | The header Streamable HTTP carries a session's id in, from the response to `initialize` on. |
+| `string? Session(IServiceProvider services)` | The owner of a request: the MCP session it belongs to, or none outside a session. |
 
 ### static class McpHttpHost
 
@@ -23,7 +25,7 @@ The host of a server every session of the machine shares, over Streamable HTTP o
 | `IEndpointConventionBuilder MapLocalMcp(this WebApplication app, string path = "/mcp")` | Maps the MCP endpoint behind the refusal of every request a browser makes. |
 | `IMcpServerBuilder WithLocalHttpTransport(this IMcpServerBuilder builder)` | Streamable HTTP with a session for every client. |
 | `WebApplicationBuilder CreateBuilder(string[] args, McpEndpoint endpoint)` | The host of the endpoint a server's settings ask for: on loopback at its URL, or on every interface at its port. |
-| `WebApplicationBuilder CreateBuilder(string[] args, Uri url)` | An empty web host listening on `url`, log lines on stderr, a request a line only on warnings, the heap trimmed when idle. |
+| `WebApplicationBuilder CreateBuilder(string[] args, Uri url)` | An empty web host listening on `url`, log lines on stderr at the levels its settings name, the heap trimmed when idle. |
 | `WebApplicationBuilder CreateContainerBuilder(string[] args, int port)` | The same host for a server that runs in a container image: listening on `port` on every interface, since a container's published port does not reach its loopback. |
 | `const string DefaultHealthPath` | Where a health check answers unless a server says otherwise. |
 | `const string DefaultPath` | Where clients connect unless a server says otherwise. |

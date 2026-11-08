@@ -196,11 +196,11 @@ of two ways:
 
 A `Transport` that is set decides, even beside a `Port`; a `Url` alone does not mean HTTP, it says where HTTP would
 listen. A server that answers only over HTTP (`McpEndpoint.ReadHttp`) is HTTP whatever the settings say, and refuses
-`Transport=Stdio` and `Port=0` at its start. The port is opened on every interface when the flag says so, when the URL
-names `0.0.0.0` or `[::]`, and inside a container — the .NET images set `DOTNET_RUNNING_IN_CONTAINER=true` — since a
-container's published port does not reach its loopback; anywhere else it stays on loopback, because the endpoint asks
-for no key. A server that listens on every interface by default names `0.0.0.0` in its default address, and a loopback
-`Url` narrows it. A `Url` at an IP address beyond loopback — a LAN one — is listened on as named, by a server that
+`Transport=Stdio` and `Port=0` at its start. The port is opened on every interface inside a
+container — the .NET images set `DOTNET_RUNNING_IN_CONTAINER=true` — since a container's published port does not reach
+its loopback; anywhere else it stays on loopback, because the endpoint asks for no key, and the flag or a URL at
+`0.0.0.0` or `[::]` is refused unless the server's reach allows them (the table below). A server that listens on every
+interface by default reaches `Unrestricted` and names `0.0.0.0` in its default address, and a loopback `Url` narrows it. A `Url` at an IP address beyond loopback — a LAN one — is listened on as named, by a server that
 guards its endpoint with a key of its own (Snail.MCP.Blender, AfterEffects); a `Url` at a host name is refused, since a
 server listens on an address: an IP address, `localhost`, or `0.0.0.0` for every interface. A value a setting cannot
 mean — `Transport=Htpp`, a port that is not a number — stops the server at its start with a line that names the

@@ -245,7 +245,7 @@ The answer envelope as a type: the declared output of a tool whose structured co
 | `T Data { get; init; }` | What the tool answers, never null on a success; on a failure, what there is to report all the same. |
 | `bool IsOk { get; init; }` | Whether the call did what was asked: `ok`. |
 | `string? Error { get; init; }` | Why the call did not go through; only on a failure. |
-| `string? Hint { get; init; }` | What to do about it; only on a failure. |
+| `string? Hint { get; init; }` | What to do next: about a failure, or with a success's data when the tool says so. |
 | `string? Type { get; init; }` | The kind of failure, a word a program can branch on; only on a failure. |
 
 ### class FailureOptions

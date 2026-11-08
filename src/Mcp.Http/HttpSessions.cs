@@ -75,13 +75,15 @@ public static partial class HttpSessions
     {
         /// <summary>
         /// Answers 400, with the reason, to a request at <paramref name="path"/> whose session names a root this machine does
-        /// not have or the <paramref name="volumes"/> do not hold, or names none where no volume is configured.
+        /// not have or the <paramref name="volumes"/> do not hold — any root, where no volume is configured — or names none
+        /// where no volume is configured.
         /// </summary>
         /// <remarks>
         /// <para>
         /// Before a session exists to serve it. A root missing here means discovery handed the worker of one machine the
         /// server of another: served, the session would hear about folders that are not its copy, and nothing in an answer
-        /// would show it. A root outside the volumes is not a working copy, whoever wrote the address. A session naming no
+        /// would show it. A root outside the volumes is not a working copy, whoever wrote the address; where no volume is configured,
+        /// every named root is outside them unless <see cref="SessionRootsOptions.ReachesAnyNamedRoot"/> is set. A session naming no
         /// root at a server configured with none would be served nothing, and hears so once rather than from every call.
         /// </para>
         /// <para>

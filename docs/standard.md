@@ -301,7 +301,8 @@ And for the server project (no kind):
   `TimeSpan.Zero` turns the shutdown off ([installing](installing.md#the-idle-shutdown)).
 - Where a server answers, read in one call: `McpEndpoint.Read(settings, defaultUrl)` takes either of the two ways the
   servers say it — `Transport` with `Url`, or a `Port` alone — and opens the port on every interface inside a container
-  (`DOTNET_RUNNING_IN_CONTAINER`), at `0.0.0.0` or when told to, loopback anywhere else; `McpEndpoint.ReadHttp` is the
+  (`DOTNET_RUNNING_IN_CONTAINER`), loopback anywhere else — `McpReach.LoopbackOrContainer`, unless the server widens
+  it in `McpEndpointOptions.Reach`; `McpEndpoint.ReadHttp` is the
   same for a server of HTTP alone, refusing a transport that means stdio at the start, and `Read` refuses
   `ListensOnEveryInterface=true` over stdio, which opens no port; a refusal names the variable the
   operator set, a key of a section by the section's variable; `McpEndpoint.Read(settings, defaultUrl, "Snail")` also

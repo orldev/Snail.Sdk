@@ -12,7 +12,7 @@ namespace Snail.Sdk.Mcp.Hosting.Answers;
 /// <summary>A tool's answer as every Snail server gives it: one text block holding the envelope, with an ok flag, and the structured content beside it.</summary>
 /// <remarks>
 /// <para>
-/// The text is compact JSON, <c>{"ok":true,"data":…}</c> on success and <c>{"ok":false,"error":"…","hint":"…","type":"…","data":…}</c>
+/// The text is compact JSON, <c>{"ok":true,"data":…}</c> on success (with a <c>hint</c> before <c>data</c> when the tool gives one) and <c>{"ok":false,"error":"…","hint":"…","type":"…","data":…}</c>
 /// on failure, <c>ok</c> always first. A model reads the shape it was given last, and a refusal shaped differently from an
 /// answer is one it misreads as an answer, so both are the same envelope; the protocol's <c>isError</c> is set on every
 /// failure as well, for the client that never looks inside.

@@ -30,7 +30,7 @@ command `s3l-mcp-foo`, its variables `SNAIL_MCP_FOO_*`, the contract variable `S
 | --- | --- | --- | --- |
 | all | `--description` | a placeholder sentence | the package description, the README's first paragraph, a server's instructions |
 | `s3l-mcp` | `--native` | `true` | published with Native AOT (`SnailMcpNative`); `false` for a server that loads code at run time |
-| `s3l-mcp` | `--transport` | `Stdio` | `Stdio`: a process per session; `Http`: one server for every session of the machine, over loopback HTTP, with a launchd job in `deploy/`; `Both`: stdio, or HTTP when `SNAIL_MCP_<SHORT>_TRANSPORT=http` |
+| `s3l-mcp` | `--transport` | `Stdio` | `Stdio`: a process per session; `Http`: one server for every session of the machine, over HTTP on loopback (every interface in a container), with a launchd job in `deploy/`; `Both`: stdio, or HTTP when `SNAIL_MCP_<SHORT>_TRANSPORT=http` |
 | `s3l-mcp` | `--container` | `false` | `true` adds a `Dockerfile` (native or framework-dependent as `--native` says), `.dockerignore` and `image.yml` |
 | `s3l-mcp` | `--port` | `9300` | the loopback port of the HTTP endpoint |
 | `s3l-mcp` | `--jobs` | `false` | `true` adds a long operation as a job: `tmplshort_work` starts one and answers within its `wait` or with the job's `job://` resource, `WithJobs` registers them, and a contract test awaits one through `Snail.Sdk.Mcp.JobClient` ([the standard](standard.md#snailsdkmcp)) |

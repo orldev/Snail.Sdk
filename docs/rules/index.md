@@ -45,5 +45,5 @@ the shared `.editorconfig` is compared line for line by the [conformance check](
 [SuppressMessage("Snail", "S3L0005:English only", Justification = "The sample text the parser is tested against.")]
 ```
 
-A new rule, or a rule made stricter, comes in a new major version of Snail.Sdk: a build that passed must not fail
-because a minor release came out.
+A new rule, or a rule made stricter, comes in a release that may break, as [releasing](../releasing.md) counts one —
+a new major version from 1.0 on, a new minor below it: a build that passed must not fail because a patch came out.

@@ -37,12 +37,13 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// operators may write them at the root or in a section reads them with <see cref="Read(IConfiguration, Uri, string)"/>.
     /// </para>
     /// <para>
-    /// The port is opened on every interface when <c>ListensOnEveryInterface</c> is true, when the URL names the
-    /// unspecified address (<c>0.0.0.0</c>, <c>[::]</c>), which means every interface, and inside a container
-    /// (<c>DOTNET_RUNNING_IN_CONTAINER=true</c>): a container's published port does not reach its loopback, and the
-    /// published port is the boundary. Anywhere else it stays on loopback, since the endpoint asks for no key. A server
-    /// that listens on every interface by default, outside a container too — Snail.MCP.E2E under launchd — names
-    /// <c>0.0.0.0</c> in <paramref name="defaultUrl"/>: a <c>Port</c> keeps that host, and a loopback <c>Url</c> narrows it.
+    /// The port is opened on every interface inside a container (<c>DOTNET_RUNNING_IN_CONTAINER=true</c>): a
+    /// container's published port does not reach its loopback, and the published port is the boundary. Anywhere else it
+    /// stays on loopback, since the endpoint asks for no key: the reach of this read is
+    /// <see cref="McpReach.LoopbackOrContainer"/>, so <c>ListensOnEveryInterface=true</c> and a URL at the unspecified
+    /// address (<c>0.0.0.0</c>, <c>[::]</c>) are refused on the machine. A server that listens on every interface by
+    /// default, outside a container too — Snail.MCP.E2E under launchd — reads with <see cref="McpReach.Unrestricted"/> and
+    /// names <c>0.0.0.0</c> in its default URL: a <c>Port</c> keeps that host, and a loopback <c>Url</c> narrows it.
     /// </para>
     /// <para>
     /// A refusal names what the operator set: the variable, <c>SNAIL_MCP_&lt;NAME&gt;_URL</c>, and the key of the settings
@@ -66,7 +67,7 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// asks for it.
     /// </para>
     /// </remarks>
-    /// <exception cref="StartRefusedException">A key holds what it cannot mean: a transport not named above, a URL that is not an absolute http one or names a host rather than an address, a port or a flag that is not one, or <c>ListensOnEveryInterface=true</c> over stdio.</exception>
+    /// <exception cref="StartRefusedException">A key holds what it cannot mean: a transport not named above, a URL that is not an absolute http one or names a host rather than an address, a port or a flag that is not one, or <c>ListensOnEveryInterface=true</c> over stdio; or an endpoint over HTTP beyond <see cref="McpReach.LoopbackOrContainer"/>.</exception>
     public static McpEndpoint Read(IConfiguration settings, Uri defaultUrl) =>
         Read(settings, defaultUrl, isHttpOnly: false, Environment.GetEnvironmentVariable(ContainerVariable), ServerSettings.NameOf(Assembly.GetEntryAssembly()));
 
@@ -82,7 +83,7 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// read at the root alone did not look. A refusal names the key where it was found:
     /// <c>SNAIL_MCP_&lt;NAME&gt;_SNAIL__PORT (or Snail:Port in the settings file)</c> for a port in the section.
     /// </remarks>
-    /// <exception cref="StartRefusedException">A key holds what it cannot mean: a transport not named above, a URL that is not an absolute http one, a port or a flag that is not one, or <c>ListensOnEveryInterface=true</c> over stdio.</exception>
+    /// <exception cref="StartRefusedException">A key holds what it cannot mean: a transport not named above, a URL that is not an absolute http one or names a host rather than an address, a port or a flag that is not one, or <c>ListensOnEveryInterface=true</c> over stdio; or an endpoint over HTTP beyond <see cref="McpReach.LoopbackOrContainer"/>.</exception>
     /// <exception cref="ArgumentException">The section's name is empty or blank.</exception>
     public static McpEndpoint Read(IConfiguration settings, Uri defaultUrl, string fallbackSection)
     {
@@ -121,7 +122,7 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// builder could take, and the server stopped later with an <see cref="ArgumentException"/> that named neither
     /// (Snail.MCP.Sandbox, 0.5.0).
     /// </remarks>
-    /// <exception cref="StartRefusedException">A key holds what it cannot mean for an HTTP server: a transport other than Http, a URL that is not an absolute http one, a port that is not one above zero, a flag that is not one.</exception>
+    /// <exception cref="StartRefusedException">A key holds what it cannot mean for an HTTP server: a transport other than Http, a URL that is not an absolute http one or names a host rather than an address, a port that is not one above zero, a flag that is not one; or an endpoint beyond <see cref="McpReach.LoopbackOrContainer"/>.</exception>
     public static McpEndpoint ReadHttp(IConfiguration settings, Uri defaultUrl) =>
         Read(settings, defaultUrl, isHttpOnly: true, Environment.GetEnvironmentVariable(ContainerVariable), ServerSettings.NameOf(Assembly.GetEntryAssembly()));
 
@@ -133,7 +134,7 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// <see cref="ReadHttp(IConfiguration, Uri)"/>, each key looked for at the root and then in the section, as
     /// <see cref="Read(IConfiguration, Uri, string)"/> looks for it.
     /// </remarks>
-    /// <exception cref="StartRefusedException">A key holds what it cannot mean for an HTTP server: a transport other than Http, a URL that is not an absolute http one, a port that is not one above zero, a flag that is not one.</exception>
+    /// <exception cref="StartRefusedException">A key holds what it cannot mean for an HTTP server: a transport other than Http, a URL that is not an absolute http one or names a host rather than an address, a port that is not one above zero, a flag that is not one; or an endpoint beyond <see cref="McpReach.LoopbackOrContainer"/>.</exception>
     /// <exception cref="ArgumentException">The section's name is empty or blank.</exception>
     public static McpEndpoint ReadHttp(IConfiguration settings, Uri defaultUrl, string fallbackSection)
     {

@@ -37,7 +37,7 @@ public sealed record Envelope<T>(
     [JsonPropertyName("error"), JsonPropertyOrder(1), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull), Description(EnvelopeWords.Error)]
     public string? Error { get; init; }
 
-    /// <summary>What to do about it; only on a failure.</summary>
+    /// <summary>What to do next: about a failure, or with a success's data when the tool says so.</summary>
     [JsonPropertyName("hint"), JsonPropertyOrder(2), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull), Description(EnvelopeWords.Hint)]
     public string? Hint { get; init; }
 
@@ -56,7 +56,7 @@ internal static class EnvelopeWords
 
     public const string Error = "Why the call did not go through; present only on a refusal, which is an error result.";
 
-    public const string Hint = "What to do about a refusal; present only on one.";
+    public const string Hint = "What to do next: about a refusal, or with the data of a success that carries one; absent otherwise.";
 
     public const string Type = "The kind of refusal, a word a program can branch on; present only on one.";
 }

@@ -12,7 +12,7 @@ using Snail.Sdk.Mcp.Hosting;
 
 namespace Snail.Sdk.Mcp.Http;
 
-/// <summary>The host of a server every session of the machine shares, over Streamable HTTP on a loopback address.</summary>
+/// <summary>The host of a server every session of the machine shares, over Streamable HTTP: on loopback unless the endpoint it is built for says otherwise.</summary>
 /// <remarks>
 /// <para>
 /// Over stdio each session starts a server of its own: the runtime, and whatever the server loads, once per session.
@@ -20,7 +20,8 @@ namespace Snail.Sdk.Mcp.Http;
 /// answered by a server already running.
 /// </para>
 /// <para>
-/// The endpoint has no key. It listens on loopback only, and a request to it that carries an <c>Origin</c> is refused: a
+/// The endpoint has no key. It listens on loopback — on every interface only in a container, or where the endpoint's
+/// reach allows it — and a request to it that carries an <c>Origin</c> is refused: a
 /// page in a browser always sends one, an agent's client never does, so no web page can reach the server, not even
 /// through a name rebound to 127.0.0.1. A server that reads its endpoint holds it to loopback with
 /// <see cref="McpReach"/>; the read refuses what would open it beyond.

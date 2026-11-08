@@ -34,7 +34,7 @@ A change that a repository must act on says what to do.
   server's program built itself on such an endpoint; either reads back the port Kestrel bound, so nothing can take it
   in between. `StartAsync(…, port: Ports.Free())` listens on a port the test chose, for a server that signs links with
   its address before it starts (Snail.MCP.Blender), and `ServeAsync` serves a whole `WebApplication` of the server's
-  own alike. `Address`, `Endpoint`, `Services` and `SessionAsync(query)` are those of `HttpServerProgram`; disposing
+  own alike. `Address`, `Endpoint`, `Log` and `SessionAsync(query)` are those of `HttpServerProgram`; disposing
   it stops and disposes the host. The package now references `Snail.Sdk.Mcp.Http`, and through it the ASP.NET Core
   shared framework, which a test project always has. Snail.MCP.Git may replace `tests/Support/TestServer.cs` and
   Snail.MCP.FileSystem `tests/Support/Listening.cs` with
@@ -189,15 +189,15 @@ A change that a repository must act on says what to do.
   `IActivityTracker` and their registration for one call.
 - `McpEndpoint.Read(settings, defaultUrl)` and `McpTransport`: where a server of both transports answers, from either of
   the two ways the fleet says it — `Transport` with `Url` (or `Http:Url`), or a `Port` alone — on every interface inside
-  a container (`DOTNET_RUNNING_IN_CONTAINER=true`), with `ListensOnEveryInterface`, or at `0.0.0.0`, on loopback
-  anywhere else; stdio when the settings name neither a transport nor a port, since a `Url` alone does not mean HTTP.
+  a container (`DOTNET_RUNNING_IN_CONTAINER=true`), on loopback anywhere else unless the server's reach allows more
+  (below); stdio when the settings name neither a transport nor a port, since a `Url` alone does not mean HTTP.
   `McpEndpoint.ReadHttp(settings, defaultUrl)` is the same for a server that answers only over HTTP: HTTP whatever the
   settings name, and `Transport=Stdio` or `Port=0` refused at the read — read as stdio, they came out an endpoint the
   HTTP builder refused later with an `ArgumentException` naming neither (Snail.MCP.Sandbox). A value a key cannot mean
   is refused at the start naming what the operator set: the variable and the key of the settings file,
   `SNAIL_MCP_SANDBOX_URL (or Url in the settings file) is '…'`, for a program built on Snail.Sdk.Mcp, which names its
   server in its assembly; the key alone for any other. A server that listens on every interface outside a container
-  too — Snail.MCP.E2E under launchd — names `0.0.0.0` in its default URL: a `Port` keeps that host, a loopback `Url`
+  too — Snail.MCP.E2E under launchd — reads with `McpReach.Unrestricted` and names `0.0.0.0` in its default URL: a `Port` keeps that host, a loopback `Url`
   narrows it. `McpHttpHost.CreateBuilder(args, endpoint)` builds the host it names, at its address or on every
   interface, and leaves how far it may reach to the read. A
   server drops its `McpServerHost` choice and its `Transport` enum. `Read(settings, defaultUrl, fallbackSection)` and
@@ -219,7 +219,8 @@ A change that a repository must act on says what to do.
   an address beyond loopback; the endpoint opened every interface for any of the three, so a keyless server could be
   served to the network by one setting (Snail.MCP.Memory). The default, the reach of every read without options, is
   `LoopbackOrContainer`, so a server that forgot to narrow its reach stays on loopback on the machine;
-  `McpReach.Unrestricted`, named, keeps every interface for a server that guards its endpoint, and listens on an IP
+  `McpReach.Unrestricted`, named, keeps every interface for a server that guards its endpoint or answers on every interface by design
+  (Snail.MCP.E2E), and listens on an IP
   address beyond loopback — a LAN one, Snail.MCP.Blender and AfterEffects — as named; a URL at a host name, which was served on loopback without a word, is refused at the
   read. `McpEndpoint.UrlSetting` names the key the address was read from (`Url`, `Http:Url`, or either under the
   section; null for the default): Snail.MCP.Blender signed its links with `Http:Url` while `SNAIL_MCP_BLENDER_URL` had
@@ -441,7 +442,8 @@ A change that a repository must act on says what to do.
   so there it names nobody. Snail.MCP.Sandbox drops its `SessionOwner`.
   `app.UseSessionRoots(services => volumes)` replaces the `RefuseASessionItCannotServe` of
   Snail.MCP.FileSystem, Documents, Git and Roslyn, with their words: 400 for a root this machine does not have, a root
-  outside the volumes, or no root where no volume is configured — after a 403 to a request with an `Origin`, whichever of
+  outside the volumes, no root where no volume is configured, or any root there unless the server sets
+  `ReachesAnyNamedRoot` — after a 403 to a request with an `Origin`, whichever of
   it and `MapLocalMcp` is called first.
 - `FixedAddress` of `Snail.Sdk.Mcp.Testing`: a session's address in a test, `new FixedAddress(("tool", "read_file"))`.
   The package now references `Snail.Sdk.Mcp.Hosting`.
@@ -536,7 +538,7 @@ A change that a repository must act on says what to do.
     `ToolForwarding.CallAsync`, so the grant holds and no forwarder is a step; the run stops at the first step that fails
     and answers its error, hint and type with the steps before it as data; each step's answer is unwrapped from its
     envelope; past `OutputBudget` (50 000 characters) an answer is left out and its step flagged `isOmitted`; at most
-    `MaxSteps` (20). A step that names no tool is answered with the nearest name. A step that throws is a failed step —
+    `MaxSteps` (20). A step that names no tool is refused, type `noSuchTool`, with the nearest name. A step that throws is a failed step —
     type `arguments` when the MCP SDK could not bind its arguments, otherwise `internal`, logged, in the words of
     `FailureOptions` — and the steps before it keep their answers (Roslyn lost them to one `internal` failure of the
     run). Its hints are its steps': read-only when every tool that can be a step is, destructive when any may be,
@@ -643,8 +645,8 @@ A change that a repository must act on says what to do.
 - `dotnet new s3l-mcp` is written on the 0.5.0 API: its tools answer through `ToolAnswer` (the job through
   `JobAnswer.Envelope`) beside `.ExplainFailures()`; over HTTP the host is `McpHttpHost.CreateBuilder(args,
   McpEndpoint.Read(…), settings)` over the settings it read once — the container builder chosen by the endpoint, no
-  longer by the template; over stdio `McpHost.CreateBuilder(args, settings)` — with `MapHealth()`
-  and `.WithSessionGrant()` answering a refusal in the envelope — `McpEndpoint.ReadHttp` for a server of HTTP
+  longer by the template; over stdio `McpHost.CreateBuilder(args)`, or `McpHost.CreateBuilder(args, settings)` for a server of
+  both transports; over HTTP `MapHealth()` and `.WithSessionGrant()`, answering a refusal in the envelope; `McpEndpoint.ReadHttp` for a server of HTTP
   alone, which refuses `Transport=Stdio` at the start; its HTTP contract, which no longer sets the transport itself,
   waits for `/healthz` and
   checks a session's `?tool=` grant, and its tests read answers with `IsOk`/`Data`/`Error`/`Report`. The Sdk tests
@@ -663,7 +665,7 @@ A change that a repository must act on says what to do.
   stdio the flag was ignored in silence, where its operator meant HTTP; Snail.MCP.FileSystem
   (`IsEveryInterfaceWithoutHttp`) and Git (`ListensOnEveryInterface needs a Port`) refused it themselves, and may drop
   those checks. Only the setting is refused — a container, a `Url` (where HTTP would listen) and the flag beside a port
-  or `Transport=Http`, as in an image, start as before.
+  or `Transport=Http` in an image, or at a reach that allows it, start as before.
 
 ### Fixed
 

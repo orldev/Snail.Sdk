@@ -15,7 +15,7 @@ sets the same properties as `Snail.Sdk` and passes `src/Sdk/Sdk/Snail.Sdk.global
 | `src/Mcp.Hosting`, `src/Mcp.Http`, `src/Mcp.Testing`, `src/Mcp.JobClient` | the same names | the server libraries, and the client of their jobs |
 | `src/Mcp.Programs` | `Snail.Sdk.Mcp.Programs` | `run_program` on Jint, the library a server opts into; tested by `tests/Mcp.Programs.Tests` |
 | `src/Analyzers` | `Snail.Sdk.Analyzers` | the S3L rules, their code fixes and the suppressors |
-| `src/Templates` | `Snail.Sdk.Templates` | `content/s3l-lib`, `content/s3l-mcp` |
+| `src/Templates` | `Snail.Sdk.Templates` | `content/s3l-lib`, `content/s3l-mcp`, `content/s3l-web` |
 | `src/Conformance` | (in `Snail.Sdk`) | `Snail.Sdk.Conformance`, the S3LC checks |
 | `src/Docs` | (in the levels) | `Snail.Sdk.Docs`: the API and tool reference, the site configuration; `site/` holds the theme and the pinned MkDocs |
 | `pack/` | | the README of each package, `pack/<PackageId>.md`, written for nuget.org with absolute links |
@@ -60,11 +60,11 @@ Until a change is released, a repository that needs it takes Snail.Sdk from a lo
 since NuGet never reads a version again once it is in the global packages folder:
 
 ```bash
-dotnet pack Snail.Sdk.slnx -c Release -p:VersionSuffix=local.8 -o ~/nuget    # 0.4.3-local.8
+dotnet pack Snail.Sdk.slnx -c Release -p:VersionSuffix=local.8 -o ~/nuget    # 0.5.0-local.8
 dotnet nuget add source ~/nuget -n LocalPackages                             # once per machine
 ```
 
-then, in the repository, `global.json`'s `msbuild-sdks` names `0.4.3-local.8`, and `nuget.config` maps the SDK to the
+then, in the repository, `global.json`'s `msbuild-sdks` names `0.5.0-local.8`, and `nuget.config` maps the SDK to the
 feed beside its other mappings — the longer pattern wins, so `Snail.Sdk.*` comes from the feed and everything else from
 nuget.org:
 
@@ -75,7 +75,7 @@ nuget.org:
 </packageSource>
 ```
 
-The templates are installed again from `~/nuget/Snail.Sdk.Templates.0.4.3-local.8.nupkg`; their `global.json` is stamped
+The templates are installed again from `~/nuget/Snail.Sdk.Templates.0.5.0-local.8.nupkg`; their `global.json` is stamped
 with the version being packed (`SNAIL_SDK_VERSION`), so they always name the SDK of their own pack. A repository on the
 local feed builds, tests and passes the conformance check, but cannot be released: the release checks refuse a
 `LocalPackages` mapping and a `-local` version (S3LC0026). Once the change is released, it moves back as
@@ -151,10 +151,10 @@ changes the standard of the next release.
 
 ## The templates
 
-`src/Templates/content/s3l-lib` and `content/s3l-mcp` are complete repositories under their source names
-(`Snail.Toolkit.Template`, `Snail.MCP.Template`, the short name `tmplshort`), which `dotnet new` replaces. Their options
-and conditional files are in `.template.config/template.json`; `#if` blocks in C#, JSON, the Dockerfile and the plist
-follow the options. They are the standard as files: a change to the standard is a change here, in the same commit.
+`src/Templates/content/s3l-lib`, `content/s3l-mcp` and `content/s3l-web` are complete repositories under their source
+names (`Snail.Toolkit.Template`, `Snail.MCP.Template`, `Snail.Web.Template`, the short name `tmplshort`), which
+`dotnet new` replaces. Their options and conditional files are in `.template.config/template.json`; `#if` blocks in
+C#, JSON, the Dockerfile and the plist follow the options. They are the standard as files: a change to the standard is a change here, in the same commit.
 
 - `TemplatesTests` make a library and servers of each shape from the packed templates and run what the shared CI runs:
   build, tests, conformance, the reference; the library packed with its symbols; the default server published natively

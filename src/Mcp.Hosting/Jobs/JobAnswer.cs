@@ -48,7 +48,7 @@ public static class JobAnswer
     /// </para>
     /// <para>
     /// A job that failed or was cancelled within the wait answers as a failure — <c>ok</c> false, its message as the
-    /// error, the hint and type of the answer its work failed with (<c>internal</c> for one its work threw, <c>failed</c>
+    /// error, the hint and type of the answer its work failed with (for one its work threw, the type the server's failures give it — <c>internal</c> unless a refusal or <c>FailureOptions</c> names another — <c>failed</c>
     /// for an answer that named none, <c>cancelled</c> for a cancelled one), the report still the data — and flagged an
     /// error. It answered <c>ok</c> true at first, and a model
     /// reads that as the work having been done (the s3l-mcp template, 0.5.0). Unlike other failures it keeps the report as

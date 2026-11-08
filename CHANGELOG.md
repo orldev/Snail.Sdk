@@ -168,6 +168,17 @@ A change that a repository must act on says what to do.
   moving the words of its `Meanings` table into `DiscoveryOptions.Meanings`. A step of `run_tools` is now `arguments`, not
   `params`. Git, whose steps are commands rather than tools, keeps its own `run_tools` and takes `find_tool` with
   `CommandOf`.
+- The tool reference (`-p:SnailReference=true`) documents the tools Snail.Sdk registers for a server — `find_tool`,
+  `run_tools`, `run_program` and `<short>_skills`, `_enable_skill`, `_disable_skill` — as a client receives them: named
+  by the server's short name, described from its options (the limits of `run_program`, `enable` of `find_tool` once
+  skills are on). The generator ran no code and read the server's classes only, so these tools left the reference and a
+  family kept for them failed S3LD0002 (Snail.MCP.Sandbox dropped its discovery page). It now runs the server's entry
+  point until its host is built, reads the host's tool collection and stops it there, as `dotnet ef` does: no hosted
+  service starts and no tool runs. A family of `docs/tools.json` names such tools by name, `{ "tools": ["find_tool",
+  "run_tools"], "slug": "discovery", "title": "Finding a tool" }`; the ones no family names go to a page of their own,
+  `discovery.md`, after the rest; naming a tool the server does not register is S3LD0002. A host that cannot be built
+  is warning S3LD0004, and the reference keeps the classes' tools. To adopt, a server that dropped a family of these
+  tools names them again in `docs/tools.json` and builds the reference.
 
 ### Changed
 

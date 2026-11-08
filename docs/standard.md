@@ -548,6 +548,10 @@ dotnet build -p:SnailReference=true
   a client receives in `tools/list`. `docs/tools.json` names the families (one per class declaring tools), their slugs,
   titles and order, and the words of the index; it is validated before a page is written, and an error is one line
   (`error S3LD0001: …`, [the codes](conformance.md)).
+- The tools a server's `With…` calls register — `find_tool`, `run_tools`, `run_program`, the skill tools — are read from
+  its host: the generator runs the entry point until the host is built and stops it there, so no hosted service starts
+  and no tool runs. A family names them with `"tools": [names]` instead of `"type"`; the ones no family names get the
+  page `discovery`.
 
 The reference is committed, and the shared CI writes it again and fails when it differs, so the published pages are
 never older than the code.

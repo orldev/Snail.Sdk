@@ -83,8 +83,10 @@
   <!--
     The tool reference, on request: build with -p:SnailReference=true and docs/reference/ beside the repository's
     global.json gets tools/index.md, a page per family and schemas/tools.json. The server's own copy of the MCP SDK
-    describes each tool from the assembly just built, so the pages are what a client receives in tools/list; no tool runs.
-    docs/tools.json names the families and the words of the index; a site with its own layout sets SnailReferenceFolder.
+    describes each tool from the assembly just built, so the pages are what a client receives in tools/list; the tools
+    Snail.Sdk registers (find_tool, run_tools, run_program, skills) are read from the host the entry point builds, which is
+    stopped before it starts; no tool runs. docs/tools.json names the families and the words of the index; a site with
+    its own layout sets SnailReferenceFolder.
   -->
   <PropertyGroup>
     <SnailReferenceFolder Condition="'$(SnailReferenceFolder)' == ''">$(_SnailRepository)/docs/reference</SnailReferenceFolder>

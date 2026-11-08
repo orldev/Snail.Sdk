@@ -15,6 +15,9 @@ internal static class ToolReference
         var context = ServerContext.Open(assemblyPath);
         var catalog = ToolCatalog.Read(context, settings);
 
+        foreach (var warning in catalog.Warnings)
+            Console.Error.WriteLine(DocsError.Warning(DocsError.HostUnreadable, warning));
+
         var tools = Directory.CreateDirectory(Path.Combine(outputFolder, "tools")).FullName;
         var schemas = Directory.CreateDirectory(Path.Combine(outputFolder, "schemas")).FullName;
         var written = new List<string> { Written(Path.Combine(tools, "index.md"), ToolPages.Index(catalog, settings)) };

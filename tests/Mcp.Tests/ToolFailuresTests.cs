@@ -273,6 +273,117 @@ public sealed class ToolFailuresTests
         Assert.Equal("""{"ok":false,"error":"The disk is full.","type":"internal"}""", answer.Text());
     }
 
+    /// <summary>Snail.MCP.Obsidian set Type and Hint for its own exceptions and kept the default hint of the rest by hand.</summary>
+    [Fact]
+    public async Task Failure_OfAKindTheServerRefuses_IsWordedAsTheRefusal_AndTheRestKeepTheDefaultHint()
+    {
+        await using var stand = await Stand.StartAsync(configure: options => options.Refuse<NotLoadedException>("notLoaded", failure => $"load it first: {failure.Message}"));
+
+        var refused = await stand.Client.CallToolAsync("not_loaded");
+        var failed = await stand.Client.CallToolAsync("throws");
+
+        Assert.True(refused.IsError);
+        Assert.Equal("""{"ok":false,"error":"Solution 'a.sln' is not loaded.","hint":"load it first: Solution 'a.sln' is not loaded.","type":"notLoaded"}""", refused.Text());
+        Assert.Equal("internal", failed.Type());
+        Assert.Equal(ToolFailures.Hint, failed.Hint());
+        var logged = Assert.Single(stand.Logs.Entries, entry => entry.Level >= LogLevel.Warning);
+        Assert.Equal("throws failed inside the server", logged.Message);
+    }
+
+    [Fact]
+    public async Task Failure_OfAKindTheServerRefusesWithoutAHint_HasNone()
+    {
+        await using var stand = await Stand.StartAsync(configure: options => options.Refuse<NotLoadedException>("notLoaded"));
+
+        var answer = await stand.Client.CallToolAsync("not_loaded");
+
+        Assert.Equal("""{"ok":false,"error":"Solution 'a.sln' is not loaded.","type":"notLoaded"}""", answer.Text());
+    }
+
+    /// <summary>The first refusal an exception is answers it: a type derived from another is named first.</summary>
+    [Fact]
+    public async Task Refusals_AreTriedInTheOrderNamed_AndMatchDerivedTypes()
+    {
+        await using var stand = await Stand.StartAsync(configure: options => options
+            .Refuse<NotLoadedException>("notLoaded")
+            .Refuse<InvalidOperationException>("invalid", _ => "change the call"));
+
+        var notLoaded = await stand.Client.CallToolAsync("not_loaded");
+        var invalid = await stand.Client.CallToolAsync("throws");
+
+        Assert.Equal("notLoaded", notLoaded.Type());
+        Assert.Equal("invalid", invalid.Type());
+        Assert.Equal("change the call", invalid.Hint());
+    }
+
+    /// <summary>"Try once more" is the server's own failure's hint: a failure named the caller's had the model repeat its mistake.</summary>
+    [Fact]
+    public async Task Failure_NamedByTypeAlone_GetsNoDefaultHint()
+    {
+        await using var stand = await Stand.StartAsync(configure: options => options.Type = (_, failure) => failure is NotLoadedException ? "notLoaded" : null);
+
+        var refused = await stand.Client.CallToolAsync("not_loaded");
+        var failed = await stand.Client.CallToolAsync("throws");
+
+        Assert.Equal("""{"ok":false,"error":"Solution 'a.sln' is not loaded.","type":"notLoaded"}""", refused.Text());
+        Assert.Equal(ToolFailures.Hint, failed.Hint());
+    }
+
+    /// <summary>Snail.MCP.Memory and Plans answer in words a command or a hook reads as they are: a failure in JSON among them was a second form.</summary>
+    [Fact]
+    public async Task Failure_OfAServerThatAnswersText_IsPlainText_ErrorThenHint_FlaggedAsAnError()
+    {
+        await using var stand = await Stand.StartAsync(configure: options => options.AnswersText = true);
+
+        var answer = await stand.Client.CallToolAsync("throws");
+
+        Assert.True(answer.IsError);
+        Assert.Equal($"The disk is full. — {ToolFailures.Hint}", answer.Text());
+        Assert.Null(answer.StructuredContent);
+        var logged = Assert.Single(stand.Logs.Entries, entry => entry.Level >= LogLevel.Warning);
+        Assert.Equal("throws failed inside the server", logged.Message);
+    }
+
+    [Fact]
+    public async Task Refusal_OfAServerThatAnswersText_IsPlainText()
+    {
+        await using var stand = await Stand.StartAsync(configure: options => options.AnswersText = true);
+
+        var refused = await stand.Client.CallToolAsync("refuses_deep");
+        var bare = await stand.Client.CallToolAsync("refuses_bare");
+
+        Assert.True(refused.IsError);
+        Assert.Equal("Solution 'a.sln' is not loaded. — Call load_solution first.", refused.Text());
+        Assert.True(bare.IsError);
+        Assert.Equal("No codebase to index.", bare.Text());
+    }
+
+    [Fact]
+    public async Task Arguments_ThatDoNotBind_OfAServerThatAnswersText_ArePlainText()
+    {
+        await using var stand = await Stand.StartAsync(configure: options => options.AnswersText = true);
+
+        var answer = await stand.Client.CallToolAsync("counts", new Dictionary<string, object?> { ["label"] = "a" });
+
+        Assert.True(answer.IsError);
+        Assert.StartsWith("'counts' needs 'count', which this call did not send. — ", answer.Text(), StringComparison.Ordinal);
+        Assert.DoesNotContain("{", answer.Text(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Failure_OfAKindTheServerRefuses_OfAServerThatAnswersText_IsPlainText()
+    {
+        await using var stand = await Stand.StartAsync(configure: options =>
+        {
+            options.AnswersText = true;
+            options.Refuse<NotLoadedException>("notLoaded", _ => "call load_solution first");
+        });
+
+        var answer = await stand.Client.CallToolAsync("not_loaded");
+
+        Assert.Equal("Solution 'a.sln' is not loaded. — call load_solution first", answer.Text());
+    }
+
     [Fact]
     public void ExplainFailures_CalledTwice_RegistersOnce()
     {

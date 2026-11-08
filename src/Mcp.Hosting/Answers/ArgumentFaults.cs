@@ -30,8 +30,9 @@ internal static class ArgumentFaults
     /// <summary>How much of a value the answer quotes.</summary>
     private const int ShownLength = 60;
 
-    /// <summary>The answer to a call the tool never ran for because its arguments did not bind, or null when the failure is not that.</summary>
-    public static CallToolResult? AnswerTo(RequestContext<CallToolRequestParams> request, Exception failure)
+    /// <summary>The refusal of a call the tool never ran for because its arguments did not bind, or null when the failure is not that.</summary>
+    /// <remarks>Its words alone: <c>ExplainFailures</c> answers them as the envelope, or as plain text for a server whose answers are text.</remarks>
+    public static AnswerFailure? FaultOf(RequestContext<CallToolRequestParams> request, Exception failure)
     {
         if (failure is not (JsonException or ArgumentException) || request.MatchedPrimitive is not McpServerTool tool)
             return null;
@@ -42,13 +43,13 @@ internal static class ArgumentFaults
         var takes = ArgumentCheck.Takes(name, schema);
 
         if (Missing(schema, arguments) is { Count: > 0 } missing)
-            return ToolAnswer.Failed($"'{name}' needs {string.Join(", ", missing.Select(parameter => $"'{parameter}'"))}, which this call did not send.", takes, ArgumentCheck.Type);
+            return new AnswerFailure($"'{name}' needs {string.Join(", ", missing.Select(parameter => $"'{parameter}'"))}, which this call did not send.", takes, ArgumentCheck.Type);
 
         if (Misfit(schema, arguments) is var (parameter, value, property))
-            return ToolAnswer.Failed($"'{name}' cannot take {Shown(value)} for '{parameter}': it takes {Expected(property)}.", $"Send '{parameter}' as {Expected(property)}. {takes}", ArgumentCheck.Type);
+            return new AnswerFailure($"'{name}' cannot take {Shown(value)} for '{parameter}': it takes {Expected(property)}.", $"Send '{parameter}' as {Expected(property)}. {takes}", ArgumentCheck.Type);
 
         if (failure.StackTrace?.Contains(Marshalling, StringComparison.Ordinal) == true)
-            return ToolAnswer.Failed($"'{name}' could not read the arguments of this call: {failure.Message}", $"Check the value of each argument against what the tool takes. {takes}", ArgumentCheck.Type);
+            return new AnswerFailure($"'{name}' could not read the arguments of this call: {failure.Message}", $"Check the value of each argument against what the tool takes. {takes}", ArgumentCheck.Type);
 
         return null;
     }

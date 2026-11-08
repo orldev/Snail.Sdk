@@ -25,6 +25,9 @@ public static class ServerSecret
     /// <summary>The shortest secret made: 128 bits.</summary>
     internal const int ShortestLength = 16;
 
+    /// <summary>The length of a secret made when none is named: 256 bits.</summary>
+    private const int DefaultLength = 32;
+
     private static readonly TimeSpan LongestWait = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan Retry = TimeSpan.FromMilliseconds(10);
 
@@ -33,12 +36,30 @@ public static class ServerSecret
     /// <param name="length">How many bytes it is; 16 at the least.</param>
     /// <exception cref="ServerSecretRefusedException">The file holds another number of bytes; it is left as it is.</exception>
     /// <exception cref="IOException">Another process held the lock beside the file for ten seconds.</exception>
-    public static byte[] ReadOrCreate(string file, int length = 32)
+    public static byte[] ReadOrCreate(string file, int length) => ReadOrCreate(file, length, out _);
+
+    /// <summary>The secret of 32 random bytes kept in <paramref name="file"/>, made the first time it is asked for.</summary>
+    /// <param name="file">The file it is kept in.</param>
+    /// <exception cref="ServerSecretRefusedException">The file holds another number of bytes; it is left as it is.</exception>
+    /// <exception cref="IOException">Another process held the lock beside the file for ten seconds.</exception>
+    public static byte[] ReadOrCreate(string file) => ReadOrCreate(file, DefaultLength, out _);
+
+    /// <summary>The secret of <paramref name="length"/> random bytes kept in <paramref name="file"/>, and whether this call made it.</summary>
+    /// <remarks>
+    /// For a server that says so in its log — "wrote a new token, hand it to the plugin again" — where looking for the file
+    /// first raced with every other server of the machine making it at once: the one that made the file is the one told.
+    /// </remarks>
+    /// <param name="file">The file it is kept in.</param>
+    /// <param name="length">How many bytes it is; 16 at the least.</param>
+    /// <param name="created">True when this call wrote the file; false when the secret was there already, or another process wrote it first.</param>
+    /// <exception cref="ServerSecretRefusedException">The file holds another number of bytes; it is left as it is.</exception>
+    /// <exception cref="IOException">Another process held the lock beside the file for ten seconds.</exception>
+    public static byte[] ReadOrCreate(string file, int length, out bool created)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(file);
         ArgumentOutOfRangeException.ThrowIfLessThan(length, ShortestLength);
 
-        var kept = Kept(file, () => RandomNumberGenerator.GetBytes(length));
+        var kept = Kept(file, () => RandomNumberGenerator.GetBytes(length), out created);
 
         if (kept.Length != length)
             throw new ServerSecretRefusedException(file, $"{kept.Length} bytes", $"{length} bytes");
@@ -56,12 +77,26 @@ public static class ServerSecret
     /// </remarks>
     /// <exception cref="ServerSecretRefusedException">The file holds anything but the digits of a secret of that length; it is left as it is.</exception>
     /// <exception cref="IOException">Another process held the lock beside the file for ten seconds.</exception>
-    public static string ReadOrCreateHex(string file, int length = 32)
+    public static string ReadOrCreateHex(string file, int length) => ReadOrCreateHex(file, length, out _);
+
+    /// <summary>The secret of 32 random bytes written as lower-case hex digits, for a file another program reads as text.</summary>
+    /// <param name="file">The file it is kept in, as text: two hex digits a byte.</param>
+    /// <exception cref="ServerSecretRefusedException">The file holds anything but the digits of a secret of that length; it is left as it is.</exception>
+    /// <exception cref="IOException">Another process held the lock beside the file for ten seconds.</exception>
+    public static string ReadOrCreateHex(string file) => ReadOrCreateHex(file, DefaultLength, out _);
+
+    /// <summary>The same secret written as lower-case hex digits, and whether this call made it.</summary>
+    /// <param name="file">The file it is kept in, as text: two hex digits a byte.</param>
+    /// <param name="length">How many bytes it is; the file holds twice as many digits.</param>
+    /// <param name="created">True when this call wrote the file; false when the secret was there already, or another process wrote it first.</param>
+    /// <exception cref="ServerSecretRefusedException">The file holds anything but the digits of a secret of that length; it is left as it is.</exception>
+    /// <exception cref="IOException">Another process held the lock beside the file for ten seconds.</exception>
+    public static string ReadOrCreateHex(string file, int length, out bool created)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(file);
         ArgumentOutOfRangeException.ThrowIfLessThan(length, ShortestLength);
 
-        var kept = Kept(file, () => Encoding.ASCII.GetBytes(Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(length))));
+        var kept = Kept(file, () => Encoding.ASCII.GetBytes(Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(length))), out created);
         var text = Encoding.ASCII.GetString(kept).Trim();
         var isWhole = text.Length == length * 2 && text.All(char.IsAsciiHexDigit);
 
@@ -85,35 +120,43 @@ public static class ServerSecret
     }
 
     /// <summary>The bytes of the file, which one process at a time makes from <paramref name="fresh"/> when it is missing.</summary>
-    private static byte[] Kept(string file, Func<byte[]> fresh)
+    /// <param name="file">The file the secret is kept in.</param>
+    /// <param name="fresh">The bytes of a new secret.</param>
+    /// <param name="created">Whether this process published the file.</param>
+    private static byte[] Kept(string file, Func<byte[]> fresh, out bool created)
     {
         var path = Path.GetFullPath(file);
 
-        if (!File.Exists(path))
-            MakeOnce(path, fresh);
+        created = !File.Exists(path) && TryMakeOnce(path, fresh);
 
         return File.ReadAllBytes(path);
     }
 
-    /// <summary>Makes the file under the lock beside it, unless another process made it first.</summary>
+    /// <summary>Makes the file under the lock beside it, unless another process made it first; true when this one made it.</summary>
     /// <remarks>
     /// The lock file is removed once the secret stands. A process that still waits on the removed lock, or opens a new
     /// one, finds the secret there and makes nothing: the lock only ever guards a secret that does not exist yet.
     /// </remarks>
-    private static void MakeOnce(string file, Func<byte[]> fresh)
+    private static bool TryMakeOnce(string file, Func<byte[]> fresh)
     {
         var folder = Path.GetDirectoryName(file)!;
         var lockFile = $"{file}.lock";
+        var isMade = false;
 
         Directory.CreateDirectory(folder);
 
         using (Locked(lockFile))
         {
             if (!File.Exists(file))
+            {
                 Publish(file, fresh());
+                isMade = true;
+            }
         }
 
         TryDelete(lockFile);
+
+        return isMade;
     }
 
     /// <summary>The lock beside the secret, held by this process alone; another holding it is waited for.</summary>

@@ -31,6 +31,17 @@ public sealed class ToolAnswersTests
         Assert.Equal(1, answer.Data()!["done"]!.GetValue<int>());
     }
 
+    [Fact]
+    public void Field_ReadsWhatTheEnvelopeCarriesBesideTheData()
+    {
+        var answer = ToolAnswer.Ok(new JsonObject { ["id"] = "1:2" }, AnswerShape.None, new JsonObject { ["fileKey"] = "abc", ["metrics"] = new JsonObject { ["bytesIn"] = 10 } });
+
+        Assert.Equal("abc", answer.Field("fileKey")!.GetValue<string>());
+        Assert.Equal(10, answer.Field("metrics")!["bytesIn"]!.GetValue<int>());
+        Assert.Null(answer.Field("nodeId"));
+        Assert.Equal("1:2", answer.Data()!["id"]!.GetValue<string>());
+    }
+
     [Theory]
     [InlineData("plain words")]
     [InlineData("""{"data":1}""")]

@@ -68,7 +68,18 @@ A change that a repository must act on says what to do.
   bytes (Snail.MCP.Sandbox answers runs of up to 32 MB). `ToolAnswer.Text(result)` is the envelope a result carries,
   for an answer that travels outside a tool result — an HTTP door that refuses in a tool's words — and
   `ToolAnswer.Of(envelope)` answers a stored envelope again by the same rules, a failure text alone and `isError`.
-  `ToolAnswer.Ok(data)` and `Ok(data, shape)` are two overloads beside the typed ones. `ToolAnswer.IsFailure(result)` tells the failure envelope by its top-level `ok`;
+  `ToolAnswer.Ok(data)` and `Ok(data, shape)` are two overloads beside the typed ones. `ToolAnswer.Ok(data, shape,
+  beside)` writes fields of the tool's own after `data` at the top level — Snail.MCP.Figma's contract reads `fileKey`,
+  `nodeId`, `source`, `fileVersion`, `staleReason` and `metrics` there on 17 tools and wrote the envelope by hand for
+  them; a field named as the envelope's own (`ok`, `error`, `hint`, `type`, `data`) is refused, a null one left out,
+  and `AnswerShape.Data` stays the data alone. `ToolAnswer.Of(envelope)` keeps such fields, a success's and a
+  failure's, where it dropped them. `ToolAnswer.OkText(data[, beside])` and `FailedText(error, hint, type, data)` are
+  the envelope's text for a tool that returns a string (Figma's 136), which `.ExplainFailures()` flags `isError` on a
+  failure. `ToolAnswer.From(answer, typeInfo[, shape])` answers an `Answer<T>` of typed data as `Ok(data, typeInfo)`
+  writes it (Snail.MCP.Obsidian mapped its records to nodes for `From`); `From(answer, data[, shape])` is two overloads
+  now, beside it. `Envelope<T>` takes `T : notnull` and publishes `data` as required and never null — a failure carries
+  no structured content, so the schema is a success's — where `T? Data` published `["object","null"]`.
+  `ToolAnswer.IsFailure(result)` tells the failure envelope by its top-level `ok`;
   `ToolAnswer.Word(value, WordCase.Lower | WordCase.Camel)` spells an enum value (`inprogress`, `inProgress`);
   `ToolAnswer.Moment(at)` a moment, round-trip and invariant; `ToolAnswer.Wire` are the options and
   `ToolAnswer.ObjectInfo` the generated `JsonObject`, AOT-safe. To adopt: delete the server's `ToolResponse` envelope
@@ -94,8 +105,15 @@ A change that a repository must act on says what to do.
   in a job it ends the job failed with its hint and type. `.ExplainFailures(options => …)` words a failure nobody
   foresaw — `FailureOptions.Error`, `Hint` and `Type`, each from the tool's name and the exception — for a server whose
   failures named the tool (Snail.MCP.Documents) and one that throws exceptions of its own for a caller's mistake
-  (`Type = (_, e) => e is NotLoadedException ? "notLoaded" : null`, a hint to match): only a failure left `internal` is
-  logged with its trace. A fixed hint is `Hint = (_, _) => "…"`; `Hint = null` answers none (Snail.MCP.Roslyn).
+  (`options.Refuse<NotLoadedException>("notLoaded", e => "call load_solution first")`, the first refusal an exception
+  is answering it, its hint null for none; or `Type = (_, e) => …`): only a failure left `internal` is logged with its
+  trace. The default hint — "failed inside, try once more" — is an `internal` failure's alone: a failure the server
+  named otherwise gets none unless `Hint` words one, and naming a few exceptions no longer loses it for the rest
+  (Snail.MCP.Obsidian kept it by hand). A fixed hint is `Hint = (_, _) => "…"`; `Hint = null` answers none
+  (Snail.MCP.Roslyn). A server whose answers are text — Snail.MCP.Memory, read by the mem0 commands and hooks;
+  Snail.MCP.Plans, markdown — keeps its failures text: `options.AnswersText = true` answers what was thrown, arguments
+  that did not bind, a `ToolRefusalException` and a thrown step of `run_tools` as `error — hint`, flagged `isError`, no
+  JSON (its type still decides what is logged).
 - `JobAnswer.Envelope(report, beside, hint)`: a job in the envelope — the report as the text's data, with the fields of
   `beside` added there, and the report alone as the structured content a client of `Snail.Sdk.Mcp.JobClient` reads.
   Replaces `ToolResponse.Job(report)` of Snail.MCP.Security, BuildBridge, AfterEffects and Blender. A job that failed or
@@ -116,7 +134,11 @@ A change that a repository must act on says what to do.
 - `Snail.Sdk.Mcp.Testing` reads the envelope: `answer.IsOk()`, `Data()`, `Error()`, `Hint()`, `Type()` and `Report()`
   (the job's report in the structured content), failing with the text when it is not the envelope; `Images()` are the
   pictures after it, and `Text()` reads the envelope's block with pictures after it. A test that parsed the text
-  itself (`ReportOf`, its own `Ok`/`Data` readers) uses these. The package now depends on `Snail.Sdk.Mcp.Hosting`.
+  itself (`ReportOf`, its own `Ok`/`Data` readers) uses these. `Field(name)` reads a field beside `data` (Figma's
+  `fileKey`). `OutputSchemas.Problems(tool, result)` checks the structured content against the tool's output schema —
+  `type`, `properties`, `required`, `additionalProperties`, `items`, `enum`, `const`, `anyOf`/`oneOf`/`allOf`, a local
+  `$ref`, a success without structured content — one line per problem with its path, nothing beyond the BCL: what a
+  validating client refuses, found in the server's own tests. The package now depends on `Snail.Sdk.Mcp.Hosting`.
 - `AddIdleShutdown(after, isBusy)` of `Snail.Sdk.Mcp.Hosting`: a stdio server that has heard no MCP message for
   `after` stops, unless `isBusy` says it is at work no message shows. For the process a client started and then lost
   without closing its stdin, which waited for ever. Any MCP message counts, over the filter the idle trim counts with —
@@ -152,7 +174,10 @@ A change that a repository must act on says what to do.
   another length is refused with its name, as a `ServerSecretRefusedException` (an `InvalidOperationException`) that
   carries `File`, `Found` and `Expected`, so a server adds its own consequence without reading the message.
   `ReadOrCreateHex` keeps it as hex text, for a token another program reads
-  (Snail.MCP.Figma's `bridge.token`, Snail.MCP.AfterEffects' bridge). `Matches` compares in constant time. A move
+  (Snail.MCP.Figma's `bridge.token`, Snail.MCP.AfterEffects' bridge). `ReadOrCreate(file, length, out created)` and
+  `ReadOrCreateHex(file, length, out created)` tell whether this call wrote the file, for a server that logs "wrote a
+  new token" without looking for the file first, a race with every server starting at once; `ReadOrCreate(file)` and
+  `ReadOrCreate(file, length)` are overloads where one had an optional length. `Matches` compares in constant time. A move
   "without overwrite" alone does not guard the race on Unix, where .NET looks for the target and then renames over it.
 - `ServerFolders.Home`, now public, and `ServerFolders.ExpandHome(path)` / `ExpandHome(path, fallback)`: a leading `~`
   or `~/` made the user's home; a missing path is the fallback. The servers kept copies of their own in nine places.

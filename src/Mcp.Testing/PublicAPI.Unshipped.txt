@@ -21,6 +21,10 @@ static Snail.Sdk.Mcp.Testing.ToolAnswers.Error(this ModelContextProtocol.Protoco
 static Snail.Sdk.Mcp.Testing.ToolAnswers.Hint(this ModelContextProtocol.Protocol.CallToolResult! answer) -> string?
 static Snail.Sdk.Mcp.Testing.ToolAnswers.IsOk(this ModelContextProtocol.Protocol.CallToolResult! answer) -> bool
 static Snail.Sdk.Mcp.Testing.ToolAnswers.Report(this ModelContextProtocol.Protocol.CallToolResult! answer) -> Snail.Sdk.Mcp.Hosting.Jobs.JobReport?
+Snail.Sdk.Mcp.Testing.ToolAnswers.extension(ModelContextProtocol.Protocol.CallToolResult!).Field(string! name) -> System.Text.Json.Nodes.JsonNode?
+static Snail.Sdk.Mcp.Testing.ToolAnswers.Field(this ModelContextProtocol.Protocol.CallToolResult! answer, string! name) -> System.Text.Json.Nodes.JsonNode?
+Snail.Sdk.Mcp.Testing.OutputSchemas
+static Snail.Sdk.Mcp.Testing.OutputSchemas.Problems(ModelContextProtocol.Protocol.Tool! tool, ModelContextProtocol.Protocol.CallToolResult! result) -> System.Collections.Generic.IReadOnlyList<string!>!
 static Snail.Sdk.Mcp.Testing.ToolAnswers.Images(this ModelContextProtocol.Protocol.CallToolResult! answer) -> System.Collections.Generic.IReadOnlyList<ModelContextProtocol.Protocol.ImageContentBlock!>!
 static Snail.Sdk.Mcp.Testing.ToolAnswers.Type(this ModelContextProtocol.Protocol.CallToolResult! answer) -> string?
 Snail.Sdk.Mcp.Testing.ToolAnswers.extension(ModelContextProtocol.Protocol.CallToolResult!).Images() -> System.Collections.Generic.IReadOnlyList<ModelContextProtocol.Protocol.ImageContentBlock!>!

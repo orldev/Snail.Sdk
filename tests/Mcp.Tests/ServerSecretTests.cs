@@ -46,6 +46,46 @@ public sealed class ServerSecretTests : IDisposable
         Assert.Single(Directory.GetFiles(Path.GetDirectoryName(SecretFile)!));
     }
 
+    /// <summary>A server logs "wrote a new token" once, from what the call says, not from a look at the file that races with the others.</summary>
+    [Fact]
+    public void ReadOrCreate_SaysWhetherItMadeTheSecret()
+    {
+        var first = ServerSecret.ReadOrCreate(SecretFile, 32, out var isMade);
+        var second = ServerSecret.ReadOrCreate(SecretFile, 32, out var isMadeAgain);
+
+        Assert.True(isMade);
+        Assert.False(isMadeAgain);
+        Assert.Equal(first, second);
+    }
+
+    [Fact]
+    public void ReadOrCreateHex_SaysWhetherItMadeTheSecret()
+    {
+        var first = ServerSecret.ReadOrCreateHex(SecretFile, 16, out var isMade);
+        var second = ServerSecret.ReadOrCreateHex(SecretFile, 16, out var isMadeAgain);
+
+        Assert.True(isMade);
+        Assert.False(isMadeAgain);
+        Assert.Equal(32, first.Length);
+        Assert.Equal(first, second);
+    }
+
+    /// <summary>Of sixteen servers starting at once, exactly one is told it made the secret.</summary>
+    [Fact]
+    public async Task ReadOrCreate_SixteenAtOnce_TellOneOfThemItMadeTheSecret()
+    {
+        var reads = Enumerable.Range(0, 16).Select(_ => Task.Run(() =>
+        {
+            ServerSecret.ReadOrCreate(SecretFile, 32, out var isMade);
+
+            return isMade;
+        }));
+
+        var made = await Task.WhenAll(reads);
+
+        Assert.Single(made, isMade => isMade);
+    }
+
     /// <summary>A file cut short is not taken as the secret, and not replaced by a new one that would invalidate what was handed out.</summary>
     [Fact]
     public void ReadOrCreate_AFileOfAnotherLength_IsRefusedAndKept()

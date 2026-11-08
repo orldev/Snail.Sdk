@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using Snail.Sdk.Mcp.Hosting.Answers;
 
 namespace Snail.Sdk.Mcp.Hosting.Sessions;
 
@@ -49,7 +50,7 @@ public static class ToolForwarding
         var refusal = Nested(context, tool) ?? Refusal(context, name);
 
         if (refusal is not null)
-            return SessionRegistration.ServicesOf(context)?.GetService<GrantOptions>()?.Refused(name, refusal) ?? GrantOptions.Envelope(refusal);
+            return Shaped(context, name, refusal);
 
         Forwarded.Value = name;
 
@@ -60,6 +61,7 @@ public static class ToolForwarding
     /// <remarks>
     /// For a forwarder whose steps are not tools — commands of a catalog, each granted under the name of the tool it
     /// stands for (Snail.MCP.Git: <c>status</c> under <c>git_status</c>). Null as well when the server holds no grant.
+    /// The words alone; <see cref="Refused"/> and <see cref="Refused{T}"/> are the refusal as an answer.
     /// </remarks>
     public static string? Refusal(RequestContext<CallToolRequestParams> context, string tool)
     {
@@ -70,6 +72,24 @@ public static class ToolForwarding
 
         return services?.GetService<IToolGate>()?.Refusal(tool, services);
     }
+
+    /// <summary>The answer a call to <paramref name="tool"/> gets when the session of <paramref name="context"/> may not make it — the door's, in the server's shape — or null when it may.</summary>
+    /// <remarks>
+    /// For a forwarder whose steps are commands rather than tools and whose answers are the protocol's: the refusal reads
+    /// as the door's does, type <see cref="GrantOptions.NotGranted"/> with <see cref="GrantOptions.Hint"/>, or as the
+    /// server's <see cref="GrantOptions.Refusal"/> shapes it — no copy of either to keep.
+    /// </remarks>
+    public static CallToolResult? Refused(RequestContext<CallToolRequestParams> context, string tool) =>
+        Refusal(context, tool) is { } words ? Shaped(context, tool, words) : null;
+
+    /// <summary>The failed answer a command standing for <paramref name="tool"/> gets when the session of <paramref name="context"/> may not call it, or null when it may.</summary>
+    /// <remarks>
+    /// For a catalog whose commands answer <see cref="Answer{T}"/> before a tool makes the envelope of it: the gate's words,
+    /// <see cref="GrantOptions.Hint"/> and type <see cref="GrantOptions.NotGranted"/> — the type the door gives, so that a
+    /// program branching on it meets one word for one refusal. Snail.MCP.Git wrote the type and a copy of the hint itself.
+    /// </remarks>
+    public static Answer<T>? Refused<T>(RequestContext<CallToolRequestParams> context, string tool) =>
+        Refusal(context, tool) is { } words ? Answer.Failed<T>(words, GrantOptions.Hint, GrantOptions.NotGranted) : null;
 
     /// <summary>Whether the tool calls other tools itself: it carries <see cref="ForwardsAttribute"/>.</summary>
     public static bool IsForwarder(McpServerTool tool)
@@ -91,6 +111,10 @@ public static class ToolForwarding
             ? $"'{tool.ProtocolTool.Name}' runs other tools itself, so '{caller}' does not run it"
             : null;
     }
+
+    /// <summary>The refusal in the shape the server asked for at the door, the envelope when it asked for none.</summary>
+    private static CallToolResult Shaped(RequestContext<CallToolRequestParams> context, string tool, string words) =>
+        SessionRegistration.ServicesOf(context)?.GetService<GrantOptions>()?.Refused(tool, words) ?? GrantOptions.Envelope(words);
 
     /// <summary>The request of the step: the forwarder's, naming the step and its arguments, with the step as the matched tool.</summary>
     private static RequestContext<CallToolRequestParams> Step(RequestContext<CallToolRequestParams> context, McpServerTool tool, JsonObject? arguments)

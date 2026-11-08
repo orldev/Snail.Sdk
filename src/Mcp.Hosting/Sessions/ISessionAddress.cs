@@ -23,6 +23,15 @@ public interface ISessionAddress
     /// </remarks>
     bool IsPresent => true;
 
+    /// <summary>What a refusal calls the one the address speaks for: <c>session</c>, or <c>request</c> where each request stands alone.</summary>
+    /// <remarks>
+    /// "Not granted to this session" told a caller of a stateless server — Snail.MCP.Playwright, each request on its own —
+    /// about a session it never had. The address of <c>Snail.Sdk.Mcp.Http</c> answers <c>request</c> when the transport
+    /// keeps no sessions (<c>HttpServerSessionMode.Stateless</c>), so <see cref="SessionGrant"/> and
+    /// <see cref="SessionRoots"/> refuse in its word without a setting.
+    /// </remarks>
+    string Subject => "session";
+
     /// <summary>Every value the address gives the parameter, empty when it gives none or there is no address.</summary>
     IReadOnlyList<string> Values(string parameter);
 }

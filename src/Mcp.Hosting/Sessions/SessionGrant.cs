@@ -41,13 +41,17 @@ public sealed class SessionGrant(ISessionAddress address)
     }
 
     /// <summary>The refusal, in the words a caller needs to stop asking.</summary>
-    /// <remarks>The fleet's words, kept so that a refusal reads the same from every server a role reaches.</remarks>
+    /// <remarks>
+    /// The fleet's words, kept so that a refusal reads the same from every server a role reaches; "this request" instead of
+    /// "this session" where the address says each request stands alone (<see cref="ISessionAddress.Subject"/>).
+    /// </remarks>
     public string Refusal(string tool)
     {
         var granted = All;
+        var subject = address.Subject;
 
         return granted.Count == 0
-            ? $"'{tool}' was not granted to this session, which was granted no tool: open it with ?{Parameter}=<name> for each tool it may use"
-            : $"'{tool}' was not granted to this session, which may use {string.Join(", ", granted)}";
+            ? $"'{tool}' was not granted to this {subject}, which was granted no tool: name each tool it may use in the address, ?{Parameter}=<name>"
+            : $"'{tool}' was not granted to this {subject}, which may use {string.Join(", ", granted)}";
     }
 }

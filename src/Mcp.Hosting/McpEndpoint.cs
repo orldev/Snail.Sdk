@@ -47,7 +47,9 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// <para>
     /// A refusal names what the operator set: the variable, <c>SNAIL_MCP_&lt;NAME&gt;_URL</c>, and the key of the settings
     /// file beside it, for a program built on Snail.Sdk.Mcp, which names its server in its assembly
-    /// (<see cref="ServerSettings.NameOf(Assembly?)"/>); the key alone for any other program.
+    /// (<see cref="ServerSettings.NameOf(Assembly?)"/>), or for a server that names itself in
+    /// <see cref="McpEndpointOptions.Server"/>; the key alone for any other program. A refusal is a
+    /// <see cref="StartRefusedException"/>, which the program catches to say it in one line and exit with 1.
     /// </para>
     /// <para>
     /// An endpoint over HTTP that listens on its own address listens on an IP address or <c>localhost</c>, so a URL at a
@@ -56,7 +58,7 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// and <see cref="McpReach"/>.
     /// </para>
     /// </remarks>
-    /// <exception cref="InvalidOperationException">A key holds what it cannot mean: a transport not named above, a URL that is not an absolute http one or names a host rather than an address, a port or a flag that is not one.</exception>
+    /// <exception cref="StartRefusedException">A key holds what it cannot mean: a transport not named above, a URL that is not an absolute http one or names a host rather than an address, a port or a flag that is not one.</exception>
     public static McpEndpoint Read(IConfiguration settings, Uri defaultUrl) =>
         Read(settings, defaultUrl, isHttpOnly: false, Environment.GetEnvironmentVariable(ContainerVariable), ServerSettings.NameOf(Assembly.GetEntryAssembly()));
 
@@ -72,7 +74,7 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// read at the root alone did not look. A refusal names the key where it was found:
     /// <c>SNAIL_MCP_&lt;NAME&gt;_SNAIL__PORT (or Snail:Port in the settings file)</c> for a port in the section.
     /// </remarks>
-    /// <exception cref="InvalidOperationException">A key holds what it cannot mean: a transport not named above, a URL that is not an absolute http one, a port or a flag that is not one.</exception>
+    /// <exception cref="StartRefusedException">A key holds what it cannot mean: a transport not named above, a URL that is not an absolute http one, a port or a flag that is not one.</exception>
     /// <exception cref="ArgumentException">The section's name is empty or blank.</exception>
     public static McpEndpoint Read(IConfiguration settings, Uri defaultUrl, string fallbackSection)
     {
@@ -84,7 +86,7 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// <summary>The endpoint of a server of both transports, read as <paramref name="options"/> say: the section also looked in, and how far beyond loopback the server may listen.</summary>
     /// <param name="settings">The server's settings, read at their root first.</param>
     /// <param name="defaultUrl">Where HTTP listens when the settings name no address.</param>
-    /// <param name="options">The fallback section, as <see cref="Read(IConfiguration, Uri, string)"/> takes it, and the server's <see cref="McpReach"/>.</param>
+    /// <param name="options">The fallback section, as <see cref="Read(IConfiguration, Uri, string)"/> takes it, the server's <see cref="McpReach"/>, and the name its variables are spelled by.</param>
     /// <remarks>
     /// <para>
     /// The keys and their meaning are those of <see cref="Read(IConfiguration, Uri)"/>. A server whose endpoint asks for no
@@ -94,13 +96,13 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// <c>DOTNET_RUNNING_IN_CONTAINER is 'true'; …</c> — rather than served to the network.
     /// </para>
     /// </remarks>
-    /// <exception cref="InvalidOperationException">A key holds what it cannot mean, as for <see cref="Read(IConfiguration, Uri)"/>, or an endpoint over HTTP is beyond the server's reach.</exception>
-    /// <exception cref="ArgumentException">The section's name is blank.</exception>
+    /// <exception cref="StartRefusedException">A key holds what it cannot mean, as for <see cref="Read(IConfiguration, Uri)"/>, or an endpoint over HTTP is beyond the server's reach.</exception>
+    /// <exception cref="ArgumentException">The section's name or the server's is blank.</exception>
     public static McpEndpoint Read(IConfiguration settings, Uri defaultUrl, McpEndpointOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        return Read(settings, defaultUrl, isHttpOnly: false, Environment.GetEnvironmentVariable(ContainerVariable), ServerSettings.NameOf(Assembly.GetEntryAssembly()), options);
+        return Read(settings, defaultUrl, isHttpOnly: false, Environment.GetEnvironmentVariable(ContainerVariable), ServerOf(options), options);
     }
 
     /// <summary>The endpoint the settings of a server that answers only over HTTP ask for: HTTP whatever they name, and a transport or a port that would mean stdio refused.</summary>
@@ -110,7 +112,7 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// builder could take, and the server stopped later with an <see cref="ArgumentException"/> that named neither
     /// (Snail.MCP.Sandbox, 0.5.0).
     /// </remarks>
-    /// <exception cref="InvalidOperationException">A key holds what it cannot mean for an HTTP server: a transport other than Http, a URL that is not an absolute http one, a port that is not one above zero, a flag that is not one.</exception>
+    /// <exception cref="StartRefusedException">A key holds what it cannot mean for an HTTP server: a transport other than Http, a URL that is not an absolute http one, a port that is not one above zero, a flag that is not one.</exception>
     public static McpEndpoint ReadHttp(IConfiguration settings, Uri defaultUrl) =>
         Read(settings, defaultUrl, isHttpOnly: true, Environment.GetEnvironmentVariable(ContainerVariable), ServerSettings.NameOf(Assembly.GetEntryAssembly()));
 
@@ -122,7 +124,7 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// <see cref="ReadHttp(IConfiguration, Uri)"/>, each key looked for at the root and then in the section, as
     /// <see cref="Read(IConfiguration, Uri, string)"/> looks for it.
     /// </remarks>
-    /// <exception cref="InvalidOperationException">A key holds what it cannot mean for an HTTP server: a transport other than Http, a URL that is not an absolute http one, a port that is not one above zero, a flag that is not one.</exception>
+    /// <exception cref="StartRefusedException">A key holds what it cannot mean for an HTTP server: a transport other than Http, a URL that is not an absolute http one, a port that is not one above zero, a flag that is not one.</exception>
     /// <exception cref="ArgumentException">The section's name is empty or blank.</exception>
     public static McpEndpoint ReadHttp(IConfiguration settings, Uri defaultUrl, string fallbackSection)
     {
@@ -134,15 +136,26 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     /// <summary>The endpoint of a server that answers only over HTTP, read as <paramref name="options"/> say: the section also looked in, and how far beyond loopback the server may listen.</summary>
     /// <param name="settings">The server's settings, read at their root first.</param>
     /// <param name="defaultUrl">Where HTTP listens when the settings name no address.</param>
-    /// <param name="options">The fallback section, as <see cref="ReadHttp(IConfiguration, Uri, string)"/> takes it, and the server's <see cref="McpReach"/>.</param>
+    /// <param name="options">The fallback section, as <see cref="ReadHttp(IConfiguration, Uri, string)"/> takes it, the server's <see cref="McpReach"/>, and the name its variables are spelled by.</param>
     /// <remarks><see cref="ReadHttp(IConfiguration, Uri)"/>, held to the reach as <see cref="Read(IConfiguration, Uri, McpEndpointOptions)"/> holds it.</remarks>
-    /// <exception cref="InvalidOperationException">A key holds what it cannot mean for an HTTP server, as for <see cref="ReadHttp(IConfiguration, Uri)"/>, or the endpoint is beyond the server's reach.</exception>
-    /// <exception cref="ArgumentException">The section's name is blank.</exception>
+    /// <exception cref="StartRefusedException">A key holds what it cannot mean for an HTTP server, as for <see cref="ReadHttp(IConfiguration, Uri)"/>, or the endpoint is beyond the server's reach.</exception>
+    /// <exception cref="ArgumentException">The section's name or the server's is blank.</exception>
     public static McpEndpoint ReadHttp(IConfiguration settings, Uri defaultUrl, McpEndpointOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        return Read(settings, defaultUrl, isHttpOnly: true, Environment.GetEnvironmentVariable(ContainerVariable), ServerSettings.NameOf(Assembly.GetEntryAssembly()), options);
+        return Read(settings, defaultUrl, isHttpOnly: true, Environment.GetEnvironmentVariable(ContainerVariable), ServerOf(options), options);
+    }
+
+    /// <summary>The server's name its variables are spelled by: the one the options give, else the one the entry assembly carries.</summary>
+    private static string? ServerOf(McpEndpointOptions options)
+    {
+        if (options.Server is null)
+            return ServerSettings.NameOf(Assembly.GetEntryAssembly());
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.Server, nameof(options));
+
+        return options.Server;
     }
 
     /// <summary>The endpoint the settings ask for, with the container variable, the server's name and the fallback section as given.</summary>
@@ -198,7 +211,7 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
         if (isTransport && (!isHttpOnly || transport is McpTransport.Http))
             return transport;
 
-        throw new InvalidOperationException(isHttpOnly
+        throw new StartRefusedException(isHttpOnly
             ? $"{name} is '{value}'; the server answers only over HTTP, so it is Http, or unset."
             : $"{name} is '{value}'; it is Stdio or Http.");
     }
@@ -215,7 +228,7 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
         if (isPort && (!isHttpOnly || port > 0))
             return port;
 
-        throw new InvalidOperationException(isHttpOnly
+        throw new StartRefusedException(isHttpOnly
             ? $"{name} is '{value}'; the server answers only over HTTP, so it is a port number above zero, or unset."
             : $"{name} is '{value}'; it is a port number, or 0 for stdio.");
     }
@@ -230,7 +243,7 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
         if (Uri.TryCreate(value.Trim(), UriKind.Absolute, out var url) && url.Scheme == Uri.UriSchemeHttp)
             return url;
 
-        throw new InvalidOperationException($"{name} is '{value}'; it is an absolute http address, such as {defaultUrl}.");
+        throw new StartRefusedException($"{name} is '{value}'; it is an absolute http address, such as {defaultUrl}.");
     }
 
     private static bool IsTrue(Setting setting)
@@ -243,7 +256,7 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
         if (bool.TryParse(value.Trim(), out var flag))
             return flag;
 
-        throw new InvalidOperationException($"{name} is '{value}'; it is true or false.");
+        throw new StartRefusedException($"{name} is '{value}'; it is true or false.");
     }
 
     private static bool IsInContainer(string? containerVariable) =>
@@ -283,7 +296,13 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
     {
         private const string Loopback = "this server answers on loopback alone, since its endpoint asks for no key";
 
+        private const string LoopbackOutsideAContainer = "this server answers on loopback alone outside a container, and on every interface only inside one, since its endpoint asks for no key";
+
         public bool ListensOnEveryInterface => Flag is not null || Container is not null || IsUnspecified(Url);
+
+        /// <summary>What the reach allows, in the words of a refusal: loopback alone, or loopback with every interface inside a container.</summary>
+        /// <remarks>A refusal outside a container said "loopback alone" to a server that may open every interface in its image, and its operator was told nothing of the way that is allowed (Snail.MCP.Security, Git; 0.5.0-local.4).</remarks>
+        private string Allows => Allowed is McpReach.LoopbackOrContainer ? LoopbackOutsideAContainer : Loopback;
 
         /// <summary>Refuses an endpoint beyond the reach, or one on a host name it cannot listen on, naming what the operator set.</summary>
         public void Check()
@@ -292,16 +311,16 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
             var isContainerAllowed = Allowed is not McpReach.LoopbackOnly;
 
             if (Container is not null && !isContainerAllowed)
-                throw new InvalidOperationException($"{ContainerVariable} is '{Container}'; inside a container the port is opened on every interface, and {Loopback}: it runs outside a container.");
+                throw new StartRefusedException($"{ContainerVariable} is '{Container}'; inside a container the port is opened on every interface, and {Loopback}: it runs outside a container.");
 
             if (Container is not null)
                 return;
 
             if (isNarrowed && Flag is { } flag)
-                throw new InvalidOperationException($"{flag.Name} is '{flag.Value}'; {Loopback}, so it is false, or unset.");
+                throw new StartRefusedException($"{flag.Name} is '{flag.Value}'; {Allows}, so it is false, or unset.");
 
             if (isNarrowed && IsUnspecified(Url))
-                throw new InvalidOperationException($"{AddressSaid()}; it opens every interface, and {Loopback}: it is 127.0.0.1, [::1] or localhost.");
+                throw new StartRefusedException($"{AddressSaid()}; it opens every interface, and {Allows}: it is 127.0.0.1, [::1] or localhost.");
 
             if (ListensOnEveryInterface)
                 return;
@@ -309,13 +328,13 @@ public sealed record McpEndpoint(McpTransport Transport, Uri Url, bool ListensOn
             if (!IPAddress.TryParse(Url.DnsSafeHost, out var ip))
             {
                 if (!string.Equals(Url.DnsSafeHost, "localhost", StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidOperationException($"{AddressSaid()}; the server listens on an address, so its host is an IP address or localhost, or 0.0.0.0 for every interface.");
+                    throw new StartRefusedException($"{AddressSaid()}; the server listens on an address, so its host is an IP address or localhost, or 0.0.0.0 for every interface.");
 
                 return;
             }
 
             if (isNarrowed && !IPAddress.IsLoopback(ip))
-                throw new InvalidOperationException($"{AddressSaid()}; it is beyond loopback, and {Loopback}: it is 127.0.0.1, [::1] or localhost.");
+                throw new StartRefusedException($"{AddressSaid()}; it is beyond loopback, and {Allows}: it is 127.0.0.1, [::1] or localhost.");
         }
 
         private string AddressSaid() =>

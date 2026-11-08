@@ -119,7 +119,7 @@ Snail.MCP.Foo/
   .mcp/server.json                the MCP registry manifest
   src/
     Snail.MCP.Foo.csproj          <Project Sdk="Snail.Sdk.Mcp">
-    Program.cs                    one line: ServerHost.RunAsync(args)
+    Program.cs                    ServerHost.RunAsync(args); a StartRefusedException as one line on stderr, exit code 1
     Extensions/                   ServerHost, ServerRegistration (+ HttpServerHost, ServerSettings with HTTP)
     Tools/                        the tool classes
   tests/

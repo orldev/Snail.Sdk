@@ -178,7 +178,12 @@ A change that a repository must act on says what to do.
   `McpReach.LoopbackOnly` (Snail.MCP.Memory, CodeContext, Figma), or `McpReach.LoopbackOrContainer` when it ships an
   image (Git, FileSystem, Documents, Playwright, Roslyn, Sandbox, Security, Connector, `dotnet new s3l-mcp`), and `ListensOnEveryInterface=true`, a
   URL at `0.0.0.0` or beyond loopback, and — for `LoopbackOnly` — a start inside a container are refused at the read,
-  naming the variable, `DOTNET_RUNNING_IN_CONTAINER is 'true'; …` among them. The old `CreateBuilder(args, url)` refused
+  naming the variable, `DOTNET_RUNNING_IN_CONTAINER is 'true'; …` among them; a refusal of `LoopbackOrContainer` outside a
+  container says that every interface is allowed inside one, where it said "loopback alone" as to a server that may
+  never open them (Snail.MCP.Security, Git). `McpEndpointOptions.Server` names the server — the short name it reads its
+  settings by — whose variables a refusal spells, `SNAIL_MCP_<NAME>_URL (or Url in the settings file)`, where the entry
+  assembly is no Snail program: a test that reads the endpoint under the test runner got the key alone (Snail.MCP.FileSystem,
+  Playwright, CodeContext pass their name). The old `CreateBuilder(args, url)` refused
   an address beyond loopback; the endpoint opened every interface for any of the three, so a keyless server could be
   served to the network by one setting (Snail.MCP.Memory). `McpReach.Unrestricted`, the reads without options, keeps
   that for a server that guards its endpoint, and listens on an IP address beyond loopback — a LAN one, Snail.MCP.Blender
@@ -186,6 +191,16 @@ A change that a repository must act on says what to do.
   read. `McpEndpoint.UrlSetting` names the key the address was read from (`Url`, `Http:Url`, or either under the
   section; null for the default): Snail.MCP.Blender signed its links with `Http:Url` while `SNAIL_MCP_BLENDER_URL` had
   moved the listener.
+- `StartRefusedException` of `Snail.Sdk.Mcp.Hosting`: a start refused for what the operator set, in one sentence that
+  names the variable and what it can be. `McpEndpoint.Read` and `ReadHttp` throw it for every setting they refuse —
+  a value its key cannot mean, an endpoint beyond the server's reach — and `ServerSecretRefusedException` is one. They
+  threw a bare `InvalidOperationException`, which ended the process unhandled with a stack trace and exit code 134 —
+  a crash, where a person had set a wrong value (the whole fleet on 0.5.0-local.4). A program catches it around its
+  start, writes the message to stderr and exits with 1, as the program of `dotnet new s3l-mcp` now does:
+  `try { await ServerHost.RunAsync(args); return 0; } catch (StartRefusedException refused) { await Console.Error.WriteLineAsync(refused.Message); return 1; }`.
+  It stays an `InvalidOperationException`, so a `catch` of that keeps catching it; a test that asserted the type
+  exactly, `Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(…))`, asserts `StartRefusedException`
+  (Snail.MCP.E2E, Figma, Connector, Sandbox, Memory).
 - `McpHttpHost.MapHealth(path = "/healthz", check = null)`: 200 with no body, for a container's healthcheck, which
   the servers in images mapped by hand; with `check` — asked with the request's services and its cancellation — the
   `HealthAnswer(isHealthy, body)` it gives: 200 or 503, and its `JsonNode` body as `application/json`; 503 with no body
@@ -209,7 +224,8 @@ A change that a repository must act on says what to do.
 - `ServerSecret` of `Snail.Sdk.Mcp.Hosting`: `ReadOrCreate(file, length)` keeps a secret in the server's data folder —
   readable by its owner alone from its first byte, written to a draft and moved into place whole, made by one process
   at a time under a lock beside it so every server starting at once agrees on one, and never replaced: a file of
-  another length is refused with its name, as a `ServerSecretRefusedException` (an `InvalidOperationException`) that
+  another length is refused with its name, as a `ServerSecretRefusedException` (a `StartRefusedException`, and so an
+  `InvalidOperationException`) that
   carries `File`, `Found` and `Expected`, so a server adds its own consequence without reading the message.
   `ReadOrCreateHex` keeps it as hex text, for a token another program reads
   (Snail.MCP.Figma's `bridge.token`, Snail.MCP.AfterEffects' bridge). `ReadOrCreate(file, length, out created)` and
@@ -456,7 +472,10 @@ A change that a repository must act on says what to do.
   alone, which refuses `Transport=Stdio` at the start; its HTTP contract, which no longer sets the transport itself,
   waits for `/healthz` and
   checks a session's `?tool=` grant, and its tests read answers with `IsOk`/`Data`/`Error`/`Report`. The Sdk tests
-  now build and test the sample job too (both transports, framework-dependent).
+  now build and test the sample job too (both transports, framework-dependent). Its `Program.cs` says a
+  `StartRefusedException` in one line on stderr and exits with 1, which its HTTP contract checks with
+  `SNAIL_MCP_<SHORT>_LISTENS_ON_EVERY_INTERFACE=true`, and its endpoint options name the server
+  (`Server = ServerSettings.Name`), so a refusal under the test runner names the variable too.
 - The folders are moved from the snail names by reading the settings: `AddServerSettings(name)` — and with it
   `ServerSettings.Read(name)`, `McpHost.CreateBuilder` and both HTTP builders of a program built on Snail.Sdk.Mcp —
   calls `ServerFolders.MoveFromSnailNames(name)` first, so a settings file left under the snail name is read by the

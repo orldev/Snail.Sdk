@@ -117,7 +117,7 @@ public sealed class McpEndpointTests
     [InlineData("Port", "0")]
     public void ReadHttp_SettingsThatMeanStdio_AreRefusedAtTheRead(string key, string value)
     {
-        var refusal = Assert.Throws<InvalidOperationException>(() => ReadHttp(new() { [key] = value }));
+        var refusal = Assert.Throws<StartRefusedException>(() => ReadHttp(new() { [key] = value }));
 
         Assert.Contains($"{key} is '{value}'", refusal.Message, StringComparison.Ordinal);
         Assert.Contains("only over HTTP", refusal.Message, StringComparison.Ordinal);
@@ -131,7 +131,7 @@ public sealed class McpEndpointTests
     [InlineData("Transport", "Stdio", "SNAIL_MCP_DEMO_TRANSPORT (or Transport in the settings file) is 'Stdio'")]
     public void ReadHttp_AValueOfANamedServer_IsRefusedNamingItsVariable(string key, string value, string expected)
     {
-        var refusal = Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(Settings(new() { [key] = value }), Default, isHttpOnly: true, containerVariable: null, server: "demo"));
+        var refusal = Assert.Throws<StartRefusedException>(() => McpEndpoint.Read(Settings(new() { [key] = value }), Default, isHttpOnly: true, containerVariable: null, server: "demo"));
 
         Assert.StartsWith(expected, refusal.Message, StringComparison.Ordinal);
     }
@@ -142,7 +142,7 @@ public sealed class McpEndpointTests
     {
         var section = Settings(new() { ["Server:Port"] = "eighty" }).GetSection("Server");
 
-        var refusal = Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(section, Default, isHttpOnly: false, containerVariable: null, server: "demo"));
+        var refusal = Assert.Throws<StartRefusedException>(() => McpEndpoint.Read(section, Default, isHttpOnly: false, containerVariable: null, server: "demo"));
 
         Assert.StartsWith("SNAIL_MCP_DEMO_SERVER__PORT (or Server:Port in the settings file) is 'eighty'", refusal.Message, StringComparison.Ordinal);
     }
@@ -186,7 +186,7 @@ public sealed class McpEndpointTests
     [InlineData("Snail:ListensOnEveryInterface", "yes", "SNAIL_MCP_DEMO_SNAIL__LISTENS_ON_EVERY_INTERFACE (or Snail:ListensOnEveryInterface in the settings file) is 'yes'")]
     public void ReadHttp_AValueInTheFallbackSection_IsRefusedNamingItsVariable(string key, string value, string expected)
     {
-        var refusal = Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(Settings(new() { [key] = value }), Default, isHttpOnly: true, containerVariable: null, server: "demo", fallbackSection: "Snail"));
+        var refusal = Assert.Throws<StartRefusedException>(() => McpEndpoint.Read(Settings(new() { [key] = value }), Default, isHttpOnly: true, containerVariable: null, server: "demo", fallbackSection: "Snail"));
 
         Assert.StartsWith(expected, refusal.Message, StringComparison.Ordinal);
     }
@@ -195,7 +195,7 @@ public sealed class McpEndpointTests
     [Fact]
     public void Read_ARootValueBesideTheSection_IsRefusedNamingTheRootVariable()
     {
-        var refusal = Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(Settings(new() { ["Port"] = "eighty", ["Snail:Port"] = "8822" }), Default, isHttpOnly: false, containerVariable: null, server: "demo", fallbackSection: "Snail"));
+        var refusal = Assert.Throws<StartRefusedException>(() => McpEndpoint.Read(Settings(new() { ["Port"] = "eighty", ["Snail:Port"] = "8822" }), Default, isHttpOnly: false, containerVariable: null, server: "demo", fallbackSection: "Snail"));
 
         Assert.StartsWith("SNAIL_MCP_DEMO_PORT (or Port in the settings file) is 'eighty'", refusal.Message, StringComparison.Ordinal);
     }
@@ -238,7 +238,7 @@ public sealed class McpEndpointTests
     [InlineData("ListensOnEveryInterface", "yes")]
     public void Read_AValueTheKeyCannotMean_IsRefusedNamingIt(string key, string value)
     {
-        var refusal = Assert.Throws<InvalidOperationException>(() => Read(new() { [key] = value }));
+        var refusal = Assert.Throws<StartRefusedException>(() => Read(new() { [key] = value }));
 
         Assert.Contains(key, refusal.Message, StringComparison.Ordinal);
         Assert.Contains(value, refusal.Message, StringComparison.Ordinal);
@@ -261,7 +261,7 @@ public sealed class McpEndpointTests
     [Fact]
     public void Read_AnHttpUrlAtAHostName_IsRefusedNamingIt()
     {
-        var refusal = Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(Settings(new() { ["Transport"] = "Http", ["Url"] = "http://studio.lan:9400/" }), Default, isHttpOnly: false, containerVariable: null, server: "demo"));
+        var refusal = Assert.Throws<StartRefusedException>(() => McpEndpoint.Read(Settings(new() { ["Transport"] = "Http", ["Url"] = "http://studio.lan:9400/" }), Default, isHttpOnly: false, containerVariable: null, server: "demo"));
 
         Assert.StartsWith("SNAIL_MCP_DEMO_URL (or Url in the settings file) is 'http://studio.lan:9400/'; ", refusal.Message, StringComparison.Ordinal);
     }
@@ -293,10 +293,58 @@ public sealed class McpEndpointTests
     {
         var options = new McpEndpointOptions { Reach = reach };
 
-        var refusal = Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(Settings(new() { ["Transport"] = "Http", [key] = value }), Default, isHttpOnly: false, containerVariable: null, server: "demo", options));
+        var refusal = Assert.Throws<StartRefusedException>(() => McpEndpoint.Read(Settings(new() { ["Transport"] = "Http", [key] = value }), Default, isHttpOnly: false, containerVariable: null, server: "demo", options));
 
         Assert.StartsWith(expected, refusal.Message, StringComparison.Ordinal);
         Assert.Contains("loopback alone", refusal.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>#123: a server that ships an image may open every interface inside a container, and a refusal outside one says so, where it said "loopback alone" as to a server that may not.</summary>
+    [Theory]
+    [InlineData(McpReach.LoopbackOrContainer, true)]
+    [InlineData(McpReach.LoopbackOnly, false)]
+    public void Read_BeyondTheReachOutsideAContainer_SaysWhetherAContainerOpensIt(McpReach reach, bool saysContainer)
+    {
+        var options = new McpEndpointOptions { Reach = reach };
+
+        var refusal = Assert.Throws<StartRefusedException>(() => McpEndpoint.Read(Settings(new() { ["Port"] = "9400", ["ListensOnEveryInterface"] = "true" }), Default, isHttpOnly: false, containerVariable: null, server: "demo", options));
+
+        Assert.Equal(saysContainer, refusal.Message.Contains("on every interface only inside one", StringComparison.Ordinal));
+    }
+
+    /// <summary>#134: a test reads the endpoint under the test runner, whose assembly names no server; the name in the options spells the variables all the same.</summary>
+    [Fact]
+    public void Read_TheServerNamedInTheOptions_SpellsTheVariablesOfTheRefusal()
+    {
+        var options = new McpEndpointOptions { Reach = McpReach.LoopbackOnly, Server = "demo" };
+
+        var refusal = Assert.Throws<StartRefusedException>(() => McpEndpoint.ReadHttp(Settings(new() { ["Url"] = "http://0.0.0.0:9400/" }), Default, options));
+
+        Assert.StartsWith("SNAIL_MCP_DEMO_URL (or Url in the settings file) is 'http://0.0.0.0:9400/'; ", refusal.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Under the test runner and without a name in the options, a refusal names the key alone, as for any program not built on Snail.Sdk.Mcp.</summary>
+    [Fact]
+    public void Read_NoServerNamedUnderTheTestRunner_NamesTheKeyAlone()
+    {
+        var options = new McpEndpointOptions { Reach = McpReach.LoopbackOnly };
+
+        var refusal = Assert.Throws<StartRefusedException>(() => McpEndpoint.Read(Settings(new() { ["Port"] = "9400", ["Url"] = "http://0.0.0.0:9400/" }), Default, options));
+
+        Assert.StartsWith("Url is 'http://0.0.0.0:9400/'; ", refusal.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Read_ABlankServerInTheOptions_IsRefused() =>
+        Assert.Throws<ArgumentException>(() => McpEndpoint.Read(Settings([]), Default, new McpEndpointOptions { Server = " " }));
+
+    /// <summary>#130: a refusal at the start is the one type a program catches to say it in one line, and still an InvalidOperationException for a server that catches that.</summary>
+    [Fact]
+    public void Read_AValueTheKeyCannotMean_IsAStartRefusal_ThatStaysAnInvalidOperation()
+    {
+        var refusal = Assert.ThrowsAny<InvalidOperationException>(() => Read(new() { ["Port"] = "x" }));
+
+        Assert.IsType<StartRefusedException>(refusal);
     }
 
     /// <summary>Snail.MCP.Memory ships no image: a start inside a container would open every interface, so it is refused naming the variable.</summary>
@@ -305,7 +353,7 @@ public sealed class McpEndpointTests
     {
         var options = new McpEndpointOptions { Reach = McpReach.LoopbackOnly };
 
-        var refusal = Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(Settings(new() { ["Port"] = "9400" }), Default, isHttpOnly: false, containerVariable: "true", server: "demo", options));
+        var refusal = Assert.Throws<StartRefusedException>(() => McpEndpoint.Read(Settings(new() { ["Port"] = "9400" }), Default, isHttpOnly: false, containerVariable: "true", server: "demo", options));
 
         Assert.StartsWith("DOTNET_RUNNING_IN_CONTAINER is 'true'; ", refusal.Message, StringComparison.Ordinal);
     }
@@ -343,7 +391,7 @@ public sealed class McpEndpointTests
     {
         var options = new McpEndpointOptions { Reach = McpReach.LoopbackOnly };
 
-        var refusal = Assert.Throws<InvalidOperationException>(() => McpEndpoint.Read(Settings([]), new Uri("http://0.0.0.0:8830/"), isHttpOnly: true, containerVariable: null, server: "demo", options));
+        var refusal = Assert.Throws<StartRefusedException>(() => McpEndpoint.Read(Settings([]), new Uri("http://0.0.0.0:8830/"), isHttpOnly: true, containerVariable: null, server: "demo", options));
 
         Assert.StartsWith("The server's default address is 'http://0.0.0.0:8830/'; ", refusal.Message, StringComparison.Ordinal);
     }
@@ -354,7 +402,7 @@ public sealed class McpEndpointTests
         var options = new McpEndpointOptions { FallbackSection = "Snail", Reach = McpReach.LoopbackOnly };
 
         Assert.Equal(8822, McpEndpoint.Read(Settings(new() { ["Snail:Port"] = "8822" }), Default, options).Url.Port);
-        Assert.Throws<InvalidOperationException>(() => McpEndpoint.ReadHttp(Settings(new() { ["Snail:ListensOnEveryInterface"] = "true" }), Default, options));
+        Assert.Throws<StartRefusedException>(() => McpEndpoint.ReadHttp(Settings(new() { ["Snail:ListensOnEveryInterface"] = "true" }), Default, options));
     }
 
     [Fact]

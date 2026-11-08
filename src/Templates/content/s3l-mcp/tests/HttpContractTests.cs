@@ -87,4 +87,21 @@ public sealed class HttpContractTests : IAsyncLifetime
     [Fact]
     public async Task Endpoint_AsServed_RefusesBrowsersOnly() =>
         Assert.Empty(await HttpGuards.ProblemsAsync(_server.Endpoint));
+
+    /// <summary>A setting that would open the endpoint beyond loopback outside a container stops the start in one line that names it, with exit code 1 and no trace.</summary>
+    [Fact]
+    public async Task Start_OnEveryInterfaceOutsideAContainer_IsRefusedInOneLine()
+    {
+        var environment = new Dictionary<string, string?>
+        {
+            ["SNAIL_MCP_TMPLSHORT_LISTENS_ON_EVERY_INTERFACE"] = "true",
+            ["DOTNET_RUNNING_IN_CONTAINER"] = null,
+        };
+
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() => HttpServerProgram.StartAsync(Assembly, Variable, environment));
+
+        Assert.Contains(" exited with 1 before ", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("SNAIL_MCP_TMPLSHORT_LISTENS_ON_EVERY_INTERFACE", refused.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("   at ", refused.Message, StringComparison.Ordinal);
+    }
 }

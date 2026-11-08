@@ -100,6 +100,18 @@ public sealed class ServerSecretTests : IDisposable
         Assert.Equal([1, 2, 3], File.ReadAllBytes(SecretFile));
     }
 
+    /// <summary>#137: a secret is read at the start, so its refusal is the start refusal a program says in one line.</summary>
+    [Fact]
+    public void ReadOrCreate_AFileOfAnotherLength_IsAStartRefusal()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(SecretFile)!);
+        File.WriteAllBytes(SecretFile, [1, 2, 3]);
+
+        var refusal = Assert.ThrowsAny<StartRefusedException>(() => ServerSecret.ReadOrCreate(SecretFile));
+
+        Assert.IsType<ServerSecretRefusedException>(refusal);
+    }
+
     [Fact]
     public void ReadOrCreate_AShortSecret_IsRefused() =>
         Assert.Throws<ArgumentOutOfRangeException>(() => ServerSecret.ReadOrCreate(SecretFile, 8));

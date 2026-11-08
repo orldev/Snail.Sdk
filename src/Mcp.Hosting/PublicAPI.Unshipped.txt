@@ -432,3 +432,9 @@ static Snail.Sdk.Mcp.Hosting.McpEndpoint.Read(Microsoft.Extensions.Configuration
 static Snail.Sdk.Mcp.Hosting.McpEndpoint.ReadHttp(Microsoft.Extensions.Configuration.IConfiguration! settings, System.Uri! defaultUrl, Snail.Sdk.Mcp.Hosting.McpEndpointOptions! options) -> Snail.Sdk.Mcp.Hosting.McpEndpoint!
 static Snail.Sdk.Mcp.Hosting.McpEndpointOptions.operator !=(Snail.Sdk.Mcp.Hosting.McpEndpointOptions? left, Snail.Sdk.Mcp.Hosting.McpEndpointOptions? right) -> bool
 static Snail.Sdk.Mcp.Hosting.McpEndpointOptions.operator ==(Snail.Sdk.Mcp.Hosting.McpEndpointOptions? left, Snail.Sdk.Mcp.Hosting.McpEndpointOptions? right) -> bool
+Snail.Sdk.Mcp.Hosting.McpEndpointOptions.Server.get -> string?
+Snail.Sdk.Mcp.Hosting.McpEndpointOptions.Server.init -> void
+Snail.Sdk.Mcp.Hosting.StartRefusedException
+Snail.Sdk.Mcp.Hosting.StartRefusedException.StartRefusedException() -> void
+Snail.Sdk.Mcp.Hosting.StartRefusedException.StartRefusedException(string! message) -> void
+Snail.Sdk.Mcp.Hosting.StartRefusedException.StartRefusedException(string! message, System.Exception? innerException) -> void

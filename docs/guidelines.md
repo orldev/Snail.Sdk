@@ -172,7 +172,8 @@ strictly as code.
 - **Settings** come from the server's settings file and then its own prefixed variables, `SNAIL_MCP_<SHORT>_…`, which
   win — `ServerSettings.Read(name)` before a host exists, the same sources in every host `McpHost` and `McpHttpHost`
   build; no server keeps a lookup chain of its own. A secret goes into the file, never into a job or a registration.
-  Its folders come from `ServerFolders`.
+  Its folders come from `ServerFolders`. A setting refused at the start is a `StartRefusedException`, which
+  `Program.cs` writes to stderr as one line and exits with 1, never a crash with a trace.
 
 ### Guard tests
 

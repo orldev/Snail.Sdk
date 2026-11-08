@@ -21,8 +21,9 @@ public static class ServerSettings
     /// The endpoint asks for no key, so it stays on loopback on this machine, and opens every interface only inside the
     /// image, whose published port is the boundary; a setting that would open it beyond stops the server at its start,
     /// naming the variable. A server that puts a key in front of its endpoint reads it with McpReach.Unrestricted.
+    /// The name spells the variable in the refusal under a test runner too, whose assembly names no server.
     /// </summary>
-    private static readonly McpEndpointOptions EndpointOptions = new() { Reach = McpReach.LoopbackOrContainer };
+    private static readonly McpEndpointOptions EndpointOptions = new() { Reach = McpReach.LoopbackOrContainer, Server = Name };
 
     /// <summary>The settings as the server read them at its start: the configuration of either host.</summary>
     public static IConfigurationRoot Values { get; } = Hosting.ServerSettings.Read(Name);

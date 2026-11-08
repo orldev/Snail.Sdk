@@ -82,8 +82,8 @@ A change that a repository must act on says what to do.
   bytes (Snail.MCP.Sandbox answers runs of up to 32 MB). `ToolAnswer.Text(result)` is the envelope a result carries,
   for an answer that travels outside a tool result — an HTTP door that refuses in a tool's words — and
   `ToolAnswer.Of(envelope)` answers a stored envelope again by the same rules, a failure text alone and `isError`.
-  `ToolAnswer.Ok(data)` and `Ok(data, shape)` are two overloads beside the typed ones. `ToolAnswer.Ok(data, shape,
-  beside)` writes fields of the tool's own after `data` at the top level — Snail.MCP.Figma's contract reads `fileKey`,
+  `ToolAnswer.Ok(data)` and `Ok(data, shape, beside = null, hint = null)` are the overloads beside the typed ones,
+  and `OkText(data, beside = null, hint = null)` the text. `ToolAnswer.Ok(data, shape, beside)` writes fields of the tool's own after `data` at the top level — Snail.MCP.Figma's contract reads `fileKey`,
   `nodeId`, `source`, `fileVersion`, `staleReason` and `metrics` there on 17 tools and wrote the envelope by hand for
   them; a field named as the envelope's own (`ok`, `error`, `hint`, `type`, `data`) is refused, a null one left out,
   and `AnswerShape.Data` stays the data alone. A success may carry a hint of its own, what to do next with the answer:

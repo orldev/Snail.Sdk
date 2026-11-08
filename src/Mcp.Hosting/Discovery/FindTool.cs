@@ -117,7 +117,9 @@ internal static class FindTool
     /// <remarks>
     /// Written as "run_tools runs their tools without loading" whatever was registered, it pointed the model of a server
     /// whose own <c>run_tools</c> takes commands, or whose way is <c>run_program</c>, at the wrong tool (Snail.MCP.AfterEffects).
-    /// <c>run_tools</c> is named when it is the SDK's (<c>WithToolSequences</c>), whose steps are tools; <c>run_program</c>
+    /// <c>run_tools</c> is said to run tools when it is the SDK's (<c>WithToolSequences</c>), whose steps are tools, and
+    /// is named as the server's own, pointed at its description, when the server registered one itself — left out, a
+    /// model of Snail.MCP.Blender never learned that its <c>run_tools</c> runs a skill's commands unloaded; <c>run_program</c>
     /// whenever the server has it, since a program calls commands whatever registered it.
     /// </remarks>
     public static void Fit(McpServerOptions server, DiscoveryOptions options, IServiceProvider services)
@@ -130,7 +132,9 @@ internal static class FindTool
 
         if (services.GetService<SkillSessions>() is not null)
         {
-            var runsTools = services.GetService<SequenceOptions>() is not null && tools.TryGetPrimitive(RunTools.Name, out _);
+            var runsTools = !tools.TryGetPrimitive(RunTools.Name, out _) ? RunToolsKind.None
+                : services.GetService<SequenceOptions>() is not null ? RunToolsKind.Sequences
+                : RunToolsKind.Own;
 
             find.ProtocolTool.Description = ToolDescriptions.FindToolWithSkillsAnd(runsTools, tools.TryGetPrimitive(RunProgram, out _));
         }

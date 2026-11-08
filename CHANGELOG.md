@@ -477,6 +477,11 @@ A change that a repository must act on says what to do.
     They shared one dictionary, so Snail.MCP.Blender wrote `client:` before every name, and Snail.MCP.AfterEffects,
     which wrote nothing, was kept apart by luck. Blender may drop the prefix from its `SkillsOf`
     (`$"client:{name}"` → `name`); nothing else changes.
+  - With skills, `find_tool`'s description names a `run_tools` the server registered itself as well: "this server's
+    own run_tools (see its description) runs them without loading", beside `run_program` where there is one. It named
+    `run_tools` only when it was the SDK's (`.WithToolSequences()`, whose steps are tools), so Snail.MCP.Blender's model,
+    whose `run_tools` sends the bridge's commands, never learned that it runs a skill's tools unloaded. Nothing to
+    change in a server.
 
   To adopt, a server deletes its `DiscoveryTools`, `ToolIndex`, `Vocabulary`, `ToolEntry`/`ToolArgument` and their
   guard test of tool classes (Git, FileSystem, Sandbox, CleanUp, Roslyn; Blender's and AfterEffects' `Discovery/ToolIndex`

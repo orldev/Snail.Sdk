@@ -471,6 +471,25 @@ public sealed class FindToolTests
         Assert.EndsWith(said, description, StringComparison.Ordinal);
     }
 
+    /// <summary>#147: a run_tools of the server's own went unnamed, as if the server had none (Snail.MCP.Blender, whose run_tools takes bridge commands).</summary>
+    [Theory]
+    [InlineData(false, "It searches unloaded skills too: enable: true loads them, and this server's own run_tools (see its description) runs them without loading.")]
+    [InlineData(true, "It searches unloaded skills too: enable: true loads them, and run_program or this server's own run_tools (see its description) runs them without loading.")]
+    public async Task Description_WithSkills_NamesARunToolsOfTheServersOwn(bool runProgram, string said)
+    {
+        await using var stand = await DiscoveryStand.StartAsync(runTools: false, tools: server =>
+        {
+            Action<IMcpServerBuilder> registered = runProgram ? DiscoveryStand.WithProgram : DiscoveryStand.WithSamples;
+
+            registered(server);
+            server.Services.AddSingleton(McpServerTool.Create(() => ToolAnswer.Ok(new JsonObject()), new McpServerToolCreateOptions { Name = "run_tools", Description = "Sends bridge commands in order." }));
+        });
+
+        var description = stand.Listed.Single(tool => tool.Name == "find_tool").Description;
+
+        Assert.EndsWith(said, description, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Server_WithoutSkills_OffersNoEnable_AndAnswersNoSkillFields()
     {

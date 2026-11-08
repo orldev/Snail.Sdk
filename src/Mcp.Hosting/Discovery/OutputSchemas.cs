@@ -23,7 +23,8 @@ internal static class OutputSchemas
         {"type":"object","properties":{"task":{"type":["string","null"]},"isMatched":{"type":"boolean"},"note":{"type":"string"},
         "tools":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"command":{"type":"string"},
         "description":{"type":"string"},"parameters":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},
-        "type":{"type":"string"},"isRequired":{"type":"boolean"},"description":{"type":"string"}},"required":["name","type","isRequired"]}},
+        "type":{"type":"string"},"isRequired":{"type":"boolean"},"description":{"type":"string"},"fields":{"type":"array","items":{"type":"object",
+        "required":["name","type","isRequired"]}}},"required":["name","type","isRequired"]}},
         "skill":{"type":"string"},"isLoaded":{"type":"boolean"}},"required":["name","description"]}},
         "enabledSkills":{"type":"array","items":{"type":"string"}}},"required":["task","isMatched","tools"]}
         """;

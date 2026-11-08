@@ -28,8 +28,9 @@ public static class DiscoveryRegistration
         /// skills of the tools found, and the description names the ways the server registered to run their tools without
         /// loading them — <c>run_tools</c> of <see cref="WithToolSequences"/>, <c>run_program</c>, both or neither. The answer
         /// is <see cref="Answers.ToolAnswer.Ok(System.Text.Json.Nodes.JsonNode, Answers.AnswerShape)"/>
-        /// of <c>{task, isMatched, note, tools:[{name, command, description, parameters:[{name, type, isRequired, description}]}]}</c>
-        /// in <see cref="DiscoveryOptions.Shape"/>, the parameters of a tool with a command named as the command takes them
+        /// of <c>{task, isMatched, note, tools:[{name, command, description, parameters:[{name, type, isRequired, description, fields}]}]}</c>
+        /// in <see cref="DiscoveryOptions.Shape"/>, an object parameter's <c>fields</c> in the same shape two levels down,
+        /// the parameters of a tool with a command named and placed as the command takes them
         /// (<see cref="DiscoveryOptions.ParameterOf"/>); when nothing matches, every tool by its name and the first sentence
         /// of its description, those of <see cref="DiscoveryOptions.Prefix"/> first. Once another tool of the server states
         /// an output schema, <c>find_tool</c> states its own.

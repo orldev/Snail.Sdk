@@ -23,7 +23,7 @@ public sealed class DiscoveryOptions
     /// <remarks>Answered beside each tool as <c>command</c>, so a model that found a tool can send it through <c>run_program</c> at once.</remarks>
     public Func<string, string?>? CommandOf { get; set; }
 
-    /// <summary>What the command of a tool calls one of the tool's parameters, by the tool's name and the parameter's; null drops the parameter.</summary>
+    /// <summary>Where the command of a tool takes one of the tool's parameters or one of their fields, by the tool's name and the dotted path in the input schema's names; null drops it.</summary>
     /// <remarks>
     /// <para>
     /// Applied to every tool that has a command (<see cref="CommandOf"/>), so <c>find_tool</c> names the parameters as a
@@ -31,7 +31,35 @@ public sealed class DiscoveryOptions
     /// own <c>timeoutSeconds</c> went to no command at all: a program written from the answer sent <c>lightType</c>, which
     /// the command ignored without a word (Snail.MCP.Blender, AfterEffects).
     /// </para>
-    /// <para>A tool without a command keeps the names of its input schema, which is how a direct call or a step sends them.</para>
+    /// <para>
+    /// A parameter is asked by its name, <c>("blender_set_camera_optics", "focus")</c>; a field of an object parameter by
+    /// its path from the parameter, <c>"focus.distance"</c>, <c>"output.fileFormat"</c>, two levels down at most
+    /// (<see cref="ToolParameter.Fields"/>). The answer says where the command takes it:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>a name without a dot, <c>"file_format"</c>, puts it at the top level of the command: a parameter
+    /// under that name, and a field lifted out of its object, for a server that sends the object's fields beside the
+    /// tool's other parameters;</description></item>
+    /// <item><description>a dotted path, <c>"focus.distance"</c>, keeps a field inside its parent, named after the last
+    /// dot; where the parent goes is the parent's own answer;</description></item>
+    /// <item><description>null drops it, and the fields kept inside it with it.</description></item>
+    /// </list>
+    /// <para>
+    /// A parameter dropped while its fields are lifted disappears, and they take its place. Snail.MCP.Blender's
+    /// <c>blender_render_job</c> takes <c>output</c> and <c>queue</c> as records and sends their fields at the top of the
+    /// <c>render_job</c> command — <c>file_format</c>, <c>samples</c>, <c>chunks</c>, <c>retries</c> — so it answers null
+    /// for <c>output</c> and <c>"file_format"</c> for <c>output.fileFormat</c>; <c>blender_set_camera_optics</c> sends
+    /// <c>focus</c> whole, so it answers <c>"focus"</c> and <c>"focus.distance"</c>. Before fields were asked, both records
+    /// went out of the answer, or came as an <c>object</c> with nothing in it, and a program rendered with the defaults or
+    /// guessed the fields.
+    /// </para>
+    /// <para>
+    /// A field lifted is required only when it and every parameter above it are. A field of the items of an array stays in
+    /// each item, whatever its name. A function that knows only the command's top-level names, and answers null for any
+    /// other, drops every field — the answer of before; one that hands the path back unchanged keeps the fields where the
+    /// schema has them.
+    /// </para>
+    /// <para>A tool without a command keeps the names and the nesting of its input schema, which is how a direct call or a step sends them.</para>
     /// </remarks>
     public Func<string, string, string?>? ParameterOf { get; set; }
 

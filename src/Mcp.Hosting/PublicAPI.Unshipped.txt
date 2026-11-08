@@ -360,15 +360,17 @@ Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry.Skill.init -> void
 Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry.ToolEntry(string! Name, string! Description, string? Skill, string? Command, System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter!>! Parameters) -> void
 Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter
 Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.<Clone>$() -> Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter!
-Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.Deconstruct(out string! Name, out string! Type, out bool IsRequired, out string? Description) -> void
+Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.Deconstruct(out string! Name, out string! Type, out bool IsRequired, out string? Description, out System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter!>? Fields) -> void
 Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.Description.get -> string?
 Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.Description.init -> void
 Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.Equals(Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter? other) -> bool
+Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.Fields.get -> System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter!>?
+Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.Fields.init -> void
 Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.IsRequired.get -> bool
 Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.IsRequired.init -> void
 Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.Name.get -> string!
 Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.Name.init -> void
-Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.ToolParameter(string! Name, string! Type, bool IsRequired, string? Description) -> void
+Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.ToolParameter(string! Name, string! Type, bool IsRequired, string? Description, System.Collections.Generic.IReadOnlyList<Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter!>? Fields = null) -> void
 Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.Type.get -> string!
 Snail.Sdk.Mcp.Hosting.Discovery.ToolParameter.Type.init -> void
 override Snail.Sdk.Mcp.Hosting.Discovery.ToolEntry.Equals(object? obj) -> bool

@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,6 +27,12 @@ namespace Snail.Sdk.Mcp.Hosting.Discovery;
 /// </remarks>
 public static class ToolCatalog
 {
+    /// <summary>How many levels of fields are read below a tool's parameter: its fields, and theirs.</summary>
+    private const int FieldLevels = 2;
+
+    /// <summary>The most <c>$ref</c>, <c>anyOf</c> and <c>oneOf</c> followed to reach what a property is, so a schema that points in a circle ends.</summary>
+    private const int MostHops = 8;
+
     /// <summary>The entries of the tools, in the order given, each with the command <paramref name="commandOf"/> names for it.</summary>
     /// <param name="tools">The tools, as the server registered them.</param>
     /// <param name="commandOf">What a sequence or a program calls a tool, by the tool's name; null for a tool that is no command.</param>
@@ -103,16 +110,51 @@ public static class ToolCatalog
         return options.ParameterOf is { } parameterOf ? [.. catalog.Select(entry => Commanded(entry, parameterOf))] : catalog;
     }
 
-    /// <summary>An entry with a command, its parameters renamed as the command takes them and the ones it does not take dropped.</summary>
+    /// <summary>An entry with a command, its parameters and their fields named and placed as the command takes them, the ones it does not take dropped.</summary>
+    /// <remarks>The rule of the names is <see cref="DiscoveryOptions.ParameterOf"/>'s.</remarks>
     private static ToolEntry Commanded(ToolEntry entry, Func<string, string, string?> parameterOf)
     {
         if (entry.Command is null)
             return entry;
 
-        var named = entry.Parameters.Select(parameter => (Parameter: parameter, Name: parameterOf(entry.Name, parameter.Name)));
+        List<ToolParameter> named = [];
+        Place(path => parameterOf(entry.Name, path), entry.Parameters, parent: null, isLiftable: true, isSent: true, named, named);
 
-        return entry with { Parameters = [.. named.Where(each => each.Name is not null).Select(each => each.Parameter with { Name = each.Name! })] };
+        return entry with { Parameters = named };
     }
+
+    /// <summary>The parameters of one level, each named as the command takes it: kept at this level, lifted to the command's top level, or dropped.</summary>
+    /// <param name="nameOf">What the command calls a parameter or a field, by its dotted path in the schema's names.</param>
+    /// <param name="parameters">The parameters of the level, or the fields of one parameter.</param>
+    /// <param name="parent">The path of the parameter whose fields these are; null for the tool's own parameters.</param>
+    /// <param name="isLiftable">Whether a field named without a dot leaves for the top level: not one of the items of an array, which every item carries.</param>
+    /// <param name="isSent">Whether every parameter above is required, so that a required field lifted out of them is required at the top.</param>
+    /// <param name="kept">Where the parameters kept at this level go.</param>
+    /// <param name="lifted">Where the fields lifted to the top level go, each after the parameter it came out of, or in its place.</param>
+    private static void Place(Func<string, string?> nameOf, IReadOnlyList<ToolParameter> parameters, string? parent, bool isLiftable, bool isSent, List<ToolParameter> kept, List<ToolParameter> lifted)
+    {
+        foreach (var parameter in parameters)
+        {
+            var path = parent is null ? parameter.Name : $"{parent}.{parameter.Name}";
+            var name = nameOf(path);
+            List<ToolParameter> fields = [];
+            List<ToolParameter> liftedOut = [];
+
+            Place(nameOf, parameter.Fields ?? [], path, isLiftable && !IsArray(parameter), isSent && parameter.IsRequired, fields, liftedOut);
+
+            if (name is not null)
+            {
+                var isLifted = parent is not null && isLiftable && !name.Contains('.', StringComparison.Ordinal);
+                var named = parameter with { Name = name[(name.LastIndexOf('.') + 1)..], IsRequired = parameter.IsRequired && (isSent || !isLifted), Fields = fields.Count > 0 ? fields : null };
+
+                (isLifted ? lifted : kept).Add(named);
+            }
+
+            lifted.AddRange(liftedOut);
+        }
+    }
+
+    private static bool IsArray(ToolParameter parameter) => parameter.Type.EndsWith("[]", StringComparison.Ordinal);
 
     /// <summary>The skill a tool belongs to: the name of the <see cref="SkillAttribute"/> on its class, or null.</summary>
     public static string? SkillOf(McpServerTool tool)
@@ -185,15 +227,101 @@ public static class ToolCatalog
         return [.. best.Select(scored => scored.Entry)];
     }
 
-    /// <summary>The parameters an input schema declares, in its order.</summary>
-    internal static IReadOnlyList<ToolParameter> ParametersOf(JsonElement schema)
+    /// <summary>The parameters an input schema declares, in its order, each object with its fields two levels down.</summary>
+    internal static IReadOnlyList<ToolParameter> ParametersOf(JsonElement schema) => ParametersOf(schema, schema, FieldLevels);
+
+    /// <summary>The properties one object of <paramref name="root"/> declares, with <paramref name="levels"/> levels of fields below them.</summary>
+    private static IReadOnlyList<ToolParameter> ParametersOf(JsonElement root, JsonElement schema, int levels)
     {
         if (schema.ValueKind != JsonValueKind.Object || !schema.TryGetProperty("properties", out var properties) || properties.ValueKind != JsonValueKind.Object)
             return [];
 
         var required = RequiredOf(schema);
 
-        return [.. properties.EnumerateObject().Select(property => new ToolParameter(property.Name, TypeOf(property.Value), required.Contains(property.Name), DescriptionOf(property.Value)))];
+        return [.. properties.EnumerateObject().Select(property => ParameterOf(root, property, required.Contains(property.Name), levels))];
+    }
+
+    /// <summary>One property as a parameter: typed and filled from what it points at, described by its own words first.</summary>
+    private static ToolParameter ParameterOf(JsonElement root, JsonProperty property, bool isRequired, int levels)
+    {
+        var schema = Resolved(root, property.Value);
+
+        return new ToolParameter(property.Name, TypeOf(root, schema), isRequired, DescriptionOf(property.Value) ?? DescriptionOf(schema), FieldsOf(root, schema, levels));
+    }
+
+    /// <summary>The fields of an object, or of each item of an array of objects, <paramref name="levels"/> deep; null where there are none to read.</summary>
+    private static IReadOnlyList<ToolParameter>? FieldsOf(JsonElement root, JsonElement schema, int levels)
+    {
+        if (levels == 0 || schema.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var holder = schema.TryGetProperty("items", out var items) ? Resolved(root, items) : schema;
+        var fields = ParametersOf(root, holder, levels - 1);
+
+        return fields.Count > 0 ? fields : null;
+    }
+
+    /// <summary>What a schema is: the schema its <c>$ref</c> points at, the one branch of an <c>anyOf</c> or <c>oneOf</c> that is not null; the schema itself otherwise.</summary>
+    private static JsonElement Resolved(JsonElement root, JsonElement schema)
+    {
+        var resolved = schema;
+
+        for (var hop = 0; hop < MostHops && Followed(root, resolved) is { } next; hop++)
+            resolved = next;
+
+        return resolved;
+    }
+
+    /// <summary>The schema one step on from a <c>$ref</c>, an <c>anyOf</c> or a <c>oneOf</c>; null when the schema is what it says.</summary>
+    private static JsonElement? Followed(JsonElement root, JsonElement schema)
+    {
+        if (schema.ValueKind != JsonValueKind.Object)
+            return null;
+
+        if (schema.TryGetProperty("$ref", out var reference) && reference.ValueKind == JsonValueKind.String)
+            return Pointed(root, reference.GetString()!);
+
+        return OnlyBranchOf(schema, "anyOf") ?? OnlyBranchOf(schema, "oneOf");
+    }
+
+    /// <summary>The one branch of a choice that is not null, as a nullable type is written; null when the choice is a real one.</summary>
+    private static JsonElement? OnlyBranchOf(JsonElement schema, string keyword)
+    {
+        if (!schema.TryGetProperty(keyword, out var branches) || branches.ValueKind != JsonValueKind.Array)
+            return null;
+
+        List<JsonElement> meaningful = [.. branches.EnumerateArray().Where(branch => !IsNull(branch))];
+
+        return meaningful.Count == 1 ? meaningful[0] : null;
+    }
+
+    private static bool IsNull(JsonElement schema) =>
+        schema.ValueKind == JsonValueKind.Object && schema.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String && type.ValueEquals("null");
+
+    /// <summary>The schema a pointer into the same document names — <c>#/$defs/focus</c>, <c>#/properties/node/properties/child</c>; null for one that points elsewhere or at nothing.</summary>
+    private static JsonElement? Pointed(JsonElement root, string reference)
+    {
+        if (!reference.StartsWith('#'))
+            return null;
+
+        JsonElement? pointed = root;
+
+        foreach (var token in reference[1..].Split('/', StringSplitOptions.RemoveEmptyEntries))
+            pointed = pointed is { } at ? Stepped(at, token.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal)) : null;
+
+        return pointed;
+    }
+
+    /// <summary>The member of an object, or the item of an array, one token of a pointer names; null when there is none.</summary>
+    private static JsonElement? Stepped(JsonElement at, string token)
+    {
+        if (at.ValueKind == JsonValueKind.Object)
+            return at.TryGetProperty(token, out var member) ? member : null;
+
+        if (at.ValueKind == JsonValueKind.Array && int.TryParse(token, NumberStyles.None, CultureInfo.InvariantCulture, out var index) && index < at.GetArrayLength())
+            return at[index];
+
+        return null;
     }
 
     /// <summary>The names an input schema requires.</summary>
@@ -221,10 +349,10 @@ public static class ToolCatalog
     /// nothing about what to put in it, and Snail.MCP.CleanUp's own index had written <c>string[]</c> before the SDK's.
     /// An array whose items say nothing stays <c>array</c>.
     /// </remarks>
-    private static string TypeOf(JsonElement property) => KindOf(property) ?? (property.ValueKind == JsonValueKind.Object && property.TryGetProperty("enum", out _) ? "string" : "object");
+    private static string TypeOf(JsonElement root, JsonElement property) => KindOf(root, property) ?? (property.ValueKind == JsonValueKind.Object && property.TryGetProperty("enum", out _) ? "string" : "object");
 
     /// <summary>The type a schema states, or null when it states none.</summary>
-    private static string? KindOf(JsonElement schema)
+    private static string? KindOf(JsonElement root, JsonElement schema)
     {
         if (schema.ValueKind != JsonValueKind.Object || !schema.TryGetProperty("type", out var type))
             return null;
@@ -236,16 +364,16 @@ public static class ToolCatalog
             _ => null,
         };
 
-        return kind == "array" ? ArrayOf(schema) : kind;
+        return kind == "array" ? ArrayOf(root, schema) : kind;
     }
 
     /// <summary>An array named by its items, <c>string[]</c>; <c>array</c> when the items say nothing of their type.</summary>
-    private static string ArrayOf(JsonElement schema)
+    private static string ArrayOf(JsonElement root, JsonElement schema)
     {
-        if (!schema.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Object)
+        if (!schema.TryGetProperty("items", out var declared) || Resolved(root, declared) is not { ValueKind: JsonValueKind.Object } items)
             return "array";
 
-        var item = KindOf(items) ?? (items.TryGetProperty("enum", out _) ? "string" : null) ?? (items.TryGetProperty("properties", out _) ? "object" : null);
+        var item = KindOf(root, items) ?? (items.TryGetProperty("enum", out _) ? "string" : null) ?? (items.TryGetProperty("properties", out _) ? "object" : null);
 
         return item is null ? "array" : $"{item}[]";
     }

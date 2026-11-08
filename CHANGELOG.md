@@ -462,15 +462,27 @@ A change that a repository must act on says what to do.
     shared by two words of four or more: a shorter word is a form of nothing but itself, or the "s" of "composition's"
     answered "slerp" and the "z" of "+z" answered "zzzz"), 1 for a word of the description, English glue — of the task
     and of the description alike — `Noise` and the words of `Prefix` dropped — and answers
-    `{task, isMatched, note, tools:[{name, command, description, parameters:[{name, type, isRequired, description}]}]}`
+    `{task, isMatched, note, tools:[{name, command, description, parameters:[{name, type, isRequired, description, fields}]}]}`
     read from each tool's input schema, an array typed by its items (`string[]`, `integer[][]`; CleanUp's own index
-    wrote `string[]`, not `array`). When nothing matched, or no task was given, `isMatched` is false and every tool is
+    wrote `string[]`, not `array`). An object parameter carries its `fields` in the same shape, two levels down
+    (`ToolParameter.Fields`), through a nullable object, an `anyOf`/`oneOf` with null and a `$ref` into the same schema,
+    an array of objects the fields of each item, each field required as its own schema says: shown as a bare `object`,
+    a record told a model nothing of what to put in it, and Blender takes 38 (#146). When nothing matched, or no task was given, `isMatched` is false and every tool is
     listed by its name and the first sentence of its description alone, the tools of `Prefix` first, with a note to ask
     again in their words: an empty `find_tool` that listed every tool's parameters weighed 70 357 characters in Roslyn.
     A tool the session may not call (`IToolGate`) is not named. `CommandOf` names a tool's command for `run_program`,
-    and `ParameterOf(tool, parameter)` names that command's parameters as the command takes them — null drops one — so
+    and `ParameterOf(tool, path)` says where that command takes each parameter and each field, asked by its dotted path
+    in the schema's names (`"focus"`, `"focus.distance"`, `"output.fileFormat"`): a name without a dot puts it at the
+    top level of the command — a field lifted out of its object — a dotted path keeps a field inside its parent under
+    the name after the last dot, null drops it; a parameter dropped while its fields are lifted gives them its place. So
     a program written from the answer sends `light_type` to a bridge of snake_case rather than the tool's `lightType`,
-    which it ignored (Blender, AfterEffects);
+    which it ignored (Blender, AfterEffects), and learns that Blender's `blender_render_job` takes `output.fileFormat` as
+    `file_format` at the top of `render_job` — before, `output` went out of the answer with every field, and a program
+    rendered with the defaults (#146). A server's `ParameterOf` answers a path segment by segment: Blender's,
+    `JsonNamingPolicy.SnakeCaseLower` of the whole path and null for a name the command schema lacks, answers null for
+    every field, which keeps the answer of before; to show them, it names a field `"focus.distance"` when the command
+    takes the parent whole and `"file_format"` when it takes the field itself. AfterEffects and Git, whose parameters
+    hold no records, change nothing;
     `Catalog` replaces the registered tools for a server that keeps some outside its collection; `Examples` shows the
     server's own example tasks in the description of `task`, which shows none otherwise (the SDK's "push the branch"
     was Git's); `Shape` is the structured content of a success (`AnswerShape`, the data by default).

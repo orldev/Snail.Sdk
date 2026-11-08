@@ -337,7 +337,7 @@ How `find_tool` reads a server's tools: the words they are known by, the words t
 | --- | --- |
 | `AnswerShape Shape { get; set; }` | What a successful answer of `find_tool` carries as its structured content; the data alone unless set. |
 | `DiscoveryOptions()` |  |
-| `Func<string, string, string?>? ParameterOf { get; set; }` | What the command of a tool calls one of the tool's parameters, by the tool's name and the parameter's; null drops the parameter. |
+| `Func<string, string, string?>? ParameterOf { get; set; }` | Where the command of a tool takes one of the tool's parameters or one of their fields, by the tool's name and the dotted path in the input schema's names; null drops it. |
 | `Func<string, string?>? CommandOf { get; set; }` | What a sequence or a program of the server calls a tool, by the tool's name; null for a tool that is no command. |
 | `IDictionary<string, string> Meanings { get; set; }` | The words each tool is asked for by beyond its name, by the tool's name: `["git_push"] = "publish send upstream share"`. |
 | `IList<string> Examples { get; set; }` | Tasks in the server's own words, shown as examples in the description of `task`: `["rename a symbol", "find unused code"]`. |
@@ -417,11 +417,12 @@ A tool as discovery sees it: the name to call, what it does, the skill it arrive
 
 ### class ToolParameter
 
-One parameter of a tool as a caller fills it: its name, its JSON type, whether it must be sent, and what it means.
+One parameter of a tool as a caller fills it: its name, its JSON type, whether it must be sent, what it means, and the fields of an object.
 
 | Member | Summary |
 | --- | --- |
-| `ToolParameter(string Name, string Type, bool IsRequired, string? Description)` | One parameter of a tool as a caller fills it: its name, its JSON type, whether it must be sent, and what it means. |
+| `IReadOnlyList<ToolParameter>? Fields { get; init; }` | The fields of an object, or of each item of an array of objects, in the order of its schema; null for any other value, and for an object two levels down or one whose schema names none. |
+| `ToolParameter(string Name, string Type, bool IsRequired, string? Description, IReadOnlyList<ToolParameter>? Fields = null)` | One parameter of a tool as a caller fills it: its name, its JSON type, whether it must be sent, what it means, and the fields of an object. |
 | `bool IsRequired { get; init; }` | Whether a call without it is refused. |
 | `string Name { get; init; }` | The name the call sends, as the tool's input schema spells it. |
 | `string Type { get; init; }` | The JSON type of the value: `string`, `integer`, `number`, `boolean` or `object`; an array by its items, `string[]` or `integer[][]`, and `array` when they say nothing. |

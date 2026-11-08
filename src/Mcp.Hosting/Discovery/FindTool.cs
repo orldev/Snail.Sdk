@@ -67,7 +67,8 @@ internal sealed class Discovery(DiscoveryOptions options)
 /// <remarks>
 /// <para>
 /// The answer is the fleet's: <c>{task, isMatched, note, tools:[{name, command, description, parameters}]}</c>, and with
-/// skills on, <c>skill</c> and <c>isLoaded</c> beside each tool. Nothing matched answers every tool by its name and the
+/// skills on, <c>skill</c> and <c>isLoaded</c> beside each tool. A parameter that is an object carries its <c>fields</c>
+/// in the parameters' own shape, two levels down (<see cref="ToolParameter"/>), and nothing when it has none. Nothing matched answers every tool by its name and the
 /// first sentence of its description, so a model that asked in words the server does not use still sees what there is.
 /// </para>
 /// <para>
@@ -283,6 +284,9 @@ internal static class FindTool
 
         if (parameter.Description is not null)
             described["description"] = parameter.Description;
+
+        if (parameter.Fields is { } fields)
+            described["fields"] = new JsonArray([.. fields.Select(Described)]);
 
         return described;
     }

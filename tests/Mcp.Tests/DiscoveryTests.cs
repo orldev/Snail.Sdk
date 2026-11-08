@@ -62,6 +62,164 @@ public sealed class ToolCatalogTests
         Assert.Equal(["read"], entries.Select(entry => entry.Command).OfType<string>());
     }
 
+    /// <summary>#146: find_tool showed a record parameter as an object without its fields, so a model guessed them (Snail.MCP.Blender's focus).</summary>
+    [Fact]
+    public void Fields_OfARecordParameter_AreReadFromItsSchema()
+    {
+        var focus = ToolCatalog.Of(typeof(CameraSample)).Single(entry => entry.Name == "set_optics").Parameters.Single();
+
+        Assert.Equal(("focus", "object", false, "Where the camera focuses."), (focus.Name, focus.Type, focus.IsRequired, focus.Description));
+        Assert.Equal(
+            [
+                new ToolParameter("distance", "number", false, "Focus distance in metres."),
+                new ToolParameter("objectName", "string", false, "Object to keep in focus."),
+                new ToolParameter("bone", "string", false, "Bone of the focus object."),
+            ],
+            focus.Fields!);
+    }
+
+    [Fact]
+    public void Field_IsRequired_AsItsOwnSchemaSays_WhateverItsParent()
+    {
+        var entries = ToolCatalog.Of(typeof(CameraSample));
+        var size = entries.Single(entry => entry.Name == "resize").Parameters.Single();
+        var output = entries.Single(entry => entry.Name == "render_job").Parameters.Single(parameter => parameter.Name == "output");
+
+        Assert.True(size.IsRequired);
+        Assert.Equal([("width", true), ("height", false)], size.Fields!.Select(field => (field.Name, field.IsRequired)));
+        Assert.False(output.IsRequired);
+        Assert.Equal([("fileFormat", true), ("samples", false)], output.Fields!.Select(field => (field.Name, field.IsRequired)));
+    }
+
+    [Fact]
+    public void Fields_AreReadTwoLevelsBelowTheParameter_AndNoDeeper()
+    {
+        var node = ToolCatalog.Of(typeof(CameraSample)).Single(entry => entry.Name == "frame_tree").Parameters.Single();
+
+        var child = node.Fields!.Single(field => field.Name == "child");
+        var grandchild = child.Fields!.Single(field => field.Name == "child");
+
+        Assert.Equal(["name", "child"], child.Fields!.Select(field => field.Name));
+        Assert.Equal("object", grandchild.Type);
+        Assert.Null(grandchild.Fields);
+    }
+
+    [Fact]
+    public void Fields_OfTheItemsOfAnArray_AreTheFieldsOfEachItem()
+    {
+        var lines = ToolCatalog.Of(typeof(CameraSample)).Single(entry => entry.Name == "draw_lines").Parameters.Single();
+
+        Assert.Equal("object[]", lines.Type);
+        Assert.Equal(["name", "thickness"], lines.Fields!.Select(field => field.Name));
+    }
+
+    [Fact]
+    public void Fields_OfAParameterThatIsNoObject_AreNone()
+    {
+        var job = ToolCatalog.Of(typeof(CameraSample)).Single(entry => entry.Name == "render_job");
+
+        Assert.Null(job.Parameters.Single(parameter => parameter.Name == "outputPath").Fields);
+    }
+
+    /// <summary>A schema may name its objects once and point at them, as a generator other than the MCP SDK's writes it.</summary>
+    [Fact]
+    public void Fields_BehindARef_AreReadFromTheDefinitionsOfTheSameSchema()
+    {
+        var schema = JsonElement.Parse("""
+            {"type":"object","properties":{
+              "focus":{"description":"Where it focuses.","anyOf":[{"$ref":"#/$defs/focus"},{"type":"null"}]},
+              "mode":{"$ref":"#/definitions/mode"},
+              "again":{"$ref":"#/properties/focus"}},
+             "$defs":{
+              "focus":{"type":"object","properties":{"distance":{"type":"number"},"target":{"$ref":"#/$defs/target"}},"required":["distance"]},
+              "target":{"type":["object","null"],"properties":{"name":{"type":"string","description":"The object's name."}}}},
+             "definitions":{"mode":{"enum":["fast","fine"]}}}
+            """);
+
+        var parameters = ToolCatalog.ParametersOf(schema);
+        var focus = parameters[0];
+        var target = focus.Fields![1];
+
+        Assert.Equal(("object", "Where it focuses."), (focus.Type, focus.Description));
+        Assert.Equal(("distance", "number", true), (focus.Fields[0].Name, focus.Fields[0].Type, focus.Fields[0].IsRequired));
+        Assert.Equal(("target", "object"), (target.Name, target.Type));
+        Assert.Equal([new ToolParameter("name", "string", false, "The object's name.")], target.Fields!);
+        Assert.Equal("string", parameters[1].Type);
+        Assert.Equal(["distance", "target"], parameters[2].Fields!.Select(field => field.Name));
+    }
+
+    /// <summary>#146: Blender's render_job sends the fields of output at the top of its command, and find_tool dropped output with all of them.</summary>
+    [Fact]
+    public void Fields_AnsweredWithoutADot_AreLiftedToTheCommand_InPlaceOfTheirParent()
+    {
+        var entries = Commanded((_, path) => path switch
+        {
+            "output" => null,
+            "output.fileFormat" => "file_format",
+            "output.samples" => "samples",
+            _ => Snake(path),
+        });
+
+        var job = entries.Single(entry => entry.Name == "render_job");
+        var format = job.Parameters.Single(parameter => parameter.Name == "file_format");
+
+        Assert.Equal(["output_path", "file_format", "samples", "wait"], job.Parameters.Select(parameter => parameter.Name));
+        Assert.Equal(("string", false, "PNG or OPEN_EXR."), (format.Type, format.IsRequired, format.Description));
+    }
+
+    /// <summary>#146: Blender's set_camera_optics sends focus whole, its fields named as the add-on reads them.</summary>
+    [Fact]
+    public void Fields_AnsweredWithADot_StayUnderTheirParent_RenamedOrDropped()
+    {
+        var entries = Commanded((_, path) => path == "focus.bone" ? null : Snake(path));
+
+        var focus = entries.Single(entry => entry.Name == "set_optics").Parameters.Single();
+
+        Assert.Equal("focus", focus.Name);
+        Assert.Equal(["distance", "object_name"], focus.Fields!.Select(field => field.Name));
+    }
+
+    /// <summary>Blender's ParameterOf of the first 0.5 previews knew only the command's top-level names: a path it cannot name drops the field, and nothing breaks.</summary>
+    [Fact]
+    public void ParameterOf_ThatKnowsOnlyTopLevelNames_DropsTheFieldsItDoesNotName()
+    {
+        HashSet<string> taken = ["output_path", "wait", "focus"];
+
+        var entries = Commanded((_, path) => taken.Contains(JsonNamingPolicy.SnakeCaseLower.ConvertName(path)) ? JsonNamingPolicy.SnakeCaseLower.ConvertName(path) : null);
+
+        Assert.Equal(["output_path", "wait"], entries.Single(entry => entry.Name == "render_job").Parameters.Select(parameter => parameter.Name));
+        Assert.Null(entries.Single(entry => entry.Name == "set_optics").Parameters.Single().Fields);
+    }
+
+    [Fact]
+    public void Fields_OfAToolWithoutACommand_KeepTheirNamesAndNesting()
+    {
+        var entries = Commanded((_, path) => path.Contains('.', StringComparison.Ordinal) ? "lifted" : Snake(path), commandOf: tool => tool == "render_job" ? tool : null);
+
+        var focus = entries.Single(entry => entry.Name == "set_optics").Parameters.Single();
+
+        Assert.Equal(["distance", "objectName", "bone"], focus.Fields!.Select(field => field.Name));
+    }
+
+    /// <summary>The catalog find_tool searches over CameraSample, every tool a command of its own name unless <paramref name="commandOf"/> says otherwise.</summary>
+    private static IReadOnlyList<ToolEntry> Commanded(Func<string, string, string?> parameterOf, Func<string, string?>? commandOf = null)
+    {
+        var services = new ServiceCollection();
+        services.AddMcpServer()
+            .WithToolDiscovery(options =>
+            {
+                options.CommandOf = commandOf ?? (tool => tool);
+                options.ParameterOf = parameterOf;
+            })
+            .WithTools<CameraSample>();
+        using var provider = services.BuildServiceProvider();
+
+        return ToolCatalog.Of(provider);
+    }
+
+    /// <summary>A path in snake_case segment by segment, as a bridge of snake_case reads a nested field.</summary>
+    private static string Snake(string path) => string.Join('.', path.Split('.').Select(JsonNamingPolicy.SnakeCaseLower.ConvertName));
+
     /// <summary>"array" told a model nothing about what to put in it; Snail.MCP.CleanUp's own index had written string[].</summary>
     [Theory]
     [InlineData("""{"type":"array","items":{"type":"string"}}""", "string[]")]
@@ -406,6 +564,26 @@ public sealed class FindToolTests
         Assert.Equal("file.read", read["command"]!.GetValue<string>());
         Assert.Equal(["file_path"], read["parameters"]!.AsArray().Select(parameter => parameter!["name"]!.GetValue<string>()));
         Assert.Equal(["path", "text"], write["parameters"]!.AsArray().Select(parameter => parameter!["name"]!.GetValue<string>()));
+    }
+
+    /// <summary>#146: a program written from the answer never learned the fields of a record parameter, nor where the command takes them (Snail.MCP.Blender).</summary>
+    [Fact]
+    public async Task Parameter_ThatIsARecord_IsAnsweredWithItsFields_AsTheCommandTakesThem()
+    {
+        await using var stand = await DiscoveryStand.StartAsync(skills: false, tools: server => server.WithTools<CameraSample>(), discovery: options =>
+        {
+            options.CommandOf = tool => tool == "set_optics" ? "camera.optics" : null;
+            options.ParameterOf = (_, path) => path == "focus.objectName" ? "focus.object" : path;
+        });
+
+        var found = await stand.FindAsync(new() { ["task"] = "focus the camera optics", ["limit"] = 1 });
+        var focus = found["tools"]![0]!["parameters"]![0]!;
+        var fields = focus["fields"]!.AsArray();
+
+        Assert.Equal("focus", focus["name"]!.GetValue<string>());
+        Assert.Equal(["distance", "object", "bone"], fields.Select(field => field!["name"]!.GetValue<string>()));
+        Assert.Equal(("number", false, "Focus distance in metres."), (fields[0]!["type"]!.GetValue<string>(), fields[0]!["isRequired"]!.GetValue<bool>(), fields[0]!["description"]!.GetValue<string>()));
+        Assert.Null(fields[0]!["fields"]);
     }
 
     /// <summary>Blender's and AfterEffects' find_tool took intent, and their logs show clients sending task: either spelling is answered.</summary>
@@ -1180,4 +1358,77 @@ internal sealed class RenderSample
 
     [McpServerTool(Name = "bake_texture", Destructive = false), Description("Bakes the texture of a material.")]
     public static CallToolResult BakeTexture() => ToolAnswer.Ok(new JsonObject { ["baked"] = true });
+}
+
+[McpServerToolType]
+internal sealed class CameraSample
+{
+    [McpServerTool(Name = "render_job", Destructive = false), Description("Renders frames in the background.")]
+    public static CallToolResult RenderJob(
+        [Description("Where the frames go.")] string outputPath,
+        [Description("What the job writes.")] SampleOutput? output = null,
+        [Description("Seconds to wait.")] int wait = 60) => ToolAnswer.Ok(new JsonObject { ["path"] = outputPath, ["format"] = output?.FileFormat, ["wait"] = wait });
+
+    [McpServerTool(Name = "set_optics", Destructive = false), Description("Sets the focus of the camera optics.")]
+    public static CallToolResult SetOptics([Description("Where the camera focuses.")] SampleFocus? focus = null) =>
+        ToolAnswer.Ok(new JsonObject { ["distance"] = focus?.Distance });
+
+    [McpServerTool(Name = "resize", Destructive = false), Description("Resizes the frame.")]
+    public static CallToolResult Resize([Description("The new size.")] SampleSize size) => ToolAnswer.Ok(new JsonObject { ["width"] = size.Width });
+
+    [McpServerTool(Name = "frame_tree", ReadOnly = true), Description("Frames a tree of objects.")]
+    public static CallToolResult FrameTree([Description("The root of the tree.")] SampleNode node) => ToolAnswer.Ok(new JsonObject { ["name"] = node.Name });
+
+    [McpServerTool(Name = "draw_lines", Destructive = false), Description("Draws lines.")]
+    public static CallToolResult DrawLines([Description("The lines to draw.")] SampleLine[] lines) => ToolAnswer.Ok(new JsonObject { ["drawn"] = lines.Length });
+}
+
+/// <summary>What a render writes, which Snail.MCP.Blender's render_job sends field by field at the top of its command.</summary>
+internal sealed record SampleOutput
+{
+    [Description("PNG or OPEN_EXR.")]
+    public required string FileFormat { get; init; }
+
+    [Description("Samples per pixel.")]
+    public int? Samples { get; init; }
+}
+
+/// <summary>Where a camera focuses, which Snail.MCP.Blender's set_camera_optics sends whole.</summary>
+internal sealed record SampleFocus
+{
+    [Description("Focus distance in metres.")]
+    public double? Distance { get; init; }
+
+    [Description("Object to keep in focus.")]
+    public string? ObjectName { get; init; }
+
+    [Description("Bone of the focus object.")]
+    public string? Bone { get; init; }
+}
+
+internal sealed record SampleSize
+{
+    [Description("Width in pixels.")]
+    public required int Width { get; init; }
+
+    [Description("Height in pixels; the width's otherwise.")]
+    public int? Height { get; init; }
+}
+
+internal sealed record SampleNode
+{
+    [Description("The object's name.")]
+    public string? Name { get; init; }
+
+    [Description("The object below it.")]
+    public SampleNode? Child { get; init; }
+}
+
+internal sealed record SampleLine
+{
+    [Description("The line's name.")]
+    public string? Name { get; init; }
+
+    [Description("Thickness in pixels.")]
+    public double? Thickness { get; init; }
 }

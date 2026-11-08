@@ -246,7 +246,7 @@ public static class ToolCatalog
     {
         var schema = Resolved(root, property.Value);
 
-        return new ToolParameter(property.Name, TypeOf(root, schema), isRequired, DescriptionOf(property.Value) ?? DescriptionOf(schema), FieldsOf(root, schema, levels));
+        return new ToolParameter(property.Name, TypeOf(root, schema), isRequired) { Description = DescriptionOf(property.Value) ?? DescriptionOf(schema), Fields = FieldsOf(root, schema, levels) };
     }
 
     /// <summary>The fields of an object, or of each item of an array of objects, <paramref name="levels"/> deep; null where there are none to read.</summary>
@@ -334,7 +334,7 @@ public static class ToolCatalog
     {
         var protocol = tool.ProtocolTool;
 
-        return new ToolEntry(protocol.Name, protocol.Description ?? string.Empty, SkillOf(tool), commandOf?.Invoke(protocol.Name), ParametersOf(protocol.InputSchema));
+        return new ToolEntry(protocol.Name, protocol.Description ?? string.Empty, ParametersOf(protocol.InputSchema)) { Skill = SkillOf(tool), Command = commandOf?.Invoke(protocol.Name) };
     }
 
     private static McpServerTool Built(MethodInfo method, McpServerToolCreateOptions options) =>

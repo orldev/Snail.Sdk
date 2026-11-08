@@ -27,7 +27,7 @@ public sealed class ToolCatalogTests
 
         Assert.Equal(["list_files", "read_file", "write_file", "fail_always", "big_answer", "break_down", "tag_files"], entries.Select(entry => entry.Name));
         Assert.Equal("Reads the text of a file.", read.Description);
-        Assert.Equal(new ToolParameter("path", "string", true, "The file's path."), read.Parameters[0]);
+        Assert.Equal(new ToolParameter("path", "string", true) { Description = "The file's path." }, read.Parameters[0]);
         Assert.Equal(("timeoutSeconds", "integer", false), (read.Parameters[1].Name, read.Parameters[1].Type, read.Parameters[1].IsRequired));
     }
 
@@ -71,9 +71,9 @@ public sealed class ToolCatalogTests
         Assert.Equal(("focus", "object", false, "Where the camera focuses."), (focus.Name, focus.Type, focus.IsRequired, focus.Description));
         Assert.Equal(
             [
-                new ToolParameter("distance", "number", false, "Focus distance in metres."),
-                new ToolParameter("objectName", "string", false, "Object to keep in focus."),
-                new ToolParameter("bone", "string", false, "Bone of the focus object."),
+                new ToolParameter("distance", "number", false) { Description = "Focus distance in metres." },
+                new ToolParameter("objectName", "string", false) { Description = "Object to keep in focus." },
+                new ToolParameter("bone", "string", false) { Description = "Bone of the focus object." },
             ],
             focus.Fields!);
     }
@@ -143,7 +143,7 @@ public sealed class ToolCatalogTests
         Assert.Equal(("object", "Where it focuses."), (focus.Type, focus.Description));
         Assert.Equal(("distance", "number", true), (focus.Fields[0].Name, focus.Fields[0].Type, focus.Fields[0].IsRequired));
         Assert.Equal(("target", "object"), (target.Name, target.Type));
-        Assert.Equal([new ToolParameter("name", "string", false, "The object's name.")], target.Fields!);
+        Assert.Equal([new ToolParameter("name", "string", false) { Description = "The object's name." }], target.Fields!);
         Assert.Equal("string", parameters[1].Type);
         Assert.Equal(["distance", "target"], parameters[2].Fields!.Select(field => field.Name));
     }
@@ -253,9 +253,9 @@ public sealed class ToolCatalogTests
     {
         IReadOnlyList<ToolEntry> entries =
         [
-            new("git_status", "Shows the state of the working tree.", null, null, []),
-            new("git_push", "Sends commits to the remote.", null, null, []),
-            new("git_log", "Shows the history of commits.", null, null, []),
+            new("git_status", "Shows the state of the working tree.", []),
+            new("git_push", "Sends commits to the remote.", []),
+            new("git_log", "Shows the history of commits.", []),
         ];
         var options = new DiscoveryOptions { Prefix = "git_" };
         options.Meanings["git_push"] = "publish upload";
@@ -403,9 +403,9 @@ public sealed class FindToolTests
     {
         IReadOnlyList<ToolEntry> entries =
         [
-            new("comp_settings", "Changes the composition's frame rate, e.g. 25 or 30.", null, null, []),
-            new("mesh_extrude", "Extrudes faces along +z by a distance.", null, null, []),
-            new("layer_add", "Adds a layer to a composition, i.e. a solid, a null or a shape.", null, null, []),
+            new("comp_settings", "Changes the composition's frame rate, e.g. 25 or 30.", []),
+            new("mesh_extrude", "Extrudes faces along +z by a distance.", []),
+            new("layer_add", "Adds a layer to a composition, i.e. a solid, a null or a shape.", []),
         ];
 
         Assert.Empty(ToolCatalog.Find(entries, task, 5));

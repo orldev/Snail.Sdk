@@ -12,7 +12,6 @@ using Snail.Sdk.Mcp.Hosting.Jobs;
 using Snail.Sdk.Mcp.Hosting.Sessions;
 using Snail.Sdk.Mcp.Http;
 using Snail.Sdk.Mcp.Testing;
-using JobOwners = Snail.Sdk.Mcp.Hosting.Sessions.JobOwners;
 
 namespace Snail.Sdk.Mcp.Tests;
 

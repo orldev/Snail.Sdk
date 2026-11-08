@@ -48,7 +48,7 @@ public static class JobsRegistration
             if (builder.Services.Any(service => service.ServiceType == typeof(Jobs)))
                 return builder;
 
-            builder.Services.AddSingleton(new JobOwners(ownerOf));
+            builder.Services.AddSingleton(new JobOwnership(ownerOf));
             builder.Services.AddSingleton(provider => new Jobs(server, provider.GetService<TimeProvider>(), provider.GetService<IHostApplicationLifetime>()));
             builder.Services.AddSingleton<JobWatchers>();
             builder.Services.AddOptions<McpServerOptions>().PostConfigure<JobWatchers>(JobWatchers.Configure);
@@ -64,7 +64,7 @@ public static class JobsRegistration
 /// server's to write, and so is sending. One instance serves every session of the host, keyed by the server of the
 /// session, which a stdio host has one of and an HTTP host one per client.
 /// </remarks>
-internal sealed class JobWatchers(Jobs jobs, JobOwners owners, TimeProvider? clock = null)
+internal sealed class JobWatchers(Jobs jobs, JobOwnership owners, TimeProvider? clock = null)
 {
     /// <summary>How often at most a progress step reaches a watcher; a change of state reaches it at once.</summary>
     internal static readonly TimeSpan Throttle = TimeSpan.FromSeconds(1);
@@ -264,7 +264,7 @@ internal sealed class JobWatchers(Jobs jobs, JobOwners owners, TimeProvider? clo
 }
 
 /// <summary>How the server names the owner of a request, when its jobs belong to owners.</summary>
-internal sealed class JobOwners(Func<IServiceProvider, string?>? ownerOf)
+internal sealed class JobOwnership(Func<IServiceProvider, string?>? ownerOf)
 {
     /// <summary>The owner of a request served with these services, or null when the server names none.</summary>
     public string? Of(IServiceProvider? services) => services is null || ownerOf is null ? null : ownerOf(services);

@@ -3,6 +3,8 @@
 # is no two-month interval, so a cron names the months), the actions in one pull request, the packages' minor and patch
 # updates in another, each major update of a package in its own. Security updates do not wait for the schedule. An action bumped here reaches every caller with
 # the next move of the major tag; one bumped in a template reaches the projects made from it after the next release.
+# ModelContextProtocol's packages come in one pull request, a major update included: apart, ModelContextProtocol moved
+# while ModelContextProtocol.AspNetCore still asked for the old one, and restore refused it (NU1608).
 
 version: 2
 updates:
@@ -26,6 +28,8 @@ updates:
       interval: cron
       cronjob: '0 6 1 1,3,5,7,9,11 *'
     groups:
+      model-context-protocol:
+        patterns: ['ModelContextProtocol*']
       packages:
         patterns: ['*']
         update-types: [minor, patch]

@@ -629,6 +629,10 @@ A change that a repository must act on says what to do.
 
 ### Changed
 
+- The `s3l-mcp` template's Dependabot brings ModelContextProtocol's packages in one pull request of their own, a major
+  update too: apart, ModelContextProtocol moved while ModelContextProtocol.AspNetCore still asked for the old one, and
+  restore refused it (NU1608 — Snail.MCP.AfterEffects #3, Blender #8 and #9). A server adds the group
+  `model-context-protocol` with `patterns: ['ModelContextProtocol*']` after `snail-sdk` in its `.github/dependabot.yml`.
 - `dotnet new s3l-mcp` keeps its descriptions in `Tools/ToolDescriptions.cs`, as the guidelines ask, and `Program.cs`
   holds no comment, which the analyzers do not see in top-level statements; `tmplshort_work` refuses a count outside 1
   to `WorkTools.MostSteps` (type `arguments`) where it counted to the nearest bound without a word, and a guard test

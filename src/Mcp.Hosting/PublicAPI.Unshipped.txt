@@ -491,3 +491,9 @@ static Snail.Sdk.Mcp.Hosting.ToolFailures.ExplainFailures(this Microsoft.Extensi
 Snail.Sdk.Mcp.Hosting.ToolFailures.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!)
 Snail.Sdk.Mcp.Hosting.ToolFailures.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).ExplainFailures() -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
 Snail.Sdk.Mcp.Hosting.ToolFailures.extension(Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!).ExplainFailures(System.Action<Snail.Sdk.Mcp.Hosting.Answers.FailureOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IMcpServerBuilder!
+const Snail.Sdk.Mcp.Hosting.ToolFailures.Arguments = "arguments" -> string!
+const Snail.Sdk.Mcp.Hosting.ToolFailures.Cancelled = "cancelled" -> string!
+const Snail.Sdk.Mcp.Hosting.ToolFailures.Failed = "failed" -> string!
+const Snail.Sdk.Mcp.Hosting.ToolFailures.Internal = "internal" -> string!
+const Snail.Sdk.Mcp.Hosting.ToolFailures.NoSuchSkill = "noSuchSkill" -> string!
+const Snail.Sdk.Mcp.Hosting.ToolFailures.NoSuchTool = "noSuchTool" -> string!

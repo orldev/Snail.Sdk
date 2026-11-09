@@ -21,6 +21,16 @@ public sealed class ToolFailuresTests
 {
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
 
+    /// <summary>The words a server refuses with in the SDK's own types are the words on the wire: a server names them, never spells them.</summary>
+    [Fact]
+    public void Words_TheSdkRefusesWith_AreTheOnesItWrites()
+    {
+        string[] words = [ToolFailures.Arguments, ToolFailures.Internal, ToolFailures.Failed, ToolFailures.Cancelled, ToolFailures.NoSuchTool, ToolFailures.NoSuchSkill];
+
+        Assert.Equal(["arguments", "internal", "failed", "cancelled", "noSuchTool", "noSuchSkill"], words);
+        Assert.Equal(ToolFailures.Arguments, Hosting.Discovery.ArgumentCheck.Type);
+    }
+
     [Fact]
     public async Task Tool_ThatThrows_IsAnsweredWithTheEnvelope_FlaggedAsAnError()
     {

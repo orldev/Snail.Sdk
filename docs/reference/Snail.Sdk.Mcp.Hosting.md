@@ -170,6 +170,12 @@ A failure of a tool told as the envelope every answer is, and flagged as one by 
 | --- | --- |
 | `IMcpServerBuilder ExplainFailures(this IMcpServerBuilder builder)` | Answers a tool that threw with the failure envelope — its message, a hint and the type `internal` — logged once with its trace, and flags an answer that is the failure envelope but not an error as one. |
 | `IMcpServerBuilder ExplainFailures(this IMcpServerBuilder builder, Action<FailureOptions> configure)` | Answers a tool that threw with the failure envelope, in the words `configure` gives a failure nobody foresaw: its error, its hint and its type, each from the tool's name and what it threw. |
+| `const string Arguments` | The `type` of a call whose arguments do not fit: a required one left out, one the tool does not take, a value out of range. |
+| `const string Cancelled` | The `type` of a job, or a call, that was cancelled. |
+| `const string Failed` | The `type` of a job that failed after it started, unless its report names a kind of its own. |
+| `const string Internal` | The `type` of the answer a failure nobody foresaw becomes. |
+| `const string NoSuchSkill` | The `type` of a call that names a skill the server does not have. |
+| `const string NoSuchTool` | The `type` of a step of `run_tools` that names a tool the server does not have. |
 
 ### static class ToolJson
 

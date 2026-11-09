@@ -18,7 +18,7 @@ namespace Snail.Sdk.Mcp.Hosting.Discovery;
 internal static class ArgumentCheck
 {
     /// <summary>The <c>type</c> of the answer to a call whose arguments do not fit.</summary>
-    public const string Type = "arguments";
+    public const string Type = ToolFailures.Arguments;
 
     /// <summary>Names offered for one unknown parameter; past two, a list reads as noise rather than as help.</summary>
     private const int Suggestions = 2;

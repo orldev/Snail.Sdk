@@ -34,7 +34,7 @@ internal static class SkillTools
     private const string SubscribingRevision = "2026-07-28";
 
     /// <summary>The type of a call that names a skill the server does not have, in the fleet's case as <c>noSuchCommand</c> is.</summary>
-    internal const string NoSuchSkill = "noSuchSkill";
+    internal const string NoSuchSkill = ToolFailures.NoSuchSkill;
 
     /// <summary>Tells the session its tool list changed: in the reply to the call that changed it, or through its subscription.</summary>
     /// <remarks>

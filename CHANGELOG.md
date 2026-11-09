@@ -10,6 +10,10 @@ A change that a repository must act on says what to do.
 
 ### Added
 
+- `ToolFailures.Arguments`, `Internal`, `Failed`, `Cancelled`, `NoSuchTool` and `NoSuchSkill`: the refusal types the SDK
+  writes that no public type of its own named, so a server that refuses the same thing names the word rather than
+  spelling it — eight servers of the fleet wrote `"arguments"` as a literal. `ProgramFailures.Cancelled` is the same
+  value. The words of a reach stay `Reached`'s, the grant's `GrantOptions.NotGranted`.
 - `HttpServerProgram` of `Snail.Sdk.Mcp.Testing`, the HTTP twin of `ServerProgram`: the build beside the tests or the
   publication the override variable names — a native program among them — started on a free loopback port with its
   own home and no settings file, and handed back once `GET /healthz` answers with success. The address goes into

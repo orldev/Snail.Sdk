@@ -167,9 +167,9 @@ public static class JobAnswer
         return answer;
     }
 
-    private const string Failed = "failed";
+    private const string Failed = ToolFailures.Failed;
 
-    private const string Cancelled = "cancelled";
+    private const string Cancelled = ToolFailures.Cancelled;
 
     private const string JobFailed = "The job failed.";
 

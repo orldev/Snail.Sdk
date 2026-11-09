@@ -10,7 +10,7 @@ public static class ProgramFailures
     public const string Timeout = "timeout";
 
     /// <summary>The call that ran the program was cancelled.</summary>
-    public const string Cancelled = "cancelled";
+    public const string Cancelled = Snail.Sdk.Mcp.Hosting.ToolFailures.Cancelled;
 
     /// <summary>The program nested its calls too deep, ran too many statements or held too much memory.</summary>
     public const string TooLarge = "programTooLarge";

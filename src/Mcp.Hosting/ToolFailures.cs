@@ -9,10 +9,31 @@ using Snail.Sdk.Mcp.Hosting.Answers;
 namespace Snail.Sdk.Mcp.Hosting;
 
 /// <summary>A failure of a tool told as the envelope every answer is, and flagged as one by the protocol.</summary>
+/// <remarks>
+/// It also holds the types the SDK writes into a refusal that no public type of its own names, so a server that refuses
+/// the same thing says the same word without spelling it: eight servers of the fleet wrote <c>"arguments"</c> as a
+/// literal because <c>ArgumentCheck</c> is internal. The words of a reach are <see cref="Sessions.Reached"/>'s, the
+/// grant's is <see cref="Sessions.GrantOptions.NotGranted"/>, a program's are <c>ProgramFailures</c>'.
+/// </remarks>
 public static partial class ToolFailures
 {
     /// <summary>The <c>type</c> of the answer a failure nobody foresaw becomes.</summary>
-    internal const string Internal = "internal";
+    public const string Internal = "internal";
+
+    /// <summary>The <c>type</c> of a call whose arguments do not fit: a required one left out, one the tool does not take, a value out of range.</summary>
+    public const string Arguments = "arguments";
+
+    /// <summary>The <c>type</c> of a job that failed after it started, unless its report names a kind of its own.</summary>
+    public const string Failed = "failed";
+
+    /// <summary>The <c>type</c> of a job, or a call, that was cancelled.</summary>
+    public const string Cancelled = "cancelled";
+
+    /// <summary>The <c>type</c> of a step of <c>run_tools</c> that names a tool the server does not have.</summary>
+    public const string NoSuchTool = "noSuchTool";
+
+    /// <summary>The <c>type</c> of a call that names a skill the server does not have.</summary>
+    public const string NoSuchSkill = "noSuchSkill";
 
     /// <summary>The hint of the answer a failure nobody foresaw becomes.</summary>
     internal const string Hint = "The server failed inside, not because of the call; its log has the trace. Try once more, and if it fails the same way, report it instead of retrying.";
@@ -169,7 +190,7 @@ public static partial class ToolFailures
             ILogger logger = loggers.CreateLogger(typeof(ToolFailures));
 
             if (isInternal)
-                Failed(logger, failure, subject);
+                FailedInside(logger, failure, subject);
             else
                 Refused(logger, subject, type, error);
         }
@@ -195,7 +216,7 @@ public static partial class ToolFailures
         failure is not McpProtocolException && !(failure is OperationCanceledException && cancellationToken.IsCancellationRequested);
 
     [LoggerMessage(EventId = 1, Level = LogLevel.Error, Message = "{Tool} failed inside the server")]
-    private static partial void Failed(ILogger logger, Exception failure, string tool);
+    private static partial void FailedInside(ILogger logger, Exception failure, string tool);
 
     [LoggerMessage(EventId = 2, Level = LogLevel.Debug, Message = "{Tool} refused the call ({Type}): {Error}")]
     private static partial void Refused(ILogger logger, string tool, string type, string error);

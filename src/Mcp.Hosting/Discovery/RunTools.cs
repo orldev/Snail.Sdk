@@ -157,7 +157,7 @@ internal static class RunTools
 
     /// <summary>The type of a step that names a tool the server does not have.</summary>
     /// <remarks>In the fleet's case, as <c>notGranted</c> and <c>noSuchCommand</c> are: it was <c>unknown_tool</c>, the one word of the envelope a client had to branch on in another spelling.</remarks>
-    internal const string NoSuchToolType = "noSuchTool";
+    internal const string NoSuchToolType = ToolFailures.NoSuchTool;
 
     private static string NoSuchTool(RequestContext<CallToolRequestParams> context, string named)
     {

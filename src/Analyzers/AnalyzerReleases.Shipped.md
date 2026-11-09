@@ -18,6 +18,14 @@ S3L0008 | Snail | Warning | Naming, [Documentation](https://orldev.github.io/Sna
 S3L0009 | Snail | Warning | Simplification, [Documentation](https://orldev.github.io/Snail.Sdk/rules/S3L0009/)
 S3L0010 | Snail | Warning | Simplification, [Documentation](https://orldev.github.io/Snail.Sdk/rules/S3L0010/)
 
+## Release 0.5.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+S3L0011 | Snail | Warning | OneEnvelope, [Documentation](https://orldev.github.io/Snail.Sdk/rules/S3L0011/)
+
 ; Suppressors of release 1.0. Release tracking covers diagnostic descriptors only, so they are kept here as comments:
 ; S3LS0001 suppresses IDE1006 on a type or member shipped in PublicAPI.Shipped.txt (Released), https://orldev.github.io/Snail.Sdk/rules/S3LS0001/
 ; S3LS0002 suppresses RS0041 in the code Razor generates (Released), https://orldev.github.io/Snail.Sdk/rules/S3LS0002/
